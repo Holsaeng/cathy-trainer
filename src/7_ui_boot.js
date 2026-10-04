@@ -110,6 +110,7 @@ const UI = {
       <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button></div>`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
+      mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showMenu(); },
       ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
@@ -219,6 +220,8 @@ const UI = {
       <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '')}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
       <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동. 단검 1차(유틸)는 항상 즉시 발동.</div>
       <h3>마우스</h3>
+      <div class="row"><label>이동 버튼</label><button class="btn ${Settings.moveButton !== 'left' ? 'sel' : ''}" data-a="mbtn" data-v="right">우클릭 (게임과 동일)</button><button class="btn ${Settings.moveButton === 'left' ? 'sel' : ''}" data-a="mbtn" data-v="left">좌클릭 (웨일 마우스 제스처 회피)</button></div>
+      <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
       ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
       <h3>표시 / 기타</h3>

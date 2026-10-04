@@ -460,7 +460,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a' };
-const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -2893,6 +2893,7 @@ const Input = {
     const now = performance.now(); if (now - this.rLast < 90) return;
     this.rLast = now; this.rightCmd(true);
   },
+  moveBtn() { return Settings.moveButton === 'left' ? 0 : 2; },   // 이동 버튼: 우클릭(기본) / 좌클릭(웨일 등 브라우저 마우스 제스처 회피)
   setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
   // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
   wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
@@ -2911,21 +2912,22 @@ const Input = {
       if (this.locked) this.setPos(clamp(this.screen.x + e.movementX, 0, window.innerWidth - 1), clamp(this.screen.y + e.movementY, 0, window.innerHeight - 1));
       else this.setPos(e.clientX, e.clientY);
     });
-    window.addEventListener('mouseup', e => { if (e.button === 2) { this.rDown = false; if (Game.state === 'play') block(e); } });
+    window.addEventListener('mouseup', e => { if (e.button === this.moveBtn()) this.rDown = false; if (e.button === 2 && Game.state === 'play') block(e); });
     cv.addEventListener('mousedown', e => {
       Sfx.init(); if (!this.locked) this.setPos(e.clientX, e.clientY);
       if (e.button === 2) block(e);
       if (Game.state !== 'play' || Game.paused || !Game.player) return;
       this.lock(cv);
       const p = Game.player;
-      if (e.button === 2) {
+      const w = this.world, mb = this.moveBtn();
+      if (e.button === 0 && (this.aiming || this.amove)) {   // 스킬 조준·공격 이동 확정은 항상 좌클릭
+        if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; } else { p.cmdAttackMove(w); this.amove = false; }
+      } else if (e.button === mb) {   // 이동/공격 (누르고 있으면 계속 따라감)
         this.aiming = null; this.amove = false; this.rDown = true; this.rLast = performance.now();
         this.rightCmd(false);
-      } else if (e.button === 0) {
-        const w = this.world;
-        if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; }
-        else if (this.amove) { p.cmdAttackMove(w); this.amove = false; }
-      }
+        if (mb === 2 && !Settings.whaleHint && /Whale\//.test(navigator.userAgent)) { Settings.whaleHint = true; saveSettings(); FX.toast("웨일 마우스 제스처가 뜨면: 설정 → 마우스 → 이동 버튼 '좌클릭'", '#4aa3ff'); }
+      } else if (e.button === 2) { this.aiming = null; this.amove = false; }   // 좌클릭 이동 모드: 우클릭 = 조준 취소
+      
     });
     window.addEventListener('keydown', e => this.onKey(e));
     window.addEventListener('keyup', e => this.onKeyUp(e));
@@ -3412,6 +3414,7 @@ const UI = {
       <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button></div>`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
+      mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showMenu(); },
       ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
@@ -3521,6 +3524,8 @@ const UI = {
       <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '')}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
       <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동. 단검 1차(유틸)는 항상 즉시 발동.</div>
       <h3>마우스</h3>
+      <div class="row"><label>이동 버튼</label><button class="btn ${Settings.moveButton !== 'left' ? 'sel' : ''}" data-a="mbtn" data-v="right">우클릭 (게임과 동일)</button><button class="btn ${Settings.moveButton === 'left' ? 'sel' : ''}" data-a="mbtn" data-v="left">좌클릭 (웨일 마우스 제스처 회피)</button></div>
+      <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
       ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
       <h3>표시 / 기타</h3>

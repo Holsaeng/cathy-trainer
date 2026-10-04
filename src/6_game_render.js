@@ -110,6 +110,7 @@ const Input = {
     const now = performance.now(); if (now - this.rLast < 90) return;
     this.rLast = now; this.rightCmd(true);
   },
+  moveBtn() { return Settings.moveButton === 'left' ? 0 : 2; },   // 이동 버튼: 우클릭(기본) / 좌클릭(웨일 등 브라우저 마우스 제스처 회피)
   setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
   // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
   wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
@@ -128,21 +129,22 @@ const Input = {
       if (this.locked) this.setPos(clamp(this.screen.x + e.movementX, 0, window.innerWidth - 1), clamp(this.screen.y + e.movementY, 0, window.innerHeight - 1));
       else this.setPos(e.clientX, e.clientY);
     });
-    window.addEventListener('mouseup', e => { if (e.button === 2) { this.rDown = false; if (Game.state === 'play') block(e); } });
+    window.addEventListener('mouseup', e => { if (e.button === this.moveBtn()) this.rDown = false; if (e.button === 2 && Game.state === 'play') block(e); });
     cv.addEventListener('mousedown', e => {
       Sfx.init(); if (!this.locked) this.setPos(e.clientX, e.clientY);
       if (e.button === 2) block(e);
       if (Game.state !== 'play' || Game.paused || !Game.player) return;
       this.lock(cv);
       const p = Game.player;
-      if (e.button === 2) {
+      const w = this.world, mb = this.moveBtn();
+      if (e.button === 0 && (this.aiming || this.amove)) {   // 스킬 조준·공격 이동 확정은 항상 좌클릭
+        if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; } else { p.cmdAttackMove(w); this.amove = false; }
+      } else if (e.button === mb) {   // 이동/공격 (누르고 있으면 계속 따라감)
         this.aiming = null; this.amove = false; this.rDown = true; this.rLast = performance.now();
         this.rightCmd(false);
-      } else if (e.button === 0) {
-        const w = this.world;
-        if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; }
-        else if (this.amove) { p.cmdAttackMove(w); this.amove = false; }
-      }
+        if (mb === 2 && !Settings.whaleHint && /Whale\//.test(navigator.userAgent)) { Settings.whaleHint = true; saveSettings(); FX.toast("웨일 마우스 제스처가 뜨면: 설정 → 마우스 → 이동 버튼 '좌클릭'", '#4aa3ff'); }
+      } else if (e.button === 2) { this.aiming = null; this.amove = false; }   // 좌클릭 이동 모드: 우클릭 = 조준 취소
+      
     });
     window.addEventListener('keydown', e => this.onKey(e));
     window.addEventListener('keyup', e => this.onKeyUp(e));
