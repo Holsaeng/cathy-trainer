@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캐시 수련장</title>
+<style>
+:root{--bg:#0b0d12;--panel:#141821f2;--line:#2a3140;--text:#e6e9ef;--muted:#8a93a6;--accent:#ff3b5c;--accent2:#3fd0c9;--gold:#ffc857}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;user-select:none}
+canvas#game{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,6,10,.78);backdrop-filter:blur(3px);z-index:10;padding:16px}
+.overlay.show{display:flex}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;width:min(940px,100%);max-height:94vh;overflow:auto;box-shadow:0 20px 60px #000a}
+h1{font-size:30px;letter-spacing:2px}h1 span{color:var(--accent)}
+h2{font-size:20px;margin-bottom:10px}h3{font-size:14px;margin:16px 0 8px;color:var(--accent2)}
+.sub{color:var(--muted);font-size:13px;margin:6px 0 16px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.mode{background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;transition:.15s}
+.mode:hover{border-color:var(--accent);transform:translateY(-2px)}
+.mode b{display:block;font-size:16px;margin-bottom:5px}.mode small{color:var(--muted);font-size:12px;line-height:1.5}
+.btn{background:#222a3b;border:1px solid var(--line);color:var(--text);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.sel{border-color:var(--accent2);color:var(--accent2);background:#16302f}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:7px 0}
+label{font-size:13px;color:var(--muted)}
+input[type=number],select,textarea{background:#0f131b;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:inherit;width:100px}
+select{width:auto;min-width:190px}
+textarea{width:100%;height:80px;font-family:Consolas,monospace;font-size:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:400}
+.combo{padding:9px 12px;border:1px solid var(--line);border-radius:8px;margin:5px 0;cursor:pointer;background:#181d2a}
+.combo.sel{border-color:var(--accent2)}.combo small{display:block;color:var(--muted);margin-top:4px;line-height:1.5}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.stat{background:#1b2030;border-radius:8px;padding:9px 11px}.stat span{display:block;color:var(--muted);font-size:11px}.stat b{font-size:18px}
+.grade{font-size:70px;font-weight:900;line-height:1}
+.mist li{margin:3px 0 3px 18px;font-size:13px}
+canvas.chart{width:100%;display:block;background:#0f131b;border-radius:8px;margin:6px 0}
+#side{position:fixed;top:12px;right:12px;width:240px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:12px;z-index:5;display:none;pointer-events:none}
+#side.show{display:block}#side h4{font-size:13px;margin-bottom:6px;color:var(--accent2)}#side h5{font-size:11px;color:var(--muted);margin:8px 0 4px;font-weight:400}
+.kv{display:flex;justify-content:space-between;margin:2px 0}.kv span{color:var(--muted)}
+.sbar{height:13px;background:#0f131b;border-radius:3px;margin:2px 0;position:relative;overflow:hidden}
+.sbar i{position:absolute;left:0;top:0;bottom:0}.sbar em{position:relative;font-style:normal;font-size:10px;padding-left:4px;line-height:13px}
+.stars{color:var(--gold);letter-spacing:2px}.lock{color:var(--muted)}
+kbd{background:#222a3b;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="side"></div>
+<div id="overlay" class="overlay show"><div class="card" id="card"></div></div>
+<script>
+'use strict';
+/* =====================================================================
+ * 캐시(Cathy) 수련 시뮬레이터
+ * 구조: CONFIG → 유틸/기하 → 저장/설정 → 사운드 → 이벤트 → 이펙트(FX)
+ *       → 전투(Combat/Passive) → 엔티티(Unit/Cathy) → 스킬(Impl) → 투사체
+ *       → AI(표적/결투) → 통계(Stats) → 모드(Modes) → 게임(Game) → 입력(Input)
+ *       → 렌더(Render/HUD) → UI(메뉴/결과/차트)
+ * 단위: 거리 m, 시간 s, 속도 m/s.  스킬 상태: 대기 → 선딜 → 발동 → 후딜 → 쿨타임
+ * ===================================================================== */
+
+// ============================== CONFIG ==============================
+// 패치가 나오면 이 객체의 숫자만 바꾸면 됩니다.
+const CONFIG = {
+  world: { w: 32, h: 18 },                 // 아레나 크기(m)
+  walls: [                                 // 현재 맵의 지형(벽) — x,y,w,h (m). 게임 시작 시 maps에서 복사됨
+    { x: 10.8, y: 2.6, w: 1.2, h: 3.4 },
+    { x: 10.8, y: 12.0, w: 1.2, h: 3.4 },
+    { x: 21.4, y: 7.6, w: 1.4, h: 2.8 },
+  ],
+  bushes: [],                              // 현재 맵의 부쉬(수풀)
+  // 맵: 가이드 영상 "부쉬와 암시야 이해", "벽으로 유도 후 벽 수쳐", "좁은 길목은 위험" 연습용
+  maps: {
+    basic: { name: '기본 아레나', walls: [{ x: 10.8, y: 2.6, w: 1.2, h: 3.4 }, { x: 10.8, y: 12.0, w: 1.2, h: 3.4 }, { x: 21.4, y: 7.6, w: 1.4, h: 2.8 }], bushes: [],
+             spawns: { p: { x: 7, y: 9 }, e: { x: 25, y: 9 } }, animals: [{ x: 16, y: 5 }, { x: 16, y: 13 }, { x: 18.5, y: 9 }] },
+    jungle: { name: '숲길 (부쉬·길목)',
+      walls: [
+        { x: 12, y: 2.8, w: 1.2, h: 5.4 }, { x: 12, y: 10, w: 1.2, h: 5.2 },        // 중앙 좁은 길목(폭 1.8m)
+        { x: 18.5, y: 6.2, w: 5, h: 1.2 }, { x: 18.5, y: 10.6, w: 5, h: 1.2 },      // 오른쪽 복도(폭 3.2m) — 벽꿍 각
+        { x: 6, y: 3.8, w: 1.4, h: 1.4 }, { x: 6, y: 12.8, w: 1.4, h: 1.4 },
+        { x: 27, y: 3, w: 1.4, h: 1.6 }, { x: 27, y: 13.4, w: 1.4, h: 1.6 },
+      ],
+      bushes: [
+        { x: 8.6, y: 7.6, w: 2.4, h: 2.8 },    // 길목 앞 매복 부쉬
+        { x: 14, y: 3, w: 3.2, h: 2.2 }, { x: 14, y: 12.8, w: 3.2, h: 2.2 },
+        { x: 24.6, y: 3.2, w: 2, h: 2.4 }, { x: 24.6, y: 12.4, w: 2, h: 2.4 },
+      ],
+      spawns: { p: { x: 4, y: 9 }, e: { x: 28.5, y: 9 } }, animals: [{ x: 15.6, y: 7.2 }, { x: 15.6, y: 10.8 }, { x: 21, y: 9 }] },
+  },
+  // 야생동물(결투 옵션): 수쳐 두 번째 대상(2인 수쳐 응용) · 원딜 투사체를 몸으로 막음. 공격하지 않음
+  wildlife: { name: '늑대', r: 0.45, ms: 1.6, respawn: 15, color: '#8b6a4e',
+    hp: { early: 500, mid: 900, late: 1300 }, def: { early: 20, mid: 35, late: 50 } },
+  vision: { bushReveal: 2.2 },             // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
+  sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
+  input: {
+    bufferMs: 100,            // 선입력 버퍼
+    moveCancelsWindup: true,  // 선딜 중 이동 입력 시 스킬 캔슬(실수 분석용)
+    pickRadius: 1.1,          // 커서 대상 지정 허용 반경
+    attackMoveAcquire: 4.0,   // 공격 이동 자동 대상 탐색 반경
+  },
+  theme: { accent: '#ff3b5c', accent2: '#3fd0c9', gold: '#ffc857', floor: '#10141c', grid: '#171c28', wall: '#2b3346' },
+  staminaRegen: 8,
+  // 빌드 프리셋 — 유튜브 랭크 영상(장인초대석 캐시) HUD 실측: Lv4 SP70/HP1112 · Lv7 SP202/HP1456/방어 103 · Lv9 SP350/HP1628 · Lv11 SP387/HP1814 · Lv15 SP736/HP2230 · Lv20 SP674/HP3024/방어 158
+  builds: {
+    early: { label: '초반 (Lv6)',  level: 6,  hp: 1400, ad: 82,  bonusAd: 20, sp: 170, as: 0.57, def: 98,  ms: 3.55, crit: 0,    cdr: 0.28, stamina: 420, skill: { Q: 2, W: 1, E: 2, R: 1, D: 1 }, passiveLv: 0, refDps: 140 },
+    mid:   { label: '중반 (Lv12)', level: 12, hp: 1950, ad: 100, bonusAd: 35, sp: 420, as: 0.8,  def: 118, ms: 3.8,  crit: 0,    cdr: 0.30, stamina: 620, skill: { Q: 4, W: 3, E: 3, R: 2, D: 2 }, passiveLv: 1, refDps: 260 },
+    late:  { label: '후반 (Lv18)', level: 18, hp: 2700, ad: 140, bonusAd: 55, sp: 680, as: 0.85, def: 145, ms: 3.95, crit: 0,    cdr: 0.33, stamina: 820, skill: { Q: 5, W: 5, E: 5, R: 3, D: 3 }, passiveLv: 2, refDps: 360 },
+  },
+  basicAttack: {
+    // 사거리·무기 기본 공속: 나무위키 무기 문서 (단검 1.25m·0.58 / 쌍검 1.4m·0.43)
+    dagger: { label: '단검', range: 1.25, windupRatio: 0.30, backRatio: 0.22, critMul: 1.75, asMul: 1.0, hits: 1, hitRatio: 1.0 }, // 후딜 ≈0.2초는 영상과 일치, 선딜은 TODO
+    // 쌍검 일반 평타: 공격력 80% × 2회 (나무위키). 강화 평타는 1회(Q: 공격력 110%)
+    dual:   { label: '쌍검', range: 1.4,  windupRatio: 0.26, backRatio: 0.20, critMul: 1.75, asMul: 0.8, hits: 2, hitRatio: 0.8, hitGap: 0.12 }, // asMul: 무기 기본 공속 0.43/0.58 반영 추정(TODO)
+    enhanced: { timeout: 6, windup: 0.22 },  // 강화 평타 모션 — 영상(1440p) 측정 기반. 유지시간은 TODO
+  },
+  passive: {
+    name: '외과 전문의',
+    traumaDur: 4, traumaSp: 0.25, stacks: 3,
+    critDur: 4, critMaxHp: 0.06, critSp: 0.25, healReduction: 0.3,
+    shield: [70, 120, 170], shieldSp: 0.45, shieldDur: 2,
+    moveBoost: [0.05, 0.10, 0.15], moveBoostDur: 1.5, moveBoostAngle: 45,
+    rReapplyQcdr: false,  // 나무위키: 치명적 외상 지속시간은 R로만 늘릴 수 있고, 끝나야 다시 보호막·Q 쿨감을 얻음
+    traumaPerSkill: true, // 12.0b: 외상은 개별 스킬마다 한 번만 (같은 스킬로 중첩 X)
+    traumaMin: 1,         // 스킬 증폭이 0이어도 외상 피해 최소 1
+  },
+  skills: {
+    Q: { name: '동맥절제술', short: '절제', dmg: [90, 120, 150, 180, 210], sp: 0.8, cd: 15,
+         critCdr: [0.5, 0.55, 0.6, 0.65, 0.7], cdrOnAnyCritical: true,
+         dashDist: 4, dashTime: 0.09, hitWidth: 1.2, passWalls: true,   // 벽(지형) 통과 가능               // 영상: 거의 순간 돌진
+         windup: 0.05, recovery: 0.06, stamina: 12,             // 영상(1440p): Q 적중 → 강화 평타 적중 약 0.3초
+         enhSp: 0.5, enhMin: 1, dualEnhAd: 1.1 },
+    W: { name: '앰퓨테이션', short: '절단', innerDmg: [30, 55, 80, 105, 130], innerSp: 0.7,
+         outerDmg: [50, 100, 150, 200, 250], outerSp: 0.9, cd: [12, 11.5, 11, 10.5, 10],
+         range: 4, innerRange: 3, angle: 80, slow: 0.4, slowDur: 2,
+         windup: 0.12, recovery: 0.2, stamina: 14 },            // 영상: 평타 직후 거의 즉발
+    E: { name: '수쳐', short: '봉합', dmg: [50, 60, 70, 80, 90], sp: 0.45, bonus: [30, 50, 70, 90, 110], bonusSp: 0.5,
+         cd: [15, 14, 13, 12, 11], windup: 0.33, recovery: 0.12, speed: 24, width: 0.3, range: 5.5,
+         root: 0.7, stun: 0.9, pullTime: 0.21, stamina: 12,
+         moveCancel: false,   // 발사형: 선딜 중 이동 입력이 들어와도 끊기지 않음 (이동은 발사 직후 실행)
+         // 영상(입문 가이드): "수쳐엔 판정보정과 유도성이 있다" — 수치는 추정, TODO: 실제 확인
+         hitAssist: 0,        // 첫 바늘 판정 보정 — 나무위키: "처음 던지는 바늘의 판정은 굉장히 안 좋은 편"
+         pierceAssist: 0.25,  // 관통 후(두 번째 대상) 판정 보정(m)
+         wallAssist: 0.6,     // 벽꿍 판정 보정: 관통 후 벽 탐지 거리 연장(m) — "벽꿍 판정은 제법 널널"
+         secondPull: 0.35,    // 두 번째 대상도 첫 대상 쪽으로 끌려오는 비율
+         homingAngle: 35,     // 첫 적중 후 진행 방향 기준 이 각도 안의 적에게 유도
+         homingRange: 3.5,    // 첫 적중 대상 기준 유도 가능 거리(m)
+         homingTurn: 14 },    // 유도 회전 속도(rad/s)    // 영상: 2인 적중 → 충돌까지 약 0.28초 (관통 이동 포함)
+    R: { name: '이머전시 OP', short: 'OP', minDmg: [100, 175, 250], minSp: 0.7, maxDmg: [200, 350, 500], maxSp: 1.4,
+         cd: [80, 70, 60], minDist: 3, maxDist: 6.5, width: 3, maxHpThreshold: 0.3,
+         windup: 0.45, dashTime: 0.16, recovery: 0.25,          // 영상: 범위 표시 약 0.5초 후 빠른 돌진
+         channel: true,       // 정신집중: 누르면 제자리 고정, 이동 입력 무시(끊기지 않음) → 돌진
+         zoneDur: 4, zoneHealPct: 4, zoneHealSp: 0.03, stamina: 25 },
+    D_dagger: { name: '단검 무기 스킬', short: '단검', dmg: [10, 30, 50], bonusAd: 0.5, sp: 0.25, curHpPct: 0.08,
+         slow: [0.2, 0.25, 0.3], slowDur: 1, msBoost: [0.3, 0.35, 0.4], cd: [30, 25, 20], fixedCd: true,
+         range: 2.5, behind: 1.5, duration: 3, msDur: 1, windup: 0.15, recovery: 0.1 }, // 「망토와 단검」 1차 망토 = 1초간 이속 크게 증가(3초 안에 재사용) → 2차 단검 = 대상 뒤로 순간이동
+    D_dual: { name: '쌍검 무기 스킬', short: '쌍검', dmg1: [20, 35, 50], ad1: [0.2, 0.3, 0.4], sp1: [0.05, 0.06, 0.07], hits1: 6,
+         dmg2: [100, 175, 250], ad2: [1, 1.25, 1.5], sp2: [0.4, 0.5, 0.6], dist: 3.5, hitWidth: 1.4,
+         cd: 25, fixedCd: true, time1: 0.66, time2: 0.2, recastWindow: 5, recovery: 0.1 },   // 영상: 1식 = 빠르게 파고든 뒤 제자리 연속 베기
+    F: { name: '점멸 (시뮬레이터용)', short: '점멸', dist: 4, cd: 24, fixedCd: true },
+  },
+  // 1:1 결투 상대 — 플레이어 빌드에 비례해 스케일
+  enemy: {
+    name: '적 실험체', r: 0.55, hpMul: 1.05, defMul: 1.0, adMul: 1.0, as: 0.9, range: 1.6, ms: 3.5, color: '#9b6bff', aaWindup: 0.28,
+    s1: { name: '관통 창', cd: 7, windup: 0.38, range: 7.5, speed: 15, width: 0.9, adRatio: 1.5, flat: 60, slow: 0.3, slowDur: 1.5 },
+    s2: { name: '도약', cd: 10, dist: 5, time: 0.22 },
+    s3: { name: '재생', cd: 20, healPct: 0.18, dur: 2.5 },
+    difficulty: {
+      easy:   { label: '쉬움',   react: 0.55, dodge: 0.08, lead: 0,   kite: false, dmgMul: 0.65, aimErr: 0.2 },
+      normal: { label: '보통',   react: 0.30, dodge: 0.35, lead: 0.6, kite: false, dmgMul: 0.85, aimErr: 0.08 },
+      hard:   { label: '어려움', react: 0.14, dodge: 0.65, lead: 1.0, kite: true,  dmgMul: 1.0,  aimErr: 0.03 },
+    },
+  },
+  rangedAI: {
+    // 단계별 공통(체력·방어력·이속): 유튜브 랭크 영상 HUD 실측 평균 — 카티야 Lv6 1290/72 · Lv12 1770/94 · Lv18 2250/110, 리오 Lv~12 1932/104 · Lv19 2302/117, 아야 Lv11 1665/98
+    // skillLv: 단계별 스킬 레벨(추정: 주력기 선마) · baseAd: 기본 공격력(추가 공격력 = 공격력 − 기본) · stacks: 나딘 야성 중첩(추정)
+    stages: {
+      early: { label: 'Lv6',  level: 6,  hp: 1300, def: 75,  ms: 3.75, baseAd: 52,  stacks: 40,  skillLv: { P: 1, Q: 3, W: 1, E: 1, R: 1, D: 1 } },   // 이속 실측: 카티야 3.68→3.93→4.02, 리오 3.71→4.17, 아야 3.79→3.94
+      mid:   { label: 'Lv12', level: 12, hp: 1800, def: 100, ms: 3.95, baseAd: 80,  stacks: 150, skillLv: { P: 2, Q: 5, W: 3, E: 3, R: 2, D: 2 } },
+      late:  { label: 'Lv18', level: 18, hp: 2280, def: 113, ms: 4.0,  baseAd: 106, stacks: 250, skillLv: { P: 3, Q: 5, W: 5, E: 5, R: 3, D: 3 } },
+    },
+    aaWindup: 0.18,          // 원거리 평타 선딜(추정)
+    kiteMoveRatio: 0.55,     // 평타 쿨 중 이 비율만큼 무빙(쏘고 움직이기)
+    wallAvoid: 1.6,          // 이 거리 안의 벽 근처 자리를 피함(벽꿍 수쳐 대비)
+    eThreatRange: 5.5,       // 캐시 E 사거리 — 평타 사이사이 이 밖으로 빠지려 함(앞뒤 무빙)
+  },
+  // 1:1 결투 상대 — 이터널 리턴 원거리 딜러 4명 (스킬: 나무위키 실험체·무기 스킬 문서 수치 / 능력치: 유튜브 랭크 영상 HUD 실측)
+  // 단계별 [Lv6, Lv12, Lv18] 공격력·스킬증폭·공속·치명·방관 (나딘은 영상 미확보 → 리오·카티야 평균 추정)
+  // 피해 공식(나무위키 가이드): 평타 = 공격력 × 100/(100+방어력×(1-방관)) × (치명 시 1.75)
+  rangedMotifs: {
+    aya:    { name: '아야',   weapon: '권총',   build: '스킬 증폭', color: '#5aa9ff', aaRange: 4.85, aaSpeed: 26, ad: [100, 124, 148], sp: [250, 565, 831], as: [1.1, 1.31, 1.24], crit: [0, 0, 0],       pen: [0, 0.11, 0.11] },
+    rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0] },   // 방관은 패시브로 계산
+    nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3] },
+    katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4] },
+  },
+  // 원딜 실제 스킬 (나무위키 2026-10 기준). 피해 = base[레벨] + 공격력×ad + 추가공격력×bad + 스킬증폭×sp (+야성)
+  rangedKits: {
+    katja: {
+      P: { name: '잿빛 사신', base: [50, 75, 100], ad: [0.3, 0.45, 0.6], window: 5 },                          // Q·E 후 5초 내 다음 평타 추가 스킬 피해
+      Q: { name: '조준 사격', min: [40, 80, 120, 160, 200], minAd: 0.7, max: [60, 120, 180, 240, 300], maxAd: 1.05, cd: [7, 6, 5, 4, 3],
+           range: 11, width: 1.2, speed: 26, windup: 0.3, asBuff: [0.2, 0.25, 0.3, 0.35, 0.4], asDur: 4 },
+      E: { name: '접근 금지', base: [50, 75, 100, 125, 150], ad: 1.0, cd: [12, 11, 10, 9, 8], range: 4.5, angle: 30, windup: 0.2,
+           slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.3, msBuff: 0.4, msDur: 2 },   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
+      R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35 },   // 스캔 0.8초(제자리 고정) → 회피 불가 탄
+      D: { name: '저격', cd: [35, 30, 25], shots: 3, aim: 0.55, gap: 0.5, range: 14, speed: 45, width: 0.5,
+           shot: { base: [100, 200, 300], bad: 1.4, sp: [0.25, 0.3, 0.35], slow: 0.8, slowDur: 0.5 },
+           dead: { base: [150, 300, 450], bad: 1.8, sp: [0.4, 0.45, 0.5], missMax: 2.0 } },   // 저격 모드: 제자리 고정, 저지 사격 2발 → 데드아이(잃은 체력 비례 최대 2배)
+    },
+    rio: {
+      P: { name: '카이', pen: [0.02, 0.05, 0.08], penPerCrit: 0.1 },              // 평타 치명 없음: ×(1.02 + 치명확률×0.75), 방관 = 기본 + 치명확률×10%
+      Q: { name: '카에유미', cd: 0.8, short: { range: 4.85, ratio: 0.36, extra: 2, extraRatio: 0.35 }, long: { range: 6.4, ratio: 1.02, asPenalty: 0.22 },
+           stacks: 3, shortMs: [0.06, 0.07, 0.08, 0.09, 0.1], shortAs: [0.2, 0.25, 0.3, 0.35, 0.4], buffDur: 2, longRange: 0.4, longMissing: 0.3 },
+      W: { name: '하나레', cd: [6, 5.75, 5.5, 5.25, 5], cdReduce: 1,
+           short: { base: [50, 70, 90, 110, 130], ad: 0.8, arrows: 5, range: 7.5, width: 0.6, spread: 30, repeat: 0.2, slow: 0.3, zoneDur: 1.5, zoneR: 1.2 },
+           long: { base: [90, 105, 120, 135, 150], ad: 0.9, range: 10.5, width: 1.2, speed: 30, slow: 0.2, slowDur: 1 } },
+      E: { name: '비상', cd: [15, 14, 13, 12, 11], leap: 5, leapTime: 0.45,
+           short: { base: [10, 20, 30, 40, 50], ad: 0.3, arrows: 3 }, long: { base: [70, 90, 110, 130, 150], ad: 0.4, aoe: [20, 40, 60, 80, 100], aoeAd: 0.35 } },
+      R: { name: '연사 / 정사필중', cd: [80, 70, 60],
+           short: { base: [40, 70, 100], ad: 0.4, arrows: 3, range: 8.5, width: 1.5, push: 0.6, recast: { base: [100, 150, 200], ad: 0.6, knock: 4, wallBase: [100, 125, 250], wallAd: 0.4, stun: 1.5 } },
+           long: { base: [200, 340, 480], ad: 0.8, windup: 0.6, width: 1, speed: 16, boostAfter: 0.8, boost: 0.3, slow: 0.6, slowDur: 1.5 } },
+      D: { name: '곡사', base: [100, 200, 300], bad: 1.0, sp: 0.4, inner: [200, 400, 600], innerBad: 1.9, innerSp: 0.6, cd: [35, 30, 25], range: 28, delay: 1.5, radius: 3, innerR: 1.2, slow: 0.25, slowDur: 2, windup: 0.3 },
+    },
+    aya: {
+      P: { name: '아야의 정의', base: [50, 85, 120], ad: 0.5, sp: 0.35, dur: 1.5, cd: 25, perHit: 1 },          // 피격 시 보호막, 공격할 때마다 쿨 1초 감소
+      Q: { name: '2연발', base: [40, 70, 100, 130, 160], ad: 0.3, sp: 0.65, first: 1.1, cd: [10, 9, 8, 7, 6], range: 6.5, windup: 0.35, gap: 0.15,
+           asBuff: [0.4, 0.45, 0.5, 0.55, 0.6], asDur: 5 },   // 대상 지정, 1발 평타(110%) + 2발 스킬 피해, 시전 중 고정
+      W: { name: '고정 사격', base: [30, 40, 50, 60, 70], ad: 0.55, sp: [0.3, 0.35, 0.4, 0.45, 0.5], cd: [10, 9, 8, 7, 6], dur: 2.2, shots: 6, maxShots: 10,
+           range: 8, width: 0.4, speed: 30 },   // 한 방향 연사, 이동 가능
+      E: { name: '무빙턴', cd: [15, 14, 13, 12, 11], dist: 4, time: 0.12, qwReduce: [0.4, 0.45, 0.5, 0.55, 0.6] },   // 즉시 대시(벽 통과)
+      R: { name: '공포탄', base: [120, 240, 360], ad: 0.2, sp: 0.95, cd: [80, 65, 50], radius: 4.5, delay: 0.66, fear: 1.25 },
+      D: { name: '무빙 리로드', ms: [0.4, 0.55, 0.7], dur: 1, asBuff: 0.7, asShots: 2, cd: [35, 30, 25] },   // 1초 이속(평타 불가) → 다음 평타 2회 공속 +70%
+    },
+    nadine: {
+      P: { name: '야성' },                                                                        // 중첩 수만큼 Q·R 피해 증가 (단계별 stacks)
+      Q: { name: '황소의 눈', min: [60, 95, 130, 165, 200], minBad: 1.1, minSp: 0.65, maxMul: 2, cd: 7, charge: 2, range: [7, 14], width: 0.7, speed: 28, chargeSlow: 0.2, refund: 0.5 },
+      W: { name: '다람쥐 덫', base: [80, 120, 160, 200, 240], bad: 1.0, sp: 0.8, cd: [14, 13, 12, 11, 10], range: 7, link: 5, slow: [0.3, 0.35, 0.4, 0.45, 0.5], asSlow: 0.3, slowDur: 2, life: 45, sets: 3 },
+      E: { name: '원숭이 와이어', as: [0.3, 0.35, 0.4, 0.45, 0.5], cd: [17, 16, 15, 14, 13], range: 7, life: 6, after: 3, zipTime: 0.35 },
+      R: { name: '늑대 맹습', base: [100, 150, 200], bad: 0.75, sp: 0.8, cd: [80, 70, 60], dur: 10, every: 3, slow: 0.25, asSlow: 0.1, slowDur: 1.5 },
+      D: { name: '강노', base: [50, 75, 100], bad: 0.7, sp: 0.25, cd: 25, range: 7.5, angle: 45, windup: 0.3, slow: 0.4, slowDur: 1.5,
+           mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.15, 0.2, 0.25] } },
+    },
+  },
+  modes: {
+    dummy: { respawn: 2 },
+    skillshot: { duration: 60, cdMul: 0.25 },
+    dodge: { lives: 5, cdMul: 0.6, circleTele: 1.25, circleTeleMin: 0.55 },   // 보라 장판 예고시간(기존 1.05 / 최소 0.45)
+    combo: { gap: { intro: Infinity, skilled: 2.0, master: 1.0 }, resetDelay: 1.0, dummyHp: 6000, dummyDef: 50 },
+  },
+  // 콤보 문법: "Q" 단일, "W|E|D" 택1, "W?" 생략 가능, "Q~8" 해당 단계 허용 간격 8초, "AA" 기본 공격, "D2" 쌍검 2식
+  combos: [
+    { id: 'basic', name: '기본: Q → 평타 → W/E/D', steps: ['Q', 'AA', 'W|E|D'],
+      tip: 'Q로 접근 → 강화 평타 → W(또는 E/D)로 외상 3중첩 → 치명적 외상. Q가 빗나가면 평타를 더 섞으세요. E는 기절 각이 아니면 아끼는 편이 좋고, 단검은 D를 두 번(유틸 → 대상 지정) 눌러야 합니다.' },
+    { id: 'ambushA', name: '기습 A: W → Q → 평타', steps: ['W', 'Q', 'AA'],
+      tip: 'Q로 먼저 진입하면 안 되는 상대. W 바깥 범위 둔화 → Q 진입 → 강화 평타로 치명적 외상.' },
+    { id: 'ambushB', name: '기습 B: W → 평타 → Q', steps: ['W', 'AA', 'Q'],
+      tip: 'W 둔화로 붙을 수 있으면 강화 평타 먼저 → Q로 치명적 외상.' },
+    { id: 'stun', name: '기절 연계: E → 평타 → Q/W', steps: ['E', 'AA', 'Q|W'],
+      tip: 'E 기절 후 평타 → Q 바로 긁기. 상대 기동력이 좋으면 뒤로 빠졌다가 W 둔화로 추격 대비.' },
+    { id: 'finish', name: '마무리: E → (W) → (Q) → R', steps: ['E', 'W?', 'Q?', 'R'],
+      tip: '확정 마무리 각에서 사용. 스킬 딜레이로 평타 넣을 틈이 없습니다. E 기절 시간이 짧으니 R을 빠르게 이으세요.' },
+    { id: 'double', name: '2인 수쳐: E → W → Q → Q', steps: ['E', 'W', 'Q', 'Q~8'], setup: 'pair', require: 'eDouble',
+      tip: '두 명을 수쳐로 관통 기절 → W 바깥 범위 → Q로 둘 다 치명적 외상 → 크게 줄어든 Q 쿨로 Q 재사용. W 바깥 범위를 놓치면 실패.' },
+  ],
+  // 영상 콤보 (YouTube 「이터널리턴] 캐시 콤보가이드 2」 — 부멍이) · 단검 기준, "D1" = 단검 1차(유틸), "D" = 단검 2차(대상 뒤 이동)
+  videoCombos: [
+    { id: 'yt1', weapon: 'dagger', name: '[영상 1] Q → 평 → E → W → 평', steps: ['Q', 'AA', 'E', 'W', 'AA'],
+      tip: 'Q 진입 → 강화 평타(외상 2) → E 속박(외상 3, 치명적 외상) → W → 강화 평타. 영상 기준 전체 약 2초.' },
+    { id: 'yt2', weapon: 'dagger', name: '[영상 2] Q → 평 → E → W → R → 평 → Q', steps: ['Q', 'AA', 'E', 'W', 'R', 'AA', 'Q~8'],
+      tip: '영상 1에 R 마무리와 Q 재사용을 붙인 확장형. 치명적 외상으로 줄어든 Q 쿨을 확인하고 마지막 Q를 쓰세요.' },
+    { id: 'yt3', weapon: 'dagger', name: '[영상 3] E → W → Q → 평 → R → Q → 평', steps: ['E', 'W', 'Q', 'AA', 'R', 'Q~8', 'AA'],
+      tip: 'E로 묶고 시작. E·W·Q로 외상 3중첩 → 치명적 외상(Q 쿨 감소) → 평 → R → 줄어든 Q → 평.' },
+    { id: 'yt4', weapon: 'dagger', name: '[영상 4] D → E → Q → D → 평 → W → R → 평 → Q', steps: ['D1', 'E', 'Q', 'D', 'AA', 'W', 'R', 'AA', 'Q~8'],
+      tip: '단검 1차(이속)로 접근 → E → Q → 단검 2차로 대상 뒤 이동(1차 후 3초 이내) → 평 → W → R → 평 → Q.' },
+    { id: 'yt5', weapon: 'dagger', name: '[영상 5] D → E → Q → D → 평 → R → Q → W → 평', steps: ['D1', 'E', 'Q', 'D', 'AA', 'R', 'Q~8', 'W', 'AA'],
+      tip: '영상 4에서 R을 먼저 넣고 Q·W로 마무리하는 순서. 단검 2차는 1차 후 3초 안에 써야 합니다.' },
+    { id: 'yt6', weapon: 'dagger', name: '[영상 6] D → Q → E → W → Q → 평 → R → 평 → Q', steps: ['D1', 'Q', 'E', 'W', 'Q~8', 'AA', 'R', 'AA', 'Q~8'],
+      tip: 'Q·E·W로 치명적 외상 → 줄어든 Q 즉시 재사용 → 평 → R → 평 → Q. 마지막 Q를 빨리 쓰려면 치명적 외상(4초)이 끝난 뒤 R로 다시 걸어 Q 쿨감을 받아야 합니다(R을 너무 일찍 쓰면 지속시간만 갱신).' },
+    // YouTube 「"당신이 수쳐를 못 맞추는 이유" 캐시 입문 가이드」
+    { id: 'g1', name: '[가이드] E → W → R (딜 우겨넣기)', steps: ['E', 'W', 'R'],
+      tip: 'R은 잃은 체력 비례 피해라 E·W로 딜을 먼저 넣고 R. 상대 체력 30% 이하에서 R 최대 피해.' },
+    { id: 'g2', name: '[가이드] E → R (R 확정타)', steps: ['E', 'R'],
+      tip: '딜은 낮지만 수쳐 속박 중 R을 확정으로 맞힙니다. 상대에게 블링크·양손검·톤파 같은 회피기가 있으면 이 콤보.' },
+    { id: 'g3', weapon: 'dual', name: '[가이드·쌍검] E → W → R → D1 → 강평 → D2 → Q', steps: ['E', 'W', 'R', 'D', 'AA', 'D2', 'Q~8'],
+      tip: '실전에서 쓸 수 있는 쌍검 콤보 중 가장 강력. D1 = 쌍검 1식, D2 = 2식(1식 적중 후 5초 이내).' },
+    { id: 'g4', weapon: 'dual', name: '[가이드·쌍검] E → R → D1 → 강평 → D2 → W → Q', steps: ['E', 'R', 'D', 'AA', 'D2', 'W', 'Q~8'],
+      tip: 'R 확정타 버전. 수쳐 직후 R부터 넣고 쌍검 1·2식과 W·Q로 마무리.' },
+    { id: 'g6', weapon: 'dagger', name: '[가이드·단검] D1 → Q → 강평 → D2 → E → W → R', steps: ['D1', 'Q', 'AA', 'D', 'E', 'W', 'R'],
+      tip: '적 위치를 파악한 뒤 단검 1차를 먼저 쓰고 진입. 단검 2차는 1차 후 3초 이내.' },
+    { id: 'g7', weapon: 'dagger', name: '[가이드·단검] (D1 선사용) Q → D2 → E → W → R', steps: ['Q', 'D', 'E', 'W', 'R'],
+      tip: '부쉬 등에서 D(1차)를 미리 누르고(판정 제외) 바로 시작. 1차 후 3초 안에 D2까지 이어야 합니다.' },
+  ],
+  // 챌린지 — 챌린지는 밸런스를 위해 '중반' 빌드로 고정
+  challenges: [
+    { id: 'c01', name: '첫 집도', desc: '허수아비 1개를 처치하라', scene: { type: 'dummy', count: 1, hp: 4000, def: 60, infinite: false, respawn: false }, limit: 25, goal: { event: 'kill', count: 1 }, stars: { time: [25, 14, 9] } },
+    { id: 'c02', name: '연속 수술', desc: '허수아비 3개를 모두 처치하라', scene: { type: 'dummy', count: 3, hp: 1500, def: 50, infinite: false, respawn: false }, limit: 15, goal: { event: 'kill', count: 3 }, stars: { time: [15, 10, 7] } },
+    { id: 'c03', name: '외상 전문의', desc: '치명적 외상을 4회 발동시켜라', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true }, limit: 35, goal: { event: 'critical', count: 4 }, stars: { time: [35, 24, 16] } },
+    { id: 'c04', name: '메스 연타', desc: '강화 평타를 6회 적중시켜라', scene: { type: 'dummy', count: 1, hp: 5000, def: 40, infinite: true }, limit: 35, goal: { event: 'enhAA', count: 6 }, stars: { time: [35, 25, 18] } },
+    { id: 'c06', name: '봉합의 달인', desc: '움직이는 2인에게 관통 기절(2인 수쳐) 2회', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true, layout: 'pair', wander: true }, limit: 45, goal: { event: 'eDouble', count: 2 }, stars: { time: [45, 30, 20] } },
+    { id: 'c07', name: '벽꿍 수술', desc: '수쳐로 적을 벽에 충돌시켜 기절 2회', scene: { type: 'dummy', count: 1, hp: 5000, def: 40, infinite: true, layout: 'wall' }, limit: 45, goal: { event: 'eWall', count: 2 }, stars: { time: [45, 30, 20] } },
+    { id: 'c08', name: '저격수', desc: '움직이는 표적에게 스킬샷(Q/W/E) 5연속 명중', scene: { type: 'skillshot', cdMul: 0.25 }, limit: 50, goal: { event: 'streak', reach: 5 }, stars: { time: [50, 32, 20] } },
+    { id: 'c09', name: '무빙 마스터', desc: '30초 버티기 (피격 2회 초과 시 실패)', scene: { type: 'dodge', lives: 3 }, limit: 30, goal: { survive: 30, maxHits: 2 }, stars: { hits: [2, 1, 0] } },
+    { id: 'c10', name: '이중 절제', desc: '치명적 외상으로 줄어든 Q 재사용 2회', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true, layout: 'pair' }, limit: 45, goal: { event: 'qReset', count: 2 }, stars: { time: [45, 30, 20] } },
+    { id: 'c11', name: '응급 OP', desc: '체력 30% 이하 대상을 R 최대 피해로 처치', scene: { type: 'dummy', count: 1, hp: 5500, def: 60, infinite: false, respawn: true }, limit: 60, goal: { event: 'rKillMax', count: 1 }, stars: { time: [60, 35, 22] } },
+    { id: 'c12', name: '결투 입문', desc: '보통 AI와 1라운드 결투에서 승리', scene: { type: 'duel', diff: 'normal', rounds: 1 }, limit: 120, goal: { event: 'roundWin', count: 1 }, stars: { time: [120, 60, 35] } },
+    { id: 'c13', name: '집도의', desc: '어려움 AI와 1라운드 결투에서 승리', scene: { type: 'duel', diff: 'hard', rounds: 1 }, limit: 150, goal: { event: 'roundWin', count: 1 }, stars: { time: [150, 80, 50] } },
+    { id: 'c14', name: '생존 극한', desc: '빠른 패턴에서 40초 버티기 (피격 3회 초과 시 실패)', scene: { type: 'dodge', lives: 4, startK: 1.2 }, limit: 40, goal: { survive: 40, maxHits: 3 }, stars: { hits: [3, 1, 0] } },
+  ],
+};
