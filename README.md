@@ -6,7 +6,8 @@ HTML 파일 하나로 동작하며, 설치 없이 `cathy_trainer.html`을 브라
 > 팬이 만든 비공식 연습 도구입니다. 이터널 리턴과 등장 캐릭터의 권리는 님블뉴런(Nimble Neuron)에 있습니다.
 
 ## 실행 방법
-- `cathy_trainer.html`을 내려받아 브라우저(크롬·엣지 권장)로 엽니다.
+- **웹에서 바로 플레이: https://holsaeng.github.io/cathy-trainer/**
+- 또는 `cathy_trainer.html`을 내려받아 브라우저(크롬·엣지 권장)로 엽니다.
 - 1920×1080, 1280×720 화면 모두 지원합니다.
 
 ## 모드
