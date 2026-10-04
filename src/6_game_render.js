@@ -9,14 +9,14 @@ const Game = {
     this.mode = Modes[id]; Input.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
-    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b));
+    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = [];
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
   step(dt) {
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
-    this.time += dt; Stats.tick(dt);
+    this.time += dt; Stats.tick(dt); Vision.update(dt);
     for (const u of this.units.slice()) u.update(dt);
     for (const pr of this.projectiles) pr.update(dt);
     this.projectiles = this.projectiles.filter(p => !p.dead);
@@ -46,9 +46,9 @@ const Game = {
   togglePause() {
     if (this.state !== 'play') return;
     this.paused = !this.paused;
-    if (this.paused) UI.showPause(); else UI.hide();
+    if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead); },
+  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0)); },   // 대상 지정 불가(다니엘 걸작) 제외
   visibleEnemies() { return this.enemies().filter(e => Vision.visible(this.player, e)); },
   nearestEnemy(pos, range) { let best = null, bd = range; for (const e of this.visibleEnemies()) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
   pickEnemyAt(pt, rad) { let best = null, bd = Infinity; for (const e of this.visibleEnemies()) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
@@ -97,19 +97,49 @@ const Records = {
 // ============================== 입력 ==============================
 const Input = {
   screen: { x: 0, y: 0 }, world: { x: 16, y: 9 }, aiming: null, amove: false,
-  reset() { this.aiming = null; this.amove = false; },
+  rDown: false, rLast: 0, locked: false, lockLostT: 0,
+  reset() { this.aiming = null; this.amove = false; this.rDown = false; },
+  // 우클릭 이동/공격 (누르고 있으면 계속 커서를 따라감 — 실제 게임처럼)
+  rightCmd(hold) {
+    const p = Game.player, w = this.world; if (!p) return;
+    const t = Game.pickEnemyAt(w, 0.35);
+    if (t) { if (p.attackTarget !== t) p.cmdAttack(t); } else if (!hold || !p.attackTarget) p.cmdMove(w);
+  },
+  tick() {   // 매 프레임: 우클릭 유지 이동
+    if (!this.rDown || Game.state !== 'play' || Game.paused || !Game.player) return;
+    const now = performance.now(); if (now - this.rLast < 90) return;
+    this.rLast = now; this.rightCmd(true);
+  },
+  setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
+  // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
+  wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
+  lock(cv) { if (this.wantLock() && !this.locked && cv.requestPointerLock) { try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 미지원 */ } } },
+  unlock() { if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); },
   init(cv) {
-    cv.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('contextmenu', e => { if (Game.state === 'play') e.preventDefault(); });
-    cv.addEventListener('mousemove', e => { this.screen = { x: e.clientX, y: e.clientY }; this.world = Render.toWorld(e.clientX, e.clientY); });
+    const block = e => { e.preventDefault(); e.stopPropagation(); };
+    cv.addEventListener('contextmenu', block);
+    window.addEventListener('contextmenu', e => { if (Game.state === 'play') block(e); });
+    document.addEventListener('pointerlockchange', () => {
+      this.locked = document.pointerLockElement === cv;
+      if (!this.locked) { this.rDown = false; if (Game.state === 'play' && !Game.paused && Settings.pointerLock) { this.lockLostT = performance.now(); Game.togglePause(); } }   // Esc로 잠금이 풀리면 일시정지
+    });
+    cv.addEventListener('mousemove', e => {
+      if (e.buttons & 2) block(e);   // 우클릭 드래그를 페이지가 소비 (제스처 확장 프로그램 대응)
+      if (this.locked) this.setPos(clamp(this.screen.x + e.movementX, 0, window.innerWidth - 1), clamp(this.screen.y + e.movementY, 0, window.innerHeight - 1));
+      else this.setPos(e.clientX, e.clientY);
+    });
+    window.addEventListener('mouseup', e => { if (e.button === 2) { this.rDown = false; if (Game.state === 'play') block(e); } });
     cv.addEventListener('mousedown', e => {
-      Sfx.init(); this.screen = { x: e.clientX, y: e.clientY }; this.world = Render.toWorld(e.clientX, e.clientY);
+      Sfx.init(); if (!this.locked) this.setPos(e.clientX, e.clientY);
+      if (e.button === 2) block(e);
       if (Game.state !== 'play' || Game.paused || !Game.player) return;
-      const p = Game.player, w = this.world;
+      this.lock(cv);
+      const p = Game.player;
       if (e.button === 2) {
-        this.aiming = null; this.amove = false;
-        const t = Game.pickEnemyAt(w, 0.35); if (t) p.cmdAttack(t); else p.cmdMove(w);
+        this.aiming = null; this.amove = false; this.rDown = true; this.rLast = performance.now();
+        this.rightCmd(false);
       } else if (e.button === 0) {
+        const w = this.world;
         if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; }
         else if (this.amove) { p.cmdAttackMove(w); this.amove = false; }
       }
@@ -128,6 +158,7 @@ const Input = {
     if (e.key === 'Tab') { e.preventDefault(); Settings.side = !Settings.side; saveSettings(); Side.update(); return; }
     if (e.key === 'Escape') {
       if (Game.state !== 'play') return;
+      if (performance.now() - Input.lockLostT < 400) return;   // 마우스 잠금 해제용 Esc는 이미 일시정지로 처리됨
       if (!Game.paused && this.aiming) { this.aiming = null; return; }
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
@@ -183,6 +214,7 @@ const Render = {
   toWorld(sx, sy) { const L = this.L; return { x: (sx - L.ox) / L.ppm, y: (sy - L.oy) / L.ppm }; },
   toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + this.shx, y: L.oy + p.y * L.ppm + this.shy }; },
   frame() {
+    Input.tick();
     const { ctx, L } = this, T = CONFIG.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const sh = Settings.reduceShake ? 0 : FX.shake; this.shx = (Math.random() - 0.5) * sh; this.shy = (Math.random() - 0.5) * sh;
@@ -196,6 +228,9 @@ const Render = {
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);
+    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
+      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
+    }
     if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
   },
   drawWorld(ctx, T) {

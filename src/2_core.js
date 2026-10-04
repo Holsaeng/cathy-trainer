@@ -104,13 +104,21 @@ const Geo = {
 
 // ============================== 시야(부쉬) ==============================
 const Vision = {
+  reveals: [],   // 시야 확보 구역 {team, pos, r, t} — 카티야 정찰 다트 등
   bushAt(p) { return (CONFIG.bushes || []).findIndex(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h); },
-  // viewer가 target을 볼 수 있는가: 부쉬 밖이면 보임, 같은 부쉬이거나 가까우면 보임
+  // 점에서 부쉬 사각형까지 거리
+  rectDist(p, b) { const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.w)), dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.h)); return Math.hypot(dx, dy); },
+  // viewer가 target을 볼 수 있는가: 부쉬 밖이면 보임 / 행동·피격으로 노출 중 / 같은 부쉬·가까움 / 아군 시야 구역 안
   visible(viewer, target) {
     if (!viewer || !target) return true;
+    if (target.stealthT > 0) return false;                                                        // 은신(다니엘 E)
+    if (viewer.blindT > 0 && V.dist(viewer.pos, target.pos) > (viewer.blindR || 4.5)) return false;   // 시야 감소(다니엘 W 영감)
+    if (target.revealT > 0) return true;
     const b = Vision.bushAt(target.pos); if (b < 0) return true;
-    return Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, target.pos) <= CONFIG.vision.bushReveal;
+    if (Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, target.pos) <= CONFIG.vision.bushReveal) return true;
+    return Vision.reveals.some(z => z.team === viewer.team && V.dist(z.pos, target.pos) <= z.r);
   },
+  update(dt) { Vision.reveals = Vision.reveals.filter(z => (z.t -= dt) > 0); },
 };
 
 // ============================== 저장/설정 ==============================
@@ -119,7 +127,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a' };
-const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -254,7 +262,7 @@ const Combat = {
     const col = type === 'true' ? '#ffd1dc' : type === 'normal' ? (o.crit ? '#ff5d5d' : '#ffffff') : '#ffb347';
     FX.text(tgt.pos, (o.crit ? '✦' : '') + Math.round(dmg), col, o.crit ? 20 : type === 'true' ? 12 : 15, { bold: o.crit || type === 'skill' });
     if (src === Game.player) Stats.dealt(o.source || '?', dmg);
-    if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); }
+    if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal); }   // 피격 시 위치 노출
     else Sfx.play('hit');
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)

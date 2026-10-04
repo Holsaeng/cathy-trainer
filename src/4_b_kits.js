@@ -18,6 +18,9 @@ const KU = {
   fill(ctx, pos, r, col, alpha) { ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = col; Draw.circle(ctx, pos.x, pos.y, r); ctx.fill(); ctx.restore(); },
 };
 
+// 부쉬 체크용: 추정 지점 방향(약간의 오차)
+KU.aimAt = (ai, pt) => V.fromAng(V.ang(V.sub(pt, ai.pos)) + (Math.random() - 0.5) * 2 * ai.diff.aimErr);
+
 const Kits = {
   // ---------------- 카티야 (저격총) ----------------
   katja: {
@@ -77,6 +80,26 @@ const Kits = {
           if (phase === 'gap' && t >= K.gap) { phase = 'aim'; t = 0; if (fired >= K.shots) a.stop = true; }
         },
         onEnd: (a, cancelled) => { if (cancelled && fired === 0) ai.cds.D *= 0.5; } });   // 한 발도 못 쏘고 풀리면 쿨 50% 반환
+    },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.W <= 0 && d <= K.W.range) {   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초
+        const W = K.W, to = V.copy(est); ai.cds.W = ai.pick(W.cd, 'W');
+        ai.startCast(0.2, () => {
+          Sfx.play('throw'); FX.trail(ai.pos, to, '#9fd8ff', 0.12, d / W.speed + 0.2);
+          ai.pendingShots.push({ t: d / W.speed, fn: () => { Vision.reveals.push({ team: ai.team, pos: to, r: W.radius, t: W.dur }); FX.ring(to, 0.5, W.radius, '#9fd8ff', 0.5, 0.08); } });
+        }, { kind: 'line', dir: V.norm(V.sub(to, ai.pos)), len: d, width: 0.3, color: '#9fd8ff' });
+        FX.text(ai.pos, W.name, ai.motif.color, 12, { bold: true }); return true;
+      }
+      if (ai.cds.Q <= 0 && d <= K.Q.range - 0.5) {   // 조준 사격으로 부쉬 찌르기
+        const dir = KU.aimAt(ai, est); ai.cds.Q = ai.pick(K.Q.cd, 'Q');
+        ai.startCast(K.Q.windup, () => { Sfx.play('throw'); ai.psT = K.P.window;
+          ai.shoot({ dir, speed: K.Q.speed, range: K.Q.range, width: K.Q.width, len: 1.1, onHit: (u, pr) => {
+            const k = clamp(pr.traveled / K.Q.range, 0, 1); ai.hitP(u, lerp(ai.pick(K.Q.min, 'Q') + ai.ad * K.Q.minAd, ai.pick(K.Q.max, 'Q') + ai.ad * K.Q.maxAd, k) * ai.diff.dmgMul, { name: K.Q.name }); } });
+        }, { kind: 'line', dir, len: K.Q.range, width: K.Q.width });
+        return true;
+      }
+      return false;
     },
     // E 접근 금지: 전방 부채꼴 사격(둔화) 후 뒤로 4m 도약(벽 넘기 가능, 시전 후 CC 무시)
     escape(ai, p, dir) {
@@ -168,6 +191,23 @@ const Kits = {
           }, { kind: ai.stance === 'long' ? 'line' : 'cone', dir, len: S.range, width: W.long.width, angle: W.short.spread });
           return true;
         }
+      }
+      return false;
+    },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.D <= 0 && d < K.D.range) {
+        const pos = V.copy(est); ai.cds.D = ai.pick(K.D.cd, 'D');
+        ai.startCast(K.D.windup, () => { ai.zones.push({ type: 'arc', pos, t: 0, delay: K.D.delay }); Sfx.play('throw'); }, { kind: 'circle', pos, r: K.D.radius });
+        return true;
+      }
+      if (ai.cds.W <= 0 && d <= K.W.long.range - 0.5) {
+        if (ai.stance !== 'long') { ai.stance = 'long'; ai.cds.Q = K.Q.cd; }
+        const W = K.W, dir = KU.aimAt(ai, est); ai.cds.W = ai.pick(W.cd, 'W');
+        ai.startCast(0.2, () => { Sfx.play('throw');
+          ai.shoot({ dir, speed: W.long.speed, range: W.long.range, width: W.long.width, len: 1.4, onHit: u => { ai.hitP(u, (ai.pick(W.long.base, 'W') + ai.ad * W.long.ad) * ai.diff.dmgMul, { name: W.name, hanare: true }); u.addSlow(W.long.slow, W.long.slowDur); } });
+        }, { kind: 'line', dir, len: W.long.range, width: W.long.width });
+        return true;
       }
       return false;
     },
@@ -268,6 +308,18 @@ const Kits = {
       }
       return false;
     },
+    checkBush(ai, est) {
+      const W = ai.kitCfg.W, d = V.dist(ai.pos, est);
+      if (ai.cds.W > 0 || d > W.range + 0.5) return false;
+      const dir = KU.aimAt(ai, est), n = clamp(Math.round(W.shots + (ai.curAs() - 1) * 5), W.shots, W.maxShots); let fired = 0;
+      ai.cds.W = ai.pick(W.cd, 'W'); ai.noAA = W.dur; FX.text(ai.pos, W.name, ai.motif.color, 12, { bold: true });
+      ai.chans.push({ t: 0, dur: W.dur, onTick: (dt, c) => {   // 부쉬를 좌우로 훑으며 연사
+        while (fired < n && c.t >= (fired / n) * W.dur) { fired++; Sfx.play('aa');
+          const sweep = V.fromAng(V.ang(dir) + Math.sin(fired * 1.3) * 0.18);
+          ai.shoot({ dir: sweep, speed: W.speed, range: W.range, width: W.width, len: 0.45, onHit: u => ai.hitP(u, ai.calc(W, 'W'), { name: W.name }) }); }
+      } });
+      return true;
+    },
     fear(ai, p) {
       const R = ai.kitCfg.R; ai.cds.R = ai.pick(R.cd, 'R'); FX.text(ai.pos, R.name, ai.motif.color, 13, { bold: true });
       ai.startCast(R.delay, () => {
@@ -361,6 +413,23 @@ const Kits = {
             Sfx.play('throw'); ai.shoot({ dir, speed: Q.speed, range: rng, width: Q.width, len: 1.2 + k, onHit: u => ai.hitP(u, amt, { name: Q.name }) });
           } });
         return false;
+      }
+      return false;
+    },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.W <= 0 && ai.traps.length < K.W.sets * 2 && d < K.W.range + 4) {   // 캐시가 나올 길목(부쉬→나딘 방향)에 덫
+        const W = K.W, toMe = V.norm(V.sub(ai.pos, est)), mid = V.add(est, V.mul(toMe, Math.min(2.2, d * 0.5))), side = V.perp(toMe);
+        ai.traps.push({ a: Geo.pushOut(V.add(mid, V.mul(side, W.link / 2)), 0.2), b: Geo.pushOut(V.sub(mid, V.mul(side, W.link / 2)), 0.2), life: W.life });
+        ai.cds.W = ai.pick(W.cd, 'W'); Sfx.play('click'); FX.text(mid, W.name, ai.motif.color, 12, { bold: true }); return true;
+      }
+      if (ai.cds.Q <= 0 && d < K.Q.range[1] - 0.5 && !ai.chans.some(c => c.charge)) {
+        const Q = K.Q, need = clamp((d + 0.8 - Q.range[0]) / (Q.range[1] - Q.range[0]), 0, 1), dur = Math.max(0.6, need * Q.charge), to = V.copy(est);
+        ai.cds.Q = Q.cd; ai.noAA = dur; FX.text(ai.pos, Q.name, ai.motif.color, 12, { bold: true });
+        ai.chans.push({ t: 0, dur, charge: true, onTick: (dt, c) => ai.addMsBuff(-Q.chargeSlow * Math.min(1, c.t / Q.charge), 0.1, false, 'charge'),
+          onEnd: c => { const k = clamp(c.t / Q.charge, 0, 1), base = ai.pick(Q.min, 'Q') + ai.bonusAd * Q.minBad + ai.sp * Q.minSp, amt = (base * lerp(1, Q.maxMul, k) + ai.stacks) * ai.diff.dmgMul;
+            Sfx.play('throw'); ai.shoot({ dir: KU.aimAt(ai, to), speed: Q.speed, range: lerp(Q.range[0], Q.range[1], k), width: Q.width, len: 1.2 + k, onHit: u => ai.hitP(u, amt, { name: Q.name }) }); } });
+        return true;
       }
       return false;
     },

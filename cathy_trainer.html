@@ -91,7 +91,11 @@ const CONFIG = {
   // 야생동물(결투 옵션): 수쳐 두 번째 대상(2인 수쳐 응용) · 원딜 투사체를 몸으로 막음. 공격하지 않음
   wildlife: { name: '늑대', r: 0.45, ms: 1.6, respawn: 15, color: '#8b6a4e',
     hp: { early: 500, mid: 900, late: 1300 }, def: { early: 20, mid: 35, late: 50 } },
-  vision: { bushReveal: 2.2 },             // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
+  vision: {
+    bushReveal: 2.2,         // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
+    actionReveal: 1.0,       // 부쉬 안에서 스킬·평타를 쓰면 이 시간(초) 동안 위치 노출
+    hitReveal: 1.0,          // 피격되면 이 시간 동안 위치 노출
+  },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
     bufferMs: 100,            // 선입력 버퍼
@@ -183,6 +187,8 @@ const CONFIG = {
     kiteMoveRatio: 0.55,     // 평타 쿨 중 이 비율만큼 무빙(쏘고 움직이기)
     wallAvoid: 1.6,          // 이 거리 안의 벽 근처 자리를 피함(벽꿍 수쳐 대비)
     eThreatRange: 5.5,       // 캐시 E 사거리 — 평타 사이사이 이 밖으로 빠지려 함(앞뒤 무빙)
+    // 캐시가 안 보일 때(부쉬): 마지막 위치·이동 방향으로 추정 → 진입 거리 밖에서 계속 무빙 → 일정 시간 뒤 스킬로 부쉬 체크
+    hunt: { safeDist: 7.0, bushAvoid: 2.6, checkAfter: 1.2, step: 1.6, think: 0.3, forget: 8 },
   },
   // 1:1 결투 상대 — 이터널 리턴 원거리 딜러 4명 (스킬: 나무위키 실험체·무기 스킬 문서 수치 / 능력치: 유튜브 랭크 영상 HUD 실측)
   // 단계별 [Lv6, Lv12, Lv18] 공격력·스킬증폭·공속·치명·방관 (나딘은 영상 미확보 → 리오·카티야 평균 추정)
@@ -192,6 +198,10 @@ const CONFIG = {
     rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0] },   // 방관은 패시브로 계산
     nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3] },
     katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4] },
+    // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
+    daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
+              hp: [1380, 1910, 2450], def: [72, 92, 113], ms: [3.8, 3.98, 4.0], baseAd: [56, 84, 112], aaAmp: [0.13, 0.27, 0.4],   // 기본 공격 증폭 = 단검 숙련도
+              skillLv: [{ P: 1, Q: 3, W: 1, E: 2, R: 1, D: 1 }, { P: 1, Q: 5, W: 2, E: 4, R: 2, D: 2 }, { P: 3, Q: 5, W: 5, E: 5, R: 3, D: 3 }] },   // Q 선마 → E (나무위키)
   },
   // 원딜 실제 스킬 (나무위키 2026-10 기준). 피해 = base[레벨] + 공격력×ad + 추가공격력×bad + 스킬증폭×sp (+야성)
   rangedKits: {
@@ -201,6 +211,7 @@ const CONFIG = {
            range: 11, width: 1.2, speed: 26, windup: 0.3, asBuff: [0.2, 0.25, 0.3, 0.35, 0.4], asDur: 4 },
       E: { name: '접근 금지', base: [50, 75, 100, 125, 150], ad: 1.0, cd: [12, 11, 10, 9, 8], range: 4.5, angle: 30, windup: 0.2,
            slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.3, msBuff: 0.4, msDur: 2 },   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
+      W: { name: '목표물 포착', cd: [30, 27, 24, 21, 18], range: 23, speed: 30, radius: 4.5, dur: 3 },   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초 (부쉬 체크)
       R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35 },   // 스캔 0.8초(제자리 고정) → 회피 불가 탄
       D: { name: '저격', cd: [35, 30, 25], shots: 3, aim: 0.55, gap: 0.5, range: 14, speed: 45, width: 0.5,
            shot: { base: [100, 200, 300], bad: 1.4, sp: [0.25, 0.3, 0.35], slow: 0.8, slowDur: 0.5 },
@@ -239,7 +250,21 @@ const CONFIG = {
       D: { name: '강노', base: [50, 75, 100], bad: 0.7, sp: 0.25, cd: 25, range: 7.5, angle: 45, windup: 0.3, slow: 0.4, slowDur: 1.5,
            mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.15, 0.2, 0.25] } },
     },
+    // 다니엘 (나무위키 2026-10). P 고독한 예술가(밤 시야·이속)는 시뮬레이터가 낮이라 생략
+    daniel: {
+      Q: { name: '그림자 가위', base: [30, 40, 50, 60, 70], ad: 1.1, center: { base: [40, 60, 80, 100, 120], ad: 1.4 }, cd: [10, 9, 8, 7, 6],
+           range: 7, len: 3.5, angle: 65, front: 1.75, centerR: 0.9, windup: 0.53, slow: 0.35, slowDur: 1.5, asBuff: [0.8, 1.1, 1.4, 1.7, 2.0], asShots: 3, asDur: 3 },   // 지정 위치 부채꼴, 무빙 캐스팅
+      W: { name: '영감', cd: 7, range: 7, acc: [4, 6, 8, 10, 12], accBad: 0.08, base: [20, 40, 60, 80, 100], ad: 0.6, ready: 4, popWindow: 2.5, slow: 0.5, slowDur: 1,
+           blind: 2, blindR: 4.5 },   // 표식 4초 유지 → 2.5초 안에 공격하면 축적 피해(고정) + 스킬 피해 폭발 / 대상 시야 감소(2초, 다니엘에게 맞을 때까지)
+      E: { name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
+      R: { name: '걸작', tick: { base: [10, 30, 50], ad: 0.3 }, last: { base: [40, 105, 170], ad: 0.9 }, cd: [70, 60, 50], range: 3, recent: 4, silence: 0.5, dur: 2, ticks: 4, exit: 2.2, exitTime: 0.25 },
+      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.2, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
+    },
   },
+  // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"
+  // · 들켰는데 E부터 쓰고 들어가면 죽는다 → 거리를 두고 서성이다 각이 보일 때만 진입  · 궁 이후 도망치는 상대를 잡도록 E는 아껴 둠
+  // · 사거리가 모자라면 E 평타를 동물에 써서 순간이동으로 접근
+  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12, comboGap: 0.08 },
   modes: {
     dummy: { respawn: 2 },
     skillshot: { duration: 60, cdMul: 0.25 },
@@ -412,13 +437,21 @@ const Geo = {
 
 // ============================== 시야(부쉬) ==============================
 const Vision = {
+  reveals: [],   // 시야 확보 구역 {team, pos, r, t} — 카티야 정찰 다트 등
   bushAt(p) { return (CONFIG.bushes || []).findIndex(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h); },
-  // viewer가 target을 볼 수 있는가: 부쉬 밖이면 보임, 같은 부쉬이거나 가까우면 보임
+  // 점에서 부쉬 사각형까지 거리
+  rectDist(p, b) { const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.w)), dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.h)); return Math.hypot(dx, dy); },
+  // viewer가 target을 볼 수 있는가: 부쉬 밖이면 보임 / 행동·피격으로 노출 중 / 같은 부쉬·가까움 / 아군 시야 구역 안
   visible(viewer, target) {
     if (!viewer || !target) return true;
+    if (target.stealthT > 0) return false;                                                        // 은신(다니엘 E)
+    if (viewer.blindT > 0 && V.dist(viewer.pos, target.pos) > (viewer.blindR || 4.5)) return false;   // 시야 감소(다니엘 W 영감)
+    if (target.revealT > 0) return true;
     const b = Vision.bushAt(target.pos); if (b < 0) return true;
-    return Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, target.pos) <= CONFIG.vision.bushReveal;
+    if (Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, target.pos) <= CONFIG.vision.bushReveal) return true;
+    return Vision.reveals.some(z => z.team === viewer.team && V.dist(z.pos, target.pos) <= z.r);
   },
+  update(dt) { Vision.reveals = Vision.reveals.filter(z => (z.t -= dt) > 0); },
 };
 
 // ============================== 저장/설정 ==============================
@@ -427,7 +460,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a' };
-const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -562,7 +595,7 @@ const Combat = {
     const col = type === 'true' ? '#ffd1dc' : type === 'normal' ? (o.crit ? '#ff5d5d' : '#ffffff') : '#ffb347';
     FX.text(tgt.pos, (o.crit ? '✦' : '') + Math.round(dmg), col, o.crit ? 20 : type === 'true' ? 12 : 15, { bold: o.crit || type === 'skill' });
     if (src === Game.player) Stats.dealt(o.source || '?', dmg);
-    if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); }
+    if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal); }   // 피격 시 위치 노출
     else Sfx.play('hit');
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
@@ -634,7 +667,7 @@ class Unit {
     this.hp = this.maxHp; this.dead = false; this.deathT = 0;
     this.moveTarget = null; this.vel = { x: 0, y: 0 }; this.root = 0; this.stun = 0; this.slows = []; this.msBuffs = [];
     this.unstoppable = 0; this.forced = null; this.shield = 0; this.shieldT = 0; this.trauma = 0; this.traumaT = 0;
-    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null;
+    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
   }
   revive() { this.resetState(); this.pos = V.copy(this.spawn); FX.ring(this.pos, 0.2, 1.2, '#8a93a6', 0.4); }
   msMul() {
@@ -664,7 +697,7 @@ class Unit {
   }
   tickStatus(dt) {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
-    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear'].forEach(dec);
+    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -720,7 +753,7 @@ class Cathy extends Unit {
   }
   aaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.as) : this.aaCfg().windupRatio / this.as; }
-  validTarget(t) { return t && !t.dead && Game.units.includes(t); }
+  validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === 0 || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
@@ -779,6 +812,7 @@ class Cathy extends Unit {
     if (!s || s.lv <= 0) { FX.toast(`${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
     if (!this.canAct()) return false;
     if (k === 'F') { if (s.cd > 0) { this.cdError(k); return false; } this.interruptForCast(); this.blink(aim); return true; }
+    if (this.silence > 0) { FX.toast('침묵 — 스킬 사용 불가', '#b07cff'); Sfx.play('error'); return false; }
     if (k === 'D') return this.tryWeapon(aim);
     if (s.cd > 0) { this.cdError(k); return false; }
     if ((k === 'Q' || k === 'R') && this.root > 0) { FX.toast('속박 중에는 돌진할 수 없습니다'); return false; }
@@ -832,7 +866,7 @@ class Cathy extends Unit {
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
     c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k);
+    Stats.cast(c.k); this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) Stats.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
@@ -901,7 +935,7 @@ class Cathy extends Unit {
       Stats.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
-    Stats.aaHits++; this.lastAA = { time: Game.time };
+    Stats.aaHits++; this.lastAA = { time: Game.time }; this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
     this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
@@ -1196,7 +1230,7 @@ class Projectile {
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {
-      if (u.dead || u.team === this.team || this.hit.has(u.id)) continue;
+      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0) continue;
       const rel = V.sub(u.pos, prev), along = V.dot(rel, this.dir), perp = Math.abs(rel.x * this.dir.y - rel.y * this.dir.x);
       if (along >= -u.r && along <= segEnd + u.r && perp <= u.r + this.width / 2 + (this.assist || 0)) cands.push({ u, along });
     }
@@ -1375,9 +1409,11 @@ class RangedDuelist extends Duelist {
     const st = RA.stages[stageKey] ? stageKey : (RA.stages[Game.buildId] ? Game.buildId : 'mid'), si = ['early', 'mid', 'late'].indexOf(st), S0 = RA.stages[st];
     this.motif = M; this.motifKey = motifKey; this.kind = 'ranged';
     this.stage = st; this.level = S0.level; this.lv = S0.skillLv; this.stacks = S0.stacks;
-    this.maxHp = this.hp = S0.hp; this.def = S0.def; this.baseMs = S0.ms || this.baseMs;
+    this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs;
+    if (M.skillLv) this.lv = M.skillLv[si];
+    this.melee = !!M.melee; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0; if (this.melee) { this.kind = 'melee'; this.r = 0.5; }
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.pen = M.pen[si];
-    this.bonusAd = Math.max(0, this.ad - S0.baseAd);
+    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd));
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -1401,8 +1437,8 @@ class RangedDuelist extends Duelist {
   // 적에게 스킬 피해 (키트 onHit 훅 → 카이츄·잿빛 사신·아야 쿨감 등)
   hitP(u, amount, o = {}) {
     if (!u || u.dead) return;
-    Combat.damage(this, u, amount, Object.assign({ type: 'skill', source: '적 ' + (o.name || '스킬'), pen: this.penNow() }, o));
-    this.stats.s1Hits++; if (this.kit.onHit) this.kit.onHit(this, u, o);
+    const dmg = Combat.damage(this, u, amount, Object.assign({ type: 'skill', source: '적 ' + (o.name || '스킬'), pen: this.penNow() }, o));
+    this.stats.s1Hits++; if (this.kit.onHit) this.kit.onHit(this, u, o, dmg);
   }
   shoot(o) {
     const pr = new Projectile({ team: 1, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
@@ -1427,6 +1463,7 @@ class RangedDuelist extends Duelist {
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
     this.chans = this.chans.filter(c => !c.done);
     if (this.kit.update) this.kit.update(this, dt);
+    if (this.kit.preempt && this.kit.preempt(this, dt)) return;
     for (const ps of this.pendingShots) if ((ps.t -= dt) <= 0) { ps.fn(); ps.done = true; }
     this.pendingShots = this.pendingShots.filter(ps => !ps.done);
     if (this.forced || this.stun > 0) { if (this.act && this.act.type === 'channel' && this.act.onEnd) this.act.onEnd(this.act, true); this.act = null; this.vel = { x: 0, y: 0 }; return; }
@@ -1434,17 +1471,18 @@ class RangedDuelist extends Duelist {
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
-    if (p0 && this.seesP) this.lastSeen = V.copy(p0.pos);
-    if (!this.seesP) {   // 부쉬 속 캐시: 보이지 않으니 공격 불가 — 마지막으로 본 위치에서 거리 벌리기
-      if ((this.thinkT -= dt) <= 0) { this.thinkT = 0.4; const ls = this.lastSeen || p0.pos;
-        if (V.dist(this.pos, ls) < 6.5) this.moveTarget = this.pickSpot({ pos: ls }, 7.5, 1.8); else if (Math.random() < 0.25) this.moveTarget = this.pickSpot({ pos: ls }, 7.5, 1.2); }
+    if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
+    if (!this.seesP) {   // 부쉬 속 캐시: 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬로 부쉬 체크
+      this.unseenT = (this.unseenT || 0) + dt;
+      if (!this.belief) this.initBelief(p0);
+      if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + Math.random() * 0.6); this.think(); if (this.act) return; }
     const p = Game.player;
     if (this.kiteT > 0) { this.kiteT -= dt; this.moveStep(dt); return; }   // ① 쏘고 움직이는 중
-    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r <= this.aaRange()) {
+    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - (this.melee ? this.r : 0) <= this.aaRange()) {
       this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()) }; return;
     }
     this.moveStep(dt);
@@ -1487,7 +1525,7 @@ class RangedDuelist extends Duelist {
     const RA = CONFIG.rangedAI, d = V.dist(this.pos, p.pos);
     // ⑥ 위협(캐시가 붙음 / Q·R 돌진) → 키트별 이탈·반격 (벽 쪽은 피해서)
     const close = d < (this.diffKey === 'hard' ? 3.6 : 2.8), diving = p.cast && (p.cast.k === 'Q' || p.cast.k === 'R') && d < 7;
-    if ((close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || Math.random() < 0.5)) {
+    if (!this.melee && (close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || Math.random() < 0.5)) {
       const away = V.norm(V.sub(this.pos, p.pos)); let best = away, bs = -Infinity;
       for (let i = -2; i <= 2; i++) {
         const dir = V.fromAng(V.ang(away) + i * 0.45), q = V.add(this.pos, V.mul(dir, 3));
@@ -1498,7 +1536,43 @@ class RangedDuelist extends Duelist {
     }
     if (this.canAct() && this.kit.think && this.kit.think(this, p, d)) { this.stats.s1Casts++; return; }
     // ④ 압박: 사거리 밖이면 쏠 수 있는 거리까지 들어감
+    if (this.kit.move) { this.kit.move(this, p, d); return; }
     if (this.kiteT <= 0 && d > this.aaRange() - 0.2) this.moveTarget = this.pickSpot(p, this.aaRange() - 0.4, 2.2);
+  }
+  // ---------- 안 보일 때: 위치 추론 ----------
+  // 마지막으로 본 위치·이동 방향으로 캐시가 들어간 부쉬를 추정 (없으면 진행 방향으로 이동했다고 가정)
+  initBelief(p0) {
+    const lp = this.lastSeen || p0.pos, lv = this.lastSeenVel || { x: 0, y: 0 }, ahead = V.add(lp, V.mul(lv, 0.6));
+    let bush = Vision.bushAt(lp);
+    if (bush < 0) { let bd = 2.0; (CONFIG.bushes || []).forEach((b, i) => { const d = Vision.rectDist(ahead, b); if (d < bd) { bd = d; bush = i; } }); }
+    this.belief = { pos: V.copy(lp), vel: V.copy(lv), bush, t: 0 };
+  }
+  estimate() {
+    const B = this.belief; if (!B) return this.lastSeen;
+    if (B.bush >= 0) { const b = CONFIG.bushes[B.bush]; return { x: clamp(B.pos.x, b.x, b.x + b.w), y: clamp(B.pos.y, b.y, b.y + b.h) }; }
+    return Geo.pushOut(V.add(B.pos, V.mul(B.vel, Math.min(B.t, 1.2))), 0.5);
+  }
+  // 추정 위치에서 캐시 진입 거리(Q 4m + E 사거리) 밖을 유지하며 계속 움직이고, 다른 부쉬 근처(매복)도 피함
+  hunt() {
+    const H = CONFIG.rangedAI.hunt, B = this.belief; B.t += H.think;
+    const est = this.estimate();
+    // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
+    if (this.unseenT > H.checkAfter && this.canAct() && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
+    if (B.t > H.forget) { this.belief.bush = -1; this.belief.pos = V.copy(est); this.belief.vel = { x: 0, y: 0 }; }   // 오래 못 봤으면 추정 갱신
+    this.moveTarget = this.kit.huntSpot ? this.kit.huntSpot(this, est, B) : this.huntSpot(est); this.kiteT = 0;
+  }
+  huntSpot(est) {
+    const H = CONFIG.rangedAI.hunt, RA = CONFIG.rangedAI, B = this.belief, base = V.ang(V.sub(this.pos, est)); let best = null, bs = -Infinity;
+    if (Math.random() < 0.1) this.side *= -1;
+    for (let i = 0; i < 16; i++) {
+      const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), H.step)), this.r);
+      const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
+      let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
+      const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
+      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + Math.random() * 0.3;
+      if (sc > bs) { bs = sc; best = q; }
+    }
+    return best;
   }
   // 후보 지점 점수화: 원하는 거리 유지 + 벽 회피 + 좌우 무빙 선호
   pickSpot(p, want, step) {
@@ -1514,6 +1588,7 @@ class RangedDuelist extends Duelist {
   }
   // ① 쏜 직후 무빙: ③ 캐시 E·Q가 준비돼 있으면 E 사거리 밖으로(앞뒤), 아니면 좌우로
   startKite(p) {
+    if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
     const danger = p.skills.E.cd <= 0.8 || p.skills.Q.cd <= 0.8;
     const want = danger ? Math.max(RA.eThreatRange + 0.4, this.aaRange()) : this.aaRange() - 0.3;
@@ -1528,8 +1603,8 @@ class RangedDuelist extends Duelist {
   }
   aaLand(u, ratio = 1) {
     const r = this.kit.aaDamage ? this.kit.aaDamage(this, u) : this.aaDamage(u);
-    Combat.damage(this, u, r.amount * ratio, { type: 'normal', source: '적 평타', crit: r.crit, pen: this.penNow() });
-    if (this.kit.onAAHit) this.kit.onAAHit(this, u);
+    const dmg = Combat.damage(this, u, r.amount * ratio * (1 + this.aaAmp), { type: 'normal', source: '적 평타', crit: r.crit, pen: this.penNow() });
+    if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
   }
   updateAct(dt) {
     const a = this.act, p = Game.player; a.t += dt;
@@ -1550,8 +1625,8 @@ class RangedDuelist extends Duelist {
   }
   // 월드 그리기: 시전 예고선 + 키트 오브젝트 + 평타 사거리
   drawExtra(ctx) {
-    const M = this.motif, a = this.act;
-    if (a && a.tele && !this.dead) {
+    const M = this.motif, a = this.act, seen = Vision.visible(Game.player, this);
+    if (a && a.tele && !this.dead && seen) {
       const T = a.tele, k = clamp(a.t / Math.max(0.01, a.dur), 0, 1), col = T.color || M.color;
       ctx.save(); ctx.globalAlpha = 0.15 + 0.45 * k; ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 0.04;
       if (T.kind === 'line') Draw.oRect(ctx, this.pos, V.ang(T.dir), T.len, T.width);
@@ -1560,7 +1635,7 @@ class RangedDuelist extends Duelist {
       ctx.restore();
     }
     if (this.kit.draw) this.kit.draw(this, ctx);
-    if (!this.dead) { ctx.strokeStyle = M.color + '33'; ctx.lineWidth = 0.03; Draw.circle(ctx, this.pos.x, this.pos.y, this.aaRange()); ctx.stroke(); }
+    if (!this.dead && seen) { ctx.strokeStyle = M.color + '33'; ctx.lineWidth = 0.03; Draw.circle(ctx, this.pos.x, this.pos.y, this.aaRange()); ctx.stroke(); }
   }
 }
 
@@ -1623,6 +1698,9 @@ const KU = {
   fill(ctx, pos, r, col, alpha) { ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = col; Draw.circle(ctx, pos.x, pos.y, r); ctx.fill(); ctx.restore(); },
 };
 
+// 부쉬 체크용: 추정 지점 방향(약간의 오차)
+KU.aimAt = (ai, pt) => V.fromAng(V.ang(V.sub(pt, ai.pos)) + (Math.random() - 0.5) * 2 * ai.diff.aimErr);
+
 const Kits = {
   // ---------------- 카티야 (저격총) ----------------
   katja: {
@@ -1682,6 +1760,26 @@ const Kits = {
           if (phase === 'gap' && t >= K.gap) { phase = 'aim'; t = 0; if (fired >= K.shots) a.stop = true; }
         },
         onEnd: (a, cancelled) => { if (cancelled && fired === 0) ai.cds.D *= 0.5; } });   // 한 발도 못 쏘고 풀리면 쿨 50% 반환
+    },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.W <= 0 && d <= K.W.range) {   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초
+        const W = K.W, to = V.copy(est); ai.cds.W = ai.pick(W.cd, 'W');
+        ai.startCast(0.2, () => {
+          Sfx.play('throw'); FX.trail(ai.pos, to, '#9fd8ff', 0.12, d / W.speed + 0.2);
+          ai.pendingShots.push({ t: d / W.speed, fn: () => { Vision.reveals.push({ team: ai.team, pos: to, r: W.radius, t: W.dur }); FX.ring(to, 0.5, W.radius, '#9fd8ff', 0.5, 0.08); } });
+        }, { kind: 'line', dir: V.norm(V.sub(to, ai.pos)), len: d, width: 0.3, color: '#9fd8ff' });
+        FX.text(ai.pos, W.name, ai.motif.color, 12, { bold: true }); return true;
+      }
+      if (ai.cds.Q <= 0 && d <= K.Q.range - 0.5) {   // 조준 사격으로 부쉬 찌르기
+        const dir = KU.aimAt(ai, est); ai.cds.Q = ai.pick(K.Q.cd, 'Q');
+        ai.startCast(K.Q.windup, () => { Sfx.play('throw'); ai.psT = K.P.window;
+          ai.shoot({ dir, speed: K.Q.speed, range: K.Q.range, width: K.Q.width, len: 1.1, onHit: (u, pr) => {
+            const k = clamp(pr.traveled / K.Q.range, 0, 1); ai.hitP(u, lerp(ai.pick(K.Q.min, 'Q') + ai.ad * K.Q.minAd, ai.pick(K.Q.max, 'Q') + ai.ad * K.Q.maxAd, k) * ai.diff.dmgMul, { name: K.Q.name }); } });
+        }, { kind: 'line', dir, len: K.Q.range, width: K.Q.width });
+        return true;
+      }
+      return false;
     },
     // E 접근 금지: 전방 부채꼴 사격(둔화) 후 뒤로 4m 도약(벽 넘기 가능, 시전 후 CC 무시)
     escape(ai, p, dir) {
@@ -1773,6 +1871,23 @@ const Kits = {
           }, { kind: ai.stance === 'long' ? 'line' : 'cone', dir, len: S.range, width: W.long.width, angle: W.short.spread });
           return true;
         }
+      }
+      return false;
+    },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.D <= 0 && d < K.D.range) {
+        const pos = V.copy(est); ai.cds.D = ai.pick(K.D.cd, 'D');
+        ai.startCast(K.D.windup, () => { ai.zones.push({ type: 'arc', pos, t: 0, delay: K.D.delay }); Sfx.play('throw'); }, { kind: 'circle', pos, r: K.D.radius });
+        return true;
+      }
+      if (ai.cds.W <= 0 && d <= K.W.long.range - 0.5) {
+        if (ai.stance !== 'long') { ai.stance = 'long'; ai.cds.Q = K.Q.cd; }
+        const W = K.W, dir = KU.aimAt(ai, est); ai.cds.W = ai.pick(W.cd, 'W');
+        ai.startCast(0.2, () => { Sfx.play('throw');
+          ai.shoot({ dir, speed: W.long.speed, range: W.long.range, width: W.long.width, len: 1.4, onHit: u => { ai.hitP(u, (ai.pick(W.long.base, 'W') + ai.ad * W.long.ad) * ai.diff.dmgMul, { name: W.name, hanare: true }); u.addSlow(W.long.slow, W.long.slowDur); } });
+        }, { kind: 'line', dir, len: W.long.range, width: W.long.width });
+        return true;
       }
       return false;
     },
@@ -1873,6 +1988,18 @@ const Kits = {
       }
       return false;
     },
+    checkBush(ai, est) {
+      const W = ai.kitCfg.W, d = V.dist(ai.pos, est);
+      if (ai.cds.W > 0 || d > W.range + 0.5) return false;
+      const dir = KU.aimAt(ai, est), n = clamp(Math.round(W.shots + (ai.curAs() - 1) * 5), W.shots, W.maxShots); let fired = 0;
+      ai.cds.W = ai.pick(W.cd, 'W'); ai.noAA = W.dur; FX.text(ai.pos, W.name, ai.motif.color, 12, { bold: true });
+      ai.chans.push({ t: 0, dur: W.dur, onTick: (dt, c) => {   // 부쉬를 좌우로 훑으며 연사
+        while (fired < n && c.t >= (fired / n) * W.dur) { fired++; Sfx.play('aa');
+          const sweep = V.fromAng(V.ang(dir) + Math.sin(fired * 1.3) * 0.18);
+          ai.shoot({ dir: sweep, speed: W.speed, range: W.range, width: W.width, len: 0.45, onHit: u => ai.hitP(u, ai.calc(W, 'W'), { name: W.name }) }); }
+      } });
+      return true;
+    },
     fear(ai, p) {
       const R = ai.kitCfg.R; ai.cds.R = ai.pick(R.cd, 'R'); FX.text(ai.pos, R.name, ai.motif.color, 13, { bold: true });
       ai.startCast(R.delay, () => {
@@ -1969,6 +2096,23 @@ const Kits = {
       }
       return false;
     },
+    checkBush(ai, est) {
+      const K = ai.kitCfg, d = V.dist(ai.pos, est);
+      if (ai.cds.W <= 0 && ai.traps.length < K.W.sets * 2 && d < K.W.range + 4) {   // 캐시가 나올 길목(부쉬→나딘 방향)에 덫
+        const W = K.W, toMe = V.norm(V.sub(ai.pos, est)), mid = V.add(est, V.mul(toMe, Math.min(2.2, d * 0.5))), side = V.perp(toMe);
+        ai.traps.push({ a: Geo.pushOut(V.add(mid, V.mul(side, W.link / 2)), 0.2), b: Geo.pushOut(V.sub(mid, V.mul(side, W.link / 2)), 0.2), life: W.life });
+        ai.cds.W = ai.pick(W.cd, 'W'); Sfx.play('click'); FX.text(mid, W.name, ai.motif.color, 12, { bold: true }); return true;
+      }
+      if (ai.cds.Q <= 0 && d < K.Q.range[1] - 0.5 && !ai.chans.some(c => c.charge)) {
+        const Q = K.Q, need = clamp((d + 0.8 - Q.range[0]) / (Q.range[1] - Q.range[0]), 0, 1), dur = Math.max(0.6, need * Q.charge), to = V.copy(est);
+        ai.cds.Q = Q.cd; ai.noAA = dur; FX.text(ai.pos, Q.name, ai.motif.color, 12, { bold: true });
+        ai.chans.push({ t: 0, dur, charge: true, onTick: (dt, c) => ai.addMsBuff(-Q.chargeSlow * Math.min(1, c.t / Q.charge), 0.1, false, 'charge'),
+          onEnd: c => { const k = clamp(c.t / Q.charge, 0, 1), base = ai.pick(Q.min, 'Q') + ai.bonusAd * Q.minBad + ai.sp * Q.minSp, amt = (base * lerp(1, Q.maxMul, k) + ai.stacks) * ai.diff.dmgMul;
+            Sfx.play('throw'); ai.shoot({ dir: KU.aimAt(ai, to), speed: Q.speed, range: lerp(Q.range[0], Q.range[1], k), width: Q.width, len: 1.2 + k, onHit: u => ai.hitP(u, amt, { name: Q.name }) }); } });
+        return true;
+      }
+      return false;
+    },
     // 위급하면 와이어로 이탈 (없으면 와이어를 걸고 바로 이동)
     escape(ai, p, dir) {
       const E = ai.kitCfg.E;
@@ -1983,6 +2127,283 @@ const Kits = {
       if (ai.mark && !ai.mark.u.dead) { const u = ai.mark.u, k = clamp(ai.mark.t / ai.kitCfg.D.mark.time, 0, 1); ctx.save(); ctx.strokeStyle = ai.motif.color; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
       if (ai.wolfT > 0) KU.ring(ctx, ai.pos, ai.r + 0.3, '#d0d0d0', 0.5, true);
     },
+  },
+};
+
+// ============================== 근거리 암살자 키트: 다니엘 (단검) ==============================
+// 스킬 수치: CONFIG.rangedKits.daniel (나무위키) / 판단: CONFIG.meleeAI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의)
+//  stalk  : 정면 싸움 금지 — Q 사거리 근처(6m)에서 서성이며(부쉬 선호) 캐시의 E(수쳐)·Q가 빠지거나 체력이 깎이길 기다림
+//  engage : 망토(이속) → E 은신 돌진 → 그림자 평타(건너편 순간이동) → Q(중앙) + W 표식 → 단검(뒤로 순간이동) → 평타 → R 걸작
+//           궁 이후 도망치는 캐시를 쫓을 수 있게 E는 가능하면 아낌 · E 사거리가 모자라면 늑대를 그림자 평타로 경유
+//  retreat: 체력이 낮고 궁이 빠졌으면 빠졌다가 다시 서성이기
+Kits.daniel = {
+  init(ai) {
+    Object.assign(ai, { mode: 'stalk', modeT: 0, qShots: 0, shadowT: 0, cloakT: 0, lastHitT: 99, mark: null, shadow: null, aaTarget: null, engageHits: 0 });
+    Object.assign(ai.stats, { engages: 0, rUses: 0, wolfHops: 0, markPops: 0 });
+  },
+  K(ai) { return ai.kitCfg; },
+  aaRange(ai) { return ai.shadowT > 0 ? ai.kitCfg.E.aaRange : ai.motif.aaRange; },
+  setMode(ai, m) { if (ai.mode !== m) { ai.mode = m; ai.modeT = 0; if (m === 'engage') ai.stats.engages++; } },
+
+  // ---------- 매 스텝 ----------
+  update(ai, dt) {
+    const K = ai.kitCfg, p = Game.player;
+    ai.modeT += dt; ai.lastHitT += dt;
+    if (ai.shadowT > 0) { ai.shadowT -= dt; if (ai.shadowT <= 0) ai.stealthT = 0; }
+    if (ai.cloakT > 0) { ai.cloakT -= dt; if (ai.cloakT <= 0) ai.cds.D = ai.pick(K.D.cd, 'D'); }   // 단검(2차) 안 쓰면 쿨 시작
+    if (ai.qShots > 0 && !ai.asBuffs.some(a => a.tag === 'danQ')) ai.qShots = 0;
+    if (ai.mark) {
+      const M = ai.mark; M.t += dt;
+      if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
+      else if (M.target === p) p.revealT = Math.max(p.revealT, 0.05);   // 표식 대상 주변 시야 (부쉬 속도 보임)
+    }
+    for (const o of ai.objs) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; this.qLand(ai, o); } }
+    ai.objs = ai.objs.filter(o => o.t < o.dur + 0.25);
+    if (ai.mode === 'engage' && ai.thinkT > ai.diff.react * 0.5) ai.thinkT = ai.diff.react * 0.5;   // 콤보 중에는 판단을 빠르게
+  },
+  // R 걸작: 그림자 속(대상에 붙어 대상 지정 불가) — 일반 행동을 대신함
+  preempt(ai, dt) {
+    const S = ai.shadow; if (!S) return false;
+    const K = ai.kitCfg.R, u = S.target; S.t += dt;
+    if (!u.dead) ai.pos = V.copy(u.pos);
+    ai.untargetable = ai.invuln = 0.1; ai.stealthT = 0.05; ai.vel = { x: 0, y: 0 };
+    const every = K.dur / K.ticks;
+    while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) ai.hitP(u, ai.calc(K.tick, 'R'), { name: K.name, noShake: true }); }
+    if (S.t >= K.dur || u.dead) this.exitShadow(ai);
+    return true;
+  },
+  exitShadow(ai) {
+    const S = ai.shadow, K = ai.kitCfg.R, u = S.target; ai.shadow = null;
+    if (!u.dead) { ai.hitP(u, ai.calc(K.last, 'R'), { name: K.name + ' (마무리)' }); FX.xslash(u.pos, ai.motif.color, 3); Sfx.play('ult'); }
+    // 빠져나오는 방향: 계속 싸울 거면 캐시 등 뒤(벽 반대), 도망칠 거면 반대쪽
+    const away = ai.hp / ai.maxHp < CONFIG.meleeAI.lowHp && u.hp / u.maxHp > 0.35;
+    let best = null, bs = -Infinity;
+    for (let i = 0; i < 12; i++) {
+      const dir = V.fromAng(i * Math.PI / 6), q = V.add(u.pos, V.mul(dir, K.exit));
+      const sc = wallClearance(q) * 1.2 + (away ? V.dist(q, u.pos) : -Math.abs(angDiff(i * Math.PI / 6, (u.facing ?? 0) + Math.PI))) + Math.random() * 0.2;
+      if (sc > bs) { bs = sc; best = dir; }
+    }
+    ai.untargetable = ai.invuln = K.exitTime; ai.stealthT = 0;
+    ai.dashTo(best, K.exit, K.exitTime, false);
+    if (away) this.setMode(ai, 'retreat');
+  },
+
+  // ---------- 피해 훅: 영감 축적·폭발, 최근 피해(궁 조건) ----------
+  dealt(ai, u, dmg, o) {
+    if (u !== Game.player) return;
+    ai.lastHitT = 0; u.blindT = 0;   // 다니엘에게 맞으면 시야 감소 해제
+    const M = ai.mark, W = ai.kitCfg.W; if (!M || M.target !== u || (o && o.markPop)) return;
+    if (M.t >= W.ready) {   // 영감의 대상 공격 → 폭발
+      ai.mark = null; ai.stats.markPops++;
+      const acc = M.acc; Combat.damage(ai, u, acc, { type: 'true', source: '적 영감 (축적)' });
+      ai.hitP(u, ai.calc(W, 'W'), { name: W.name + ' 폭발', markPop: true }); u.addSlow(W.slow, W.slowDur);
+      FX.burst(u.pos, '#d9a8ff', 24, 7, 0.6); FX.ring(u.pos, 0.3, 1.8, '#d9a8ff', 0.4); FX.text(u.pos, '영감 폭발 ' + Math.round(acc), '#d9a8ff', 14, { bold: true });
+    } else M.acc += dmg * (ai.pick(W.acc, 'W') + ai.bonusAd * W.accBad) / 100;
+  },
+  onHit(ai, u, o, dmg) { this.dealt(ai, u, dmg || 0, o); },
+  onAAHit(ai, u, dmg) {
+    this.dealt(ai, u, dmg || 0);
+    if (ai.qShots > 0 && --ai.qShots <= 0) ai.asBuffs = ai.asBuffs.filter(a => a.tag !== 'danQ');
+  },
+
+  // ---------- 평타: 근접 즉시 판정 / 그림자 돌진 중이면 대상 건너편으로 순간이동 ----------
+  fireAA(ai, p) {
+    const t = ai.aaTarget && !ai.aaTarget.dead ? ai.aaTarget : p; ai.aaTarget = null;
+    const K = ai.kitCfg.E, d = V.dist(ai.pos, t.pos) - t.r - ai.r;
+    if (ai.shadowT > 0 && d <= K.aaRange + 0.3) {
+      const dir = V.norm(V.sub(t.pos, ai.pos)), from = V.copy(ai.pos);
+      ai.pos = Geo.pushOut(V.add(t.pos, V.mul(dir, t.r + ai.r + 0.15)), ai.r);
+      FX.burst(from, '#4b3a66', 14, 2.5, 0.6, 0.14); FX.trail(from, ai.pos, '#7d5cb8', 0.25, 0.25);
+      ai.shadowT = 0; ai.stealthT = 0;
+      if (t === p) { ai.aaLand(t); ai.hitP(t, ai.calc(K, 'E'), { name: K.name }); }
+      else { Combat.damage(ai, t, ai.ad, { type: 'normal', source: '적 평타' }); ai.stats.wolfHops++; FX.text(ai.pos, '그림자 경유', ai.motif.color, 11); }
+      return true;
+    }
+    if (d <= ai.motif.aaRange + 0.35) { ai.aaLand(t); FX.slash(ai.pos, V.ang(V.sub(t.pos, ai.pos)), 1.3, 0.6, ai.motif.color, 0.15); }
+    return true;
+  },
+  kite(ai, p) {   // 근접: 쏘고 빠지기 대신 계속 붙어 있음 (도망 모드 제외)
+    if (ai.mode === 'retreat') { ai.moveTarget = ai.pickSpot(p, 9, 2.2); return; }
+    ai.moveTarget = Geo.pushOut(ai.predict(p, 0.15), ai.r);
+  },
+
+  // ---------- 스킬 ----------
+  castQ(ai, pt) {
+    const K = ai.kitCfg.Q, dir = V.norm(V.sub(pt, ai.pos)), dist = Math.min(K.range, V.dist(ai.pos, pt));
+    const pos = V.add(ai.pos, V.mul(dir, dist));
+    ai.cds.Q = ai.pick(K.cd, 'Q'); ai.stealthT = 0;   // 다른 스킬을 쓰면 은신 해제
+    ai.objs.push({ kind: 'scissor', pos, dir, t: 0, dur: K.windup });   // 무빙 캐스팅: 시전 중에도 계속 이동
+    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+    FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true }); Sfx.play('throw');
+  },
+  qLand(ai, o) {
+    const K = ai.kitCfg.Q, apex = V.sub(o.pos, V.mul(o.dir, K.front)); let hit = false;
+    for (const u of Game.units) {
+      if (u.dead || u.team === ai.team || u.untargetable > 0) continue;
+      if (!Geo.inSector(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
+      const center = V.dist(u.pos, o.pos) <= K.centerR + u.r;
+      if (u === Game.player) { ai.hitP(u, ai.calc(center ? K.center : K, 'Q'), { name: K.name + (center ? ' (중앙)' : '') }); hit = true; }
+      else Combat.damage(ai, u, ai.calc(K, 'Q'), { type: 'skill', source: '적 ' + K.name });
+      if (center) u.addSlow(K.slow, K.slowDur);
+    }
+    FX.slash(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, '#9d6bff', 0.3);
+    if (hit) { ai.addAs(ai.pick(K.asBuff, 'Q'), K.asDur, 'danQ'); ai.qShots = K.asShots; }
+  },
+  castW(ai, u) {
+    const K = ai.kitCfg.W; ai.cds.W = K.cd; ai.stealthT = 0;
+    ai.mark = { target: u, t: 0, acc: 0 }; u.blindT = K.blind; u.blindR = K.blindR;
+    FX.text(u.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(u.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw');
+    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+  },
+  castE(ai, dir, dist) {
+    const K = ai.kitCfg.E; ai.cds.E = ai.pick(K.cd, 'E');
+    FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16);   // 은신 연기(상대는 이 연기로 진입을 눈치챔)
+    ai.dashTo(dir, Math.min(K.dist, dist ?? K.dist), K.time, false);
+    ai.stealthT = ai.pick(K.stealth, 'E'); ai.shadowT = K.shadowDur; ai.revealT = 0;
+    FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true });
+  },
+  cloak(ai) {   // 망토와 단검 1차: 1초 이속
+    const K = ai.kitCfg.D; ai.cloakT = K.recast; ai.addMsBuff(ai.pick(K.ms, 'D'), K.msDur, false, 'danD');
+    FX.text(ai.pos, '망토', ai.motif.color, 12, { bold: true }); FX.burst(ai.pos, '#6e5a99', 8, 3, 0.4);
+  },
+  dagger(ai, u) {   // 2차: 대상 뒤로 순간이동 + 피해·둔화
+    const K = ai.kitCfg.D, dir = V.norm(V.sub(u.pos, ai.pos)), from = V.copy(ai.pos);
+    ai.cloakT = 0; ai.cds.D = ai.pick(K.cd, 'D'); ai.stealthT = 0; ai.shadowT = 0;
+    ai.pos = Geo.pushOut(V.add(u.pos, V.mul(dir, u.r + ai.r + K.behind * 0.3)), ai.r);
+    FX.trail(from, ai.pos, '#b07cff', 0.2, 0.25);
+    ai.hitP(u, ai.calc(K, 'D') + u.hp * K.curHp * ai.diff.dmgMul, { name: '단검' }); u.addSlow(ai.pick(K.slow, 'D'), K.slowDur);
+  },
+  canR(ai, p, d) { const K = ai.kitCfg.R; return ai.cds.R <= 0 && ai.lastHitT <= K.recent && d - p.r - ai.r <= K.range && !p.dead; },
+  castR(ai, p) {
+    const K = ai.kitCfg.R; ai.cds.R = ai.pick(K.cd, 'R'); ai.act = null; ai.moveTarget = null; ai.shadowT = 0;
+    ai.shadow = { target: p, t: 0, n: 0 }; p.silence = Math.max(p.silence, K.silence); ai.stats.rUses++;
+    if (p.cast && p.cast.phase === 'windup' && p.cancelCast) p.cancelCast(false);   // 침묵: 시전 중이던 스킬 취소
+    FX.text(p.pos, K.name + ' — 침묵', ai.motif.color, 15, { bold: true }); FX.ring(p.pos, 1.5, 0.3, '#2a1840', 0.4); Sfx.play('ult');
+  },
+
+  // ---------- 판단 ----------
+  burst(ai, p) {   // 지금 들어가면 넣을 수 있는 대략적인 피해(방어력 반영)
+    const K = ai.kitCfg, mit = 100 / (100 + p.def * (1 - ai.pen)), aa = ai.ad * (1 + ai.critChance * 0.75) * (1 + ai.aaAmp) * ai.diff.dmgMul;
+    let s = aa * 3;
+    if (ai.cds.Q <= 1) s += ai.calc(K.Q.center, 'Q') + aa * 2;
+    if (ai.cds.E <= 0) s += ai.calc(K.E, 'E');
+    if (ai.cds.D <= 0 || ai.cloakT > 0) s += ai.calc(K.D, 'D') + p.hp * K.D.curHp;
+    if (ai.cds.R <= 0) s += ai.calc(K.R.tick, 'R') * K.R.ticks + ai.calc(K.R.last, 'R');
+    return s * mit;
+  },
+  think(ai, p, d) {
+    const K = ai.kitCfg, MA = CONFIG.meleeAI, dk = ai.diffKey, gap = d - p.r - ai.r;
+    const myHp = ai.hp / ai.maxHp, herHp = p.hp / p.maxHp;
+    const herE = p.skills.E.lv > 0 && p.skills.E.cd <= 0.8, herQ = p.skills.Q.lv > 0 && p.skills.Q.cd <= 0.8;
+    // --- 모드 전환 ---
+    if (ai.mode !== 'retreat' && myHp < MA.lowHp && ai.cds.R > 0 && herHp > myHp + 0.1 && dk !== 'easy') this.setMode(ai, 'retreat');
+    if (ai.mode === 'retreat' && (myHp > MA.engageHp || (ai.modeT > 4 && gap > 8))) this.setMode(ai, 'stalk');
+    if (ai.mode === 'stalk') {
+      const killable = this.burst(ai, p) >= p.hp * (dk === 'hard' ? 0.85 : 1.0);
+      const opening = !herE || (!herQ && dk !== 'easy') || herHp < 0.4;   // 캐시의 수쳐(E)·돌진(Q)이 빠진 순간 = 진입각
+      const tools = ai.cds.E <= 0 || ai.cds.D <= 0;
+      const forced = gap < 2.0;                                               // 캐시가 먼저 붙으면 맞받아침
+      if (forced || (tools && (killable || (opening && (ai.cds.R <= 0 || herHp < 0.5)))) || (dk === 'easy' && ai.modeT > 6)) this.setMode(ai, 'engage');
+    }
+    if (ai.mode === 'engage' && ai.modeT > 3 && gap > 6 && ai.cds.E > 0 && ai.cds.D > 0 && ai.cloakT <= 0) this.setMode(ai, 'stalk');   // 놓쳤으면 다시 서성이기
+    if (!ai.canAct()) return false;
+
+    // --- 공통: 걸작 회피(캐시 E·R 선딜을 대상 지정 불가로 피함) ---
+    // 걸작은 사실상 2초 무적 → 캐시가 스킬(특히 E·R, 진입 중엔 Q·W도)을 시전하는 순간 들어가서 피함
+    if (p.cast && p.cast.phase === 'windup' && this.canR(ai, p, d) && dk !== 'easy' &&
+        (['E', 'R'].includes(p.cast.k) || (ai.mode === 'engage' && ['Q', 'W'].includes(p.cast.k) && Math.random() < (dk === 'hard' ? 0.8 : 0.5)))) { this.castR(ai, p); return true; }
+
+    if (ai.mode === 'engage') return this.combo(ai, p, d, gap);
+    if (ai.mode === 'stalk') {
+      // Q 견제: 캐시 E가 빠졌을 때만(맞받아치기 어려움), 사거리 7m + 가위 앞부분 1.75m
+      // (진입 도구가 다 있으면 Q는 콤보용으로 아낌)
+      if (ai.cds.Q <= 0 && (ai.cds.R > 8 || ai.cds.E > 3) && d <= K.Q.range + K.Q.front * 0.6 && d > 4 && (!herE || Math.random() < 0.25) && Math.random() < (dk === 'easy' ? 0.3 : 0.7)) { this.castQ(ai, ai.predict(p, K.Q.windup)); return true; }
+      // 어려움: 난전용 W 선표식 — 4초 뒤 진입해서 터뜨림
+      if (dk === 'hard' && ai.cds.W <= 0 && d <= K.W.range && !herE && ai.cds.R <= 0) { this.castW(ai, p); this.setMode(ai, 'engage'); return true; }
+    }
+    return false;
+  },
+  combo(ai, p, d, gap) {
+    const K = ai.kitCfg;
+    // 마무리/표식 폭발/위기 → 걸작
+    if (this.canR(ai, p, d)) {
+      const R = K.R, rDmg = (ai.calc(R.tick, 'R') * R.ticks + ai.calc(R.last, 'R')) * 100 / (100 + p.def);
+      const markReady = ai.mark && ai.mark.t >= K.W.ready - 0.3;
+      if (markReady || p.hp <= rDmg * 1.15 || ai.hp / ai.maxHp < 0.45 || ai.modeT > (ai.diffKey === 'hard' ? 2.2 : 2.8)) { this.castR(ai, p); return true; }
+    }
+    // 단검(2차): 망토 후 3초 안, 붙어 있을 때
+    if (ai.cloakT > 0 && gap <= K.D.range && ai.lastHitT < 3) { this.dagger(ai, p); return true; }
+    // 첫 타가 들어간 뒤: Q(중앙) + W 표식
+    if (ai.lastHitT < 1.5 && gap <= 2.2) {
+      if (ai.cds.Q <= 0) { this.castQ(ai, p.pos); return true; }
+      if (ai.cds.W <= 0 && !ai.mark) { this.castW(ai, p); return true; }
+      if (ai.cds.D <= 0 && ai.cloakT <= 0) { this.cloak(ai); return true; }   // 망토 → 다음 판단에 단검
+    }
+    // 진입: 망토(이속) → E 은신 돌진 → 그림자 평타
+    if (gap > K.E.aaRange - 0.2 && ai.shadowT <= 0) {
+      if (ai.cds.D <= 0 && ai.cloakT <= 0 && gap > 4) { this.cloak(ai); return true; }
+      // E: 3m 돌진 + 그림자 평타 3m → 6m 안이면 닿음. 궁 이후 추격용으로 아끼라는 조언 → 이미 붙어 있으면 안 씀
+      if (ai.cds.E <= 0 && gap <= K.E.dist + K.E.aaRange) { this.castE(ai, V.norm(V.sub(p.pos, ai.pos)), Math.max(0.5, gap - 1.5)); return true; }
+      // 사거리가 모자라면 늑대를 그림자 평타로 경유(강의 팁)
+      if (ai.cds.E <= 0 && gap <= K.E.dist + K.E.aaRange * 2 + 1) {
+        const wolf = Game.units.find(u => u.kind === 'animal' && !u.dead && V.dist(u.pos, ai.pos) <= K.E.dist + K.E.aaRange && V.dist(u.pos, p.pos) < d - 1);
+        if (wolf) { this.castE(ai, V.norm(V.sub(wolf.pos, ai.pos)), Math.max(0.5, V.dist(ai.pos, wolf.pos) - 1.5)); ai.hopWolf = wolf; return true; }
+      }
+    }
+    return false;
+  },
+  // 이동: 서성이기(부쉬 선호, 캐시 E 사거리 밖) / 추격 / 후퇴
+  move(ai, p, d) {
+    const MA = CONFIG.meleeAI;
+    if (ai.hopWolf && ai.shadowT > 0 && !ai.hopWolf.dead) {   // 늑대 경유 중: 늑대에게 그림자 평타
+      const w = ai.hopWolf; if (V.dist(ai.pos, w.pos) - w.r - ai.r <= ai.kitCfg.E.aaRange && ai.aaCd <= 0) { ai.aaTarget = w; ai.act = { type: 'aa', t: 0, dur: 0.05 }; ai.hopWolf = null; return; }
+      ai.moveTarget = V.copy(w.pos); return;
+    }
+    ai.hopWolf = null;
+    if (ai.mode === 'engage') { ai.moveTarget = Geo.pushOut(ai.predict(p, 0.25), ai.r); return; }
+    if (ai.mode === 'retreat') { ai.moveTarget = ai.pickSpot(p, 10, 2.4); return; }
+    // stalk: 캐시와 6m 근처를 유지하며 좌우로 서성임, 근처 부쉬가 있으면 숨어서 기다림
+    const gap = d - p.r - ai.r, safe = CONFIG.rangedAI.eThreatRange;
+    if (gap < MA.stalk - MA.stalkBand) { ai.moveTarget = ai.pickSpot(p, MA.stalk + 0.5, 1.8); return; }   // 너무 가까우면 먼저 빠짐(수쳐 사거리 밖)
+    let best = null, bs = -Infinity;
+    (CONFIG.bushes || []).forEach(b => {
+      const c = { x: b.x + b.w / 2, y: b.y + b.h / 2 }, dc = V.dist(c, p.pos);
+      if (Geo.segDist(p.pos, ai.pos, c) < safe) return;   // 가는 길이 캐시 수쳐 사거리를 지나가면 제외
+      const sc = -Math.abs(dc - MA.stalk) * 1.2 - V.dist(c, ai.pos) * 0.3;
+      if (dc > safe && dc < MA.stalk + 4 && sc > bs) { bs = sc; best = c; }
+    });
+    if (best && bs > -MA.bushPrefer * 2 && V.dist(best, ai.pos) > 0.6) { ai.moveTarget = Geo.pushOut(V.add(best, { x: (Math.random() - 0.5) * 0.6, y: (Math.random() - 0.5) * 0.6 }), ai.r); return; }
+    if (best && V.dist(best, ai.pos) <= 0.6) { ai.moveTarget = null; return; }   // 부쉬에서 대기
+    ai.moveTarget = ai.pickSpot(p, MA.stalk, 1.4);
+  },
+  dodge(ai) {   // 투사체·수쳐 회피: 붙어 있고 궁이 되면 걸작으로 피함, 아니면 걸어서
+    const p = Game.player, d = V.dist(ai.pos, p.pos);
+    if (ai.diffKey !== 'easy' && this.canR(ai, p, d) && ai.mode === 'engage') { this.castR(ai, p); return true; }
+    return false;
+  },
+  // 안 보일 때: 공통 추적(추정 위치에서 7m 유지 — 부쉬 속 캐시의 수쳐·Q 사거리 밖)을 쓰고, 그림자 가위로 부쉬를 찌름
+  checkBush(ai, est) {
+    const K = ai.kitCfg.Q;
+    if (ai.cds.Q <= 0 && V.dist(ai.pos, est) <= K.range + K.front * 0.5) { this.castQ(ai, est); return true; }
+    return false;
+  },
+  // ---------- 그리기 ----------
+  draw(ai, ctx) {
+    const K = ai.kitCfg.Q;
+    for (const o of ai.objs) {   // 그림자 가위 예고: 지정 위치 부채꼴 + 중앙
+      if (o.kind !== 'scissor' || o.done) continue;
+      const apex = V.sub(o.pos, V.mul(o.dir, K.front)), an = V.ang(o.dir), h = K.angle / 2 * Math.PI / 180, k = clamp(o.t / o.dur, 0, 1);
+      ctx.save(); ctx.globalAlpha = 0.12 + 0.3 * k; ctx.fillStyle = '#9d6bff';
+      ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.5; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
+    }
+    const p = Game.player;
+    if (ai.mark && !ai.mark.target.dead) {   // 영감 표식: 4초 뒤 활성(밝아짐)
+      const M = ai.mark, ready = M.t >= ai.kitCfg.W.ready, u = M.target;
+      KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.9 : 0.5, !ready);
+      if (!ready) { ctx.save(); ctx.globalAlpha = 0.8; ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / ai.kitCfg.W.ready); ctx.stroke(); ctx.restore(); }
+    }
+    if (ai.shadow) { KU.fill(ctx, p.pos, p.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, p.pos, p.r + 0.3 + 0.1 * Math.sin(Game.time * 20), '#b07cff', 0.9); }   // 걸작: 캐시 그림자 속
   },
 };
 
@@ -2299,6 +2720,12 @@ Modes.duel = {
   side() {
     const e = this.enemy; if (!e) return '';
     const M = this.motif;
+    if (e.melee) {   // 근거리 암살자(다니엘): 상태·표식 + 대응 팁
+      const st = { stalk: '서성이며 각 재는 중', engage: '진입!', retreat: '후퇴' }[e.mode] + (e.stealthT > 0 ? ' · 은신' : '') + (e.shadow ? ' · 걸작(대상 지정 불가)' : '');
+      const mk = e.mark ? kv('영감 표식', e.mark.t >= e.kitCfg.W.ready ? `<b style="color:#ffd1ff">활성 — 공격받으면 폭발 ${Math.round(e.mark.acc)}</b>` : `${fmt(e.kitCfg.W.ready - e.mark.t, 1)}s 후 활성 (축적 ${Math.round(e.mark.acc)})`) : '';
+      return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 공속', `${e.ad} / ${fmt(e.curAs(), 2)}`)}${kv('치명 / 평타 증폭 / 방관', `${Math.round(e.critChance * 100)}% / ${Math.round(e.aaAmp * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('상태', st)}${mk}${['Q', 'W', 'E', 'R', 'D'].map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : (k === 'D' && e.cloakT > 0 ? '단검 재사용 가능' : '준비'))).join('')}
+      <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">다니엘은 정면으로 싸우지 않습니다. 6m 근처(부쉬 선호)에서 서성이다가 <b>캐시의 E(수쳐)·Q가 빠지거나 체력이 깎이면</b> 망토 → E 은신 돌진 → 건너편 순간이동 평타 → 가위(Q)+영감(W) → 단검 → R 걸작으로 들어옵니다. 은신 연기를 보면 바로 대비하고 <b>E 수쳐는 진입 순간을 위해 아껴 두세요</b>. 걸작(R) 중엔 대상 지정 불가 + 0.5초 침묵 — 빠져나오는 위치를 노리세요. 보라색 링(영감)이 밝아지면 맞는 순간 축적 피해가 터집니다.</div>`;
+    }
     return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 스킬 증폭', `${e.ad} / ${e.sp}`)}${kv('공속 / 치명 / 방관', `${e.as} / ${Math.round(e.critChance * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('평타 사거리', fmt(e.aaRange(), 2) + 'm' + (e.stance ? (e.stance === 'short' ? ' (단궁)' : ' (화궁)') : ''))}${['Q', 'W', 'E', 'R', 'D'].filter(k => e.kitCfg[k]).map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : '준비')).join('')}
       <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.</div>`;
   },
@@ -2365,14 +2792,14 @@ const Game = {
     this.mode = Modes[id]; Input.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
-    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b));
+    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = [];
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
   step(dt) {
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
-    this.time += dt; Stats.tick(dt);
+    this.time += dt; Stats.tick(dt); Vision.update(dt);
     for (const u of this.units.slice()) u.update(dt);
     for (const pr of this.projectiles) pr.update(dt);
     this.projectiles = this.projectiles.filter(p => !p.dead);
@@ -2402,9 +2829,9 @@ const Game = {
   togglePause() {
     if (this.state !== 'play') return;
     this.paused = !this.paused;
-    if (this.paused) UI.showPause(); else UI.hide();
+    if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead); },
+  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0)); },   // 대상 지정 불가(다니엘 걸작) 제외
   visibleEnemies() { return this.enemies().filter(e => Vision.visible(this.player, e)); },
   nearestEnemy(pos, range) { let best = null, bd = range; for (const e of this.visibleEnemies()) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
   pickEnemyAt(pt, rad) { let best = null, bd = Infinity; for (const e of this.visibleEnemies()) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
@@ -2453,19 +2880,49 @@ const Records = {
 // ============================== 입력 ==============================
 const Input = {
   screen: { x: 0, y: 0 }, world: { x: 16, y: 9 }, aiming: null, amove: false,
-  reset() { this.aiming = null; this.amove = false; },
+  rDown: false, rLast: 0, locked: false, lockLostT: 0,
+  reset() { this.aiming = null; this.amove = false; this.rDown = false; },
+  // 우클릭 이동/공격 (누르고 있으면 계속 커서를 따라감 — 실제 게임처럼)
+  rightCmd(hold) {
+    const p = Game.player, w = this.world; if (!p) return;
+    const t = Game.pickEnemyAt(w, 0.35);
+    if (t) { if (p.attackTarget !== t) p.cmdAttack(t); } else if (!hold || !p.attackTarget) p.cmdMove(w);
+  },
+  tick() {   // 매 프레임: 우클릭 유지 이동
+    if (!this.rDown || Game.state !== 'play' || Game.paused || !Game.player) return;
+    const now = performance.now(); if (now - this.rLast < 90) return;
+    this.rLast = now; this.rightCmd(true);
+  },
+  setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
+  // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
+  wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
+  lock(cv) { if (this.wantLock() && !this.locked && cv.requestPointerLock) { try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 미지원 */ } } },
+  unlock() { if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); },
   init(cv) {
-    cv.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('contextmenu', e => { if (Game.state === 'play') e.preventDefault(); });
-    cv.addEventListener('mousemove', e => { this.screen = { x: e.clientX, y: e.clientY }; this.world = Render.toWorld(e.clientX, e.clientY); });
+    const block = e => { e.preventDefault(); e.stopPropagation(); };
+    cv.addEventListener('contextmenu', block);
+    window.addEventListener('contextmenu', e => { if (Game.state === 'play') block(e); });
+    document.addEventListener('pointerlockchange', () => {
+      this.locked = document.pointerLockElement === cv;
+      if (!this.locked) { this.rDown = false; if (Game.state === 'play' && !Game.paused && Settings.pointerLock) { this.lockLostT = performance.now(); Game.togglePause(); } }   // Esc로 잠금이 풀리면 일시정지
+    });
+    cv.addEventListener('mousemove', e => {
+      if (e.buttons & 2) block(e);   // 우클릭 드래그를 페이지가 소비 (제스처 확장 프로그램 대응)
+      if (this.locked) this.setPos(clamp(this.screen.x + e.movementX, 0, window.innerWidth - 1), clamp(this.screen.y + e.movementY, 0, window.innerHeight - 1));
+      else this.setPos(e.clientX, e.clientY);
+    });
+    window.addEventListener('mouseup', e => { if (e.button === 2) { this.rDown = false; if (Game.state === 'play') block(e); } });
     cv.addEventListener('mousedown', e => {
-      Sfx.init(); this.screen = { x: e.clientX, y: e.clientY }; this.world = Render.toWorld(e.clientX, e.clientY);
+      Sfx.init(); if (!this.locked) this.setPos(e.clientX, e.clientY);
+      if (e.button === 2) block(e);
       if (Game.state !== 'play' || Game.paused || !Game.player) return;
-      const p = Game.player, w = this.world;
+      this.lock(cv);
+      const p = Game.player;
       if (e.button === 2) {
-        this.aiming = null; this.amove = false;
-        const t = Game.pickEnemyAt(w, 0.35); if (t) p.cmdAttack(t); else p.cmdMove(w);
+        this.aiming = null; this.amove = false; this.rDown = true; this.rLast = performance.now();
+        this.rightCmd(false);
       } else if (e.button === 0) {
+        const w = this.world;
         if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; }
         else if (this.amove) { p.cmdAttackMove(w); this.amove = false; }
       }
@@ -2484,6 +2941,7 @@ const Input = {
     if (e.key === 'Tab') { e.preventDefault(); Settings.side = !Settings.side; saveSettings(); Side.update(); return; }
     if (e.key === 'Escape') {
       if (Game.state !== 'play') return;
+      if (performance.now() - Input.lockLostT < 400) return;   // 마우스 잠금 해제용 Esc는 이미 일시정지로 처리됨
       if (!Game.paused && this.aiming) { this.aiming = null; return; }
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
@@ -2539,6 +2997,7 @@ const Render = {
   toWorld(sx, sy) { const L = this.L; return { x: (sx - L.ox) / L.ppm, y: (sy - L.oy) / L.ppm }; },
   toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + this.shx, y: L.oy + p.y * L.ppm + this.shy }; },
   frame() {
+    Input.tick();
     const { ctx, L } = this, T = CONFIG.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const sh = Settings.reduceShake ? 0 : FX.shake; this.shx = (Math.random() - 0.5) * sh; this.shy = (Math.random() - 0.5) * sh;
@@ -2552,6 +3011,9 @@ const Render = {
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);
+    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
+      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
+    }
     if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
   },
   drawWorld(ctx, T) {
@@ -3004,9 +3466,9 @@ const UI = {
       const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
       const mb = ms.map(([k, l, c]) => `<button class="btn ${(this.duelMotif || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
       const cur = CONFIG.rangedMotifs[this.duelMotif];
-      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 <b>원거리 딜러 모티브</b> AI입니다(실제 스킬을 단순화한 버전). 유튜브 원딜 강의를 반영해 <b>쏘고 움직이기 · 좌우 무빙(E 예고선 회피) · 앞뒤 무빙(쏠 때만 들어오고 E 사거리 밖으로) · 벽 근처 회피 · 위험 스킬이 남아 있으면 이동기 아끼기</b>로 싸웁니다. 평타 사거리·공속은 나무위키 무기 수치(권총 4.85m / 석궁 5.2m / 활 5.5m / 저격총 6m) 기준.<br>쉬움: 반응 느림 · 보통: 예측샷·회피 · 어려움: 수쳐를 자주 피하고 캐시의 진입에 즉시 반응합니다.</div>
+      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 <b>원거리 딜러 4명 + 근거리 암살자 다니엘</b> 모티브 AI입니다(실제 스킬을 단순화한 버전). 다니엘은 다니엘 랭킹 1위 강의를 반영해 <b>정면 싸움 대신 서성이다가 캐시의 E·Q가 빠진 순간 은신 진입</b>합니다. 유튜브 원딜 강의를 반영해 <b>쏘고 움직이기 · 좌우 무빙(E 예고선 회피) · 앞뒤 무빙(쏠 때만 들어오고 E 사거리 밖으로) · 벽 근처 회피 · 위험 스킬이 남아 있으면 이동기 아끼기</b>로 싸웁니다. 평타 사거리·공속은 나무위키 무기 수치(권총 4.85m / 석궁 5.2m / 활 5.5m / 저격총 6m) 기준.<br>쉬움: 반응 느림 · 보통: 예측샷·회피 · 어려움: 수쳐를 자주 피하고 캐시의 진입에 즉시 반응합니다.</div>
         <div class="row"><label>상대</label>${mb}</div>
-        <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 4명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
+        <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대) — 2인 수쳐 응용 · 투사체 몸막이</label></div>
@@ -3058,6 +3520,9 @@ const UI = {
       <div class="row"><label>기본</label>${Object.entries(CAST_MODES).map(([k, l]) => `<button class="btn ${Settings.castMode === k ? 'sel' : ''}" data-a="cast" data-v="${k}">${l}</button>`).join('')}</div>
       <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '')}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
       <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동. 단검 1차(유틸)는 항상 즉시 발동.</div>
+      <h3>마우스</h3>
+      ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
+      <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
       <h3>표시 / 기타</h3>
       ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
@@ -3069,6 +3534,7 @@ const UI = {
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
+      'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
       'in:volume': el => { Settings.volume = +el.value; saveSettings(); },
       'in:gameSpeed': el => { Settings.gameSpeed = +el.value; saveSettings(); document.getElementById('spdv').textContent = 'x' + fmt(Settings.gameSpeed, 1); },

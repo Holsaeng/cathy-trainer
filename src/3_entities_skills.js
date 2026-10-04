@@ -14,7 +14,7 @@ class Unit {
     this.hp = this.maxHp; this.dead = false; this.deathT = 0;
     this.moveTarget = null; this.vel = { x: 0, y: 0 }; this.root = 0; this.stun = 0; this.slows = []; this.msBuffs = [];
     this.unstoppable = 0; this.forced = null; this.shield = 0; this.shieldT = 0; this.trauma = 0; this.traumaT = 0;
-    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null;
+    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
   }
   revive() { this.resetState(); this.pos = V.copy(this.spawn); FX.ring(this.pos, 0.2, 1.2, '#8a93a6', 0.4); }
   msMul() {
@@ -44,7 +44,7 @@ class Unit {
   }
   tickStatus(dt) {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
-    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear'].forEach(dec);
+    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -100,7 +100,7 @@ class Cathy extends Unit {
   }
   aaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.as) : this.aaCfg().windupRatio / this.as; }
-  validTarget(t) { return t && !t.dead && Game.units.includes(t); }
+  validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === 0 || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
@@ -159,6 +159,7 @@ class Cathy extends Unit {
     if (!s || s.lv <= 0) { FX.toast(`${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
     if (!this.canAct()) return false;
     if (k === 'F') { if (s.cd > 0) { this.cdError(k); return false; } this.interruptForCast(); this.blink(aim); return true; }
+    if (this.silence > 0) { FX.toast('침묵 — 스킬 사용 불가', '#b07cff'); Sfx.play('error'); return false; }
     if (k === 'D') return this.tryWeapon(aim);
     if (s.cd > 0) { this.cdError(k); return false; }
     if ((k === 'Q' || k === 'R') && this.root > 0) { FX.toast('속박 중에는 돌진할 수 없습니다'); return false; }
@@ -212,7 +213,7 @@ class Cathy extends Unit {
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
     c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k);
+    Stats.cast(c.k); this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) Stats.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
@@ -281,7 +282,7 @@ class Cathy extends Unit {
       Stats.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
-    Stats.aaHits++; this.lastAA = { time: Game.time };
+    Stats.aaHits++; this.lastAA = { time: Game.time }; this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
     this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
@@ -576,7 +577,7 @@ class Projectile {
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {
-      if (u.dead || u.team === this.team || this.hit.has(u.id)) continue;
+      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0) continue;
       const rel = V.sub(u.pos, prev), along = V.dot(rel, this.dir), perp = Math.abs(rel.x * this.dir.y - rel.y * this.dir.x);
       if (along >= -u.r && along <= segEnd + u.r && perp <= u.r + this.width / 2 + (this.assist || 0)) cands.push({ u, along });
     }

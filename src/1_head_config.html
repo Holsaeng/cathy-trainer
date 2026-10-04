@@ -91,7 +91,11 @@ const CONFIG = {
   // 야생동물(결투 옵션): 수쳐 두 번째 대상(2인 수쳐 응용) · 원딜 투사체를 몸으로 막음. 공격하지 않음
   wildlife: { name: '늑대', r: 0.45, ms: 1.6, respawn: 15, color: '#8b6a4e',
     hp: { early: 500, mid: 900, late: 1300 }, def: { early: 20, mid: 35, late: 50 } },
-  vision: { bushReveal: 2.2 },             // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
+  vision: {
+    bushReveal: 2.2,         // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
+    actionReveal: 1.0,       // 부쉬 안에서 스킬·평타를 쓰면 이 시간(초) 동안 위치 노출
+    hitReveal: 1.0,          // 피격되면 이 시간 동안 위치 노출
+  },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
     bufferMs: 100,            // 선입력 버퍼
@@ -183,6 +187,8 @@ const CONFIG = {
     kiteMoveRatio: 0.55,     // 평타 쿨 중 이 비율만큼 무빙(쏘고 움직이기)
     wallAvoid: 1.6,          // 이 거리 안의 벽 근처 자리를 피함(벽꿍 수쳐 대비)
     eThreatRange: 5.5,       // 캐시 E 사거리 — 평타 사이사이 이 밖으로 빠지려 함(앞뒤 무빙)
+    // 캐시가 안 보일 때(부쉬): 마지막 위치·이동 방향으로 추정 → 진입 거리 밖에서 계속 무빙 → 일정 시간 뒤 스킬로 부쉬 체크
+    hunt: { safeDist: 7.0, bushAvoid: 2.6, checkAfter: 1.2, step: 1.6, think: 0.3, forget: 8 },
   },
   // 1:1 결투 상대 — 이터널 리턴 원거리 딜러 4명 (스킬: 나무위키 실험체·무기 스킬 문서 수치 / 능력치: 유튜브 랭크 영상 HUD 실측)
   // 단계별 [Lv6, Lv12, Lv18] 공격력·스킬증폭·공속·치명·방관 (나딘은 영상 미확보 → 리오·카티야 평균 추정)
@@ -192,6 +198,10 @@ const CONFIG = {
     rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0] },   // 방관은 패시브로 계산
     nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3] },
     katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4] },
+    // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
+    daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
+              hp: [1380, 1910, 2450], def: [72, 92, 113], ms: [3.8, 3.98, 4.0], baseAd: [56, 84, 112], aaAmp: [0.13, 0.27, 0.4],   // 기본 공격 증폭 = 단검 숙련도
+              skillLv: [{ P: 1, Q: 3, W: 1, E: 2, R: 1, D: 1 }, { P: 1, Q: 5, W: 2, E: 4, R: 2, D: 2 }, { P: 3, Q: 5, W: 5, E: 5, R: 3, D: 3 }] },   // Q 선마 → E (나무위키)
   },
   // 원딜 실제 스킬 (나무위키 2026-10 기준). 피해 = base[레벨] + 공격력×ad + 추가공격력×bad + 스킬증폭×sp (+야성)
   rangedKits: {
@@ -201,6 +211,7 @@ const CONFIG = {
            range: 11, width: 1.2, speed: 26, windup: 0.3, asBuff: [0.2, 0.25, 0.3, 0.35, 0.4], asDur: 4 },
       E: { name: '접근 금지', base: [50, 75, 100, 125, 150], ad: 1.0, cd: [12, 11, 10, 9, 8], range: 4.5, angle: 30, windup: 0.2,
            slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.3, msBuff: 0.4, msDur: 2 },   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
+      W: { name: '목표물 포착', cd: [30, 27, 24, 21, 18], range: 23, speed: 30, radius: 4.5, dur: 3 },   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초 (부쉬 체크)
       R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35 },   // 스캔 0.8초(제자리 고정) → 회피 불가 탄
       D: { name: '저격', cd: [35, 30, 25], shots: 3, aim: 0.55, gap: 0.5, range: 14, speed: 45, width: 0.5,
            shot: { base: [100, 200, 300], bad: 1.4, sp: [0.25, 0.3, 0.35], slow: 0.8, slowDur: 0.5 },
@@ -239,7 +250,21 @@ const CONFIG = {
       D: { name: '강노', base: [50, 75, 100], bad: 0.7, sp: 0.25, cd: 25, range: 7.5, angle: 45, windup: 0.3, slow: 0.4, slowDur: 1.5,
            mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.15, 0.2, 0.25] } },
     },
+    // 다니엘 (나무위키 2026-10). P 고독한 예술가(밤 시야·이속)는 시뮬레이터가 낮이라 생략
+    daniel: {
+      Q: { name: '그림자 가위', base: [30, 40, 50, 60, 70], ad: 1.1, center: { base: [40, 60, 80, 100, 120], ad: 1.4 }, cd: [10, 9, 8, 7, 6],
+           range: 7, len: 3.5, angle: 65, front: 1.75, centerR: 0.9, windup: 0.53, slow: 0.35, slowDur: 1.5, asBuff: [0.8, 1.1, 1.4, 1.7, 2.0], asShots: 3, asDur: 3 },   // 지정 위치 부채꼴, 무빙 캐스팅
+      W: { name: '영감', cd: 7, range: 7, acc: [4, 6, 8, 10, 12], accBad: 0.08, base: [20, 40, 60, 80, 100], ad: 0.6, ready: 4, popWindow: 2.5, slow: 0.5, slowDur: 1,
+           blind: 2, blindR: 4.5 },   // 표식 4초 유지 → 2.5초 안에 공격하면 축적 피해(고정) + 스킬 피해 폭발 / 대상 시야 감소(2초, 다니엘에게 맞을 때까지)
+      E: { name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
+      R: { name: '걸작', tick: { base: [10, 30, 50], ad: 0.3 }, last: { base: [40, 105, 170], ad: 0.9 }, cd: [70, 60, 50], range: 3, recent: 4, silence: 0.5, dur: 2, ticks: 4, exit: 2.2, exitTime: 0.25 },
+      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.2, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
+    },
   },
+  // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"
+  // · 들켰는데 E부터 쓰고 들어가면 죽는다 → 거리를 두고 서성이다 각이 보일 때만 진입  · 궁 이후 도망치는 상대를 잡도록 E는 아껴 둠
+  // · 사거리가 모자라면 E 평타를 동물에 써서 순간이동으로 접근
+  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12, comboGap: 0.08 },
   modes: {
     dummy: { respawn: 2 },
     skillshot: { duration: 60, cdMul: 0.25 },

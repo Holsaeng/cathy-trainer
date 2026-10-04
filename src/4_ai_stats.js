@@ -163,9 +163,11 @@ class RangedDuelist extends Duelist {
     const st = RA.stages[stageKey] ? stageKey : (RA.stages[Game.buildId] ? Game.buildId : 'mid'), si = ['early', 'mid', 'late'].indexOf(st), S0 = RA.stages[st];
     this.motif = M; this.motifKey = motifKey; this.kind = 'ranged';
     this.stage = st; this.level = S0.level; this.lv = S0.skillLv; this.stacks = S0.stacks;
-    this.maxHp = this.hp = S0.hp; this.def = S0.def; this.baseMs = S0.ms || this.baseMs;
+    this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs;
+    if (M.skillLv) this.lv = M.skillLv[si];
+    this.melee = !!M.melee; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0; if (this.melee) { this.kind = 'melee'; this.r = 0.5; }
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.pen = M.pen[si];
-    this.bonusAd = Math.max(0, this.ad - S0.baseAd);
+    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd));
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -189,8 +191,8 @@ class RangedDuelist extends Duelist {
   // 적에게 스킬 피해 (키트 onHit 훅 → 카이츄·잿빛 사신·아야 쿨감 등)
   hitP(u, amount, o = {}) {
     if (!u || u.dead) return;
-    Combat.damage(this, u, amount, Object.assign({ type: 'skill', source: '적 ' + (o.name || '스킬'), pen: this.penNow() }, o));
-    this.stats.s1Hits++; if (this.kit.onHit) this.kit.onHit(this, u, o);
+    const dmg = Combat.damage(this, u, amount, Object.assign({ type: 'skill', source: '적 ' + (o.name || '스킬'), pen: this.penNow() }, o));
+    this.stats.s1Hits++; if (this.kit.onHit) this.kit.onHit(this, u, o, dmg);
   }
   shoot(o) {
     const pr = new Projectile({ team: 1, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
@@ -215,6 +217,7 @@ class RangedDuelist extends Duelist {
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
     this.chans = this.chans.filter(c => !c.done);
     if (this.kit.update) this.kit.update(this, dt);
+    if (this.kit.preempt && this.kit.preempt(this, dt)) return;
     for (const ps of this.pendingShots) if ((ps.t -= dt) <= 0) { ps.fn(); ps.done = true; }
     this.pendingShots = this.pendingShots.filter(ps => !ps.done);
     if (this.forced || this.stun > 0) { if (this.act && this.act.type === 'channel' && this.act.onEnd) this.act.onEnd(this.act, true); this.act = null; this.vel = { x: 0, y: 0 }; return; }
@@ -222,17 +225,18 @@ class RangedDuelist extends Duelist {
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
-    if (p0 && this.seesP) this.lastSeen = V.copy(p0.pos);
-    if (!this.seesP) {   // 부쉬 속 캐시: 보이지 않으니 공격 불가 — 마지막으로 본 위치에서 거리 벌리기
-      if ((this.thinkT -= dt) <= 0) { this.thinkT = 0.4; const ls = this.lastSeen || p0.pos;
-        if (V.dist(this.pos, ls) < 6.5) this.moveTarget = this.pickSpot({ pos: ls }, 7.5, 1.8); else if (Math.random() < 0.25) this.moveTarget = this.pickSpot({ pos: ls }, 7.5, 1.2); }
+    if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
+    if (!this.seesP) {   // 부쉬 속 캐시: 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬로 부쉬 체크
+      this.unseenT = (this.unseenT || 0) + dt;
+      if (!this.belief) this.initBelief(p0);
+      if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + Math.random() * 0.6); this.think(); if (this.act) return; }
     const p = Game.player;
     if (this.kiteT > 0) { this.kiteT -= dt; this.moveStep(dt); return; }   // ① 쏘고 움직이는 중
-    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r <= this.aaRange()) {
+    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - (this.melee ? this.r : 0) <= this.aaRange()) {
       this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()) }; return;
     }
     this.moveStep(dt);
@@ -275,7 +279,7 @@ class RangedDuelist extends Duelist {
     const RA = CONFIG.rangedAI, d = V.dist(this.pos, p.pos);
     // ⑥ 위협(캐시가 붙음 / Q·R 돌진) → 키트별 이탈·반격 (벽 쪽은 피해서)
     const close = d < (this.diffKey === 'hard' ? 3.6 : 2.8), diving = p.cast && (p.cast.k === 'Q' || p.cast.k === 'R') && d < 7;
-    if ((close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || Math.random() < 0.5)) {
+    if (!this.melee && (close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || Math.random() < 0.5)) {
       const away = V.norm(V.sub(this.pos, p.pos)); let best = away, bs = -Infinity;
       for (let i = -2; i <= 2; i++) {
         const dir = V.fromAng(V.ang(away) + i * 0.45), q = V.add(this.pos, V.mul(dir, 3));
@@ -286,7 +290,43 @@ class RangedDuelist extends Duelist {
     }
     if (this.canAct() && this.kit.think && this.kit.think(this, p, d)) { this.stats.s1Casts++; return; }
     // ④ 압박: 사거리 밖이면 쏠 수 있는 거리까지 들어감
+    if (this.kit.move) { this.kit.move(this, p, d); return; }
     if (this.kiteT <= 0 && d > this.aaRange() - 0.2) this.moveTarget = this.pickSpot(p, this.aaRange() - 0.4, 2.2);
+  }
+  // ---------- 안 보일 때: 위치 추론 ----------
+  // 마지막으로 본 위치·이동 방향으로 캐시가 들어간 부쉬를 추정 (없으면 진행 방향으로 이동했다고 가정)
+  initBelief(p0) {
+    const lp = this.lastSeen || p0.pos, lv = this.lastSeenVel || { x: 0, y: 0 }, ahead = V.add(lp, V.mul(lv, 0.6));
+    let bush = Vision.bushAt(lp);
+    if (bush < 0) { let bd = 2.0; (CONFIG.bushes || []).forEach((b, i) => { const d = Vision.rectDist(ahead, b); if (d < bd) { bd = d; bush = i; } }); }
+    this.belief = { pos: V.copy(lp), vel: V.copy(lv), bush, t: 0 };
+  }
+  estimate() {
+    const B = this.belief; if (!B) return this.lastSeen;
+    if (B.bush >= 0) { const b = CONFIG.bushes[B.bush]; return { x: clamp(B.pos.x, b.x, b.x + b.w), y: clamp(B.pos.y, b.y, b.y + b.h) }; }
+    return Geo.pushOut(V.add(B.pos, V.mul(B.vel, Math.min(B.t, 1.2))), 0.5);
+  }
+  // 추정 위치에서 캐시 진입 거리(Q 4m + E 사거리) 밖을 유지하며 계속 움직이고, 다른 부쉬 근처(매복)도 피함
+  hunt() {
+    const H = CONFIG.rangedAI.hunt, B = this.belief; B.t += H.think;
+    const est = this.estimate();
+    // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
+    if (this.unseenT > H.checkAfter && this.canAct() && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
+    if (B.t > H.forget) { this.belief.bush = -1; this.belief.pos = V.copy(est); this.belief.vel = { x: 0, y: 0 }; }   // 오래 못 봤으면 추정 갱신
+    this.moveTarget = this.kit.huntSpot ? this.kit.huntSpot(this, est, B) : this.huntSpot(est); this.kiteT = 0;
+  }
+  huntSpot(est) {
+    const H = CONFIG.rangedAI.hunt, RA = CONFIG.rangedAI, B = this.belief, base = V.ang(V.sub(this.pos, est)); let best = null, bs = -Infinity;
+    if (Math.random() < 0.1) this.side *= -1;
+    for (let i = 0; i < 16; i++) {
+      const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), H.step)), this.r);
+      const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
+      let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
+      const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
+      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + Math.random() * 0.3;
+      if (sc > bs) { bs = sc; best = q; }
+    }
+    return best;
   }
   // 후보 지점 점수화: 원하는 거리 유지 + 벽 회피 + 좌우 무빙 선호
   pickSpot(p, want, step) {
@@ -302,6 +342,7 @@ class RangedDuelist extends Duelist {
   }
   // ① 쏜 직후 무빙: ③ 캐시 E·Q가 준비돼 있으면 E 사거리 밖으로(앞뒤), 아니면 좌우로
   startKite(p) {
+    if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
     const danger = p.skills.E.cd <= 0.8 || p.skills.Q.cd <= 0.8;
     const want = danger ? Math.max(RA.eThreatRange + 0.4, this.aaRange()) : this.aaRange() - 0.3;
@@ -316,8 +357,8 @@ class RangedDuelist extends Duelist {
   }
   aaLand(u, ratio = 1) {
     const r = this.kit.aaDamage ? this.kit.aaDamage(this, u) : this.aaDamage(u);
-    Combat.damage(this, u, r.amount * ratio, { type: 'normal', source: '적 평타', crit: r.crit, pen: this.penNow() });
-    if (this.kit.onAAHit) this.kit.onAAHit(this, u);
+    const dmg = Combat.damage(this, u, r.amount * ratio * (1 + this.aaAmp), { type: 'normal', source: '적 평타', crit: r.crit, pen: this.penNow() });
+    if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
   }
   updateAct(dt) {
     const a = this.act, p = Game.player; a.t += dt;
@@ -338,8 +379,8 @@ class RangedDuelist extends Duelist {
   }
   // 월드 그리기: 시전 예고선 + 키트 오브젝트 + 평타 사거리
   drawExtra(ctx) {
-    const M = this.motif, a = this.act;
-    if (a && a.tele && !this.dead) {
+    const M = this.motif, a = this.act, seen = Vision.visible(Game.player, this);
+    if (a && a.tele && !this.dead && seen) {
       const T = a.tele, k = clamp(a.t / Math.max(0.01, a.dur), 0, 1), col = T.color || M.color;
       ctx.save(); ctx.globalAlpha = 0.15 + 0.45 * k; ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 0.04;
       if (T.kind === 'line') Draw.oRect(ctx, this.pos, V.ang(T.dir), T.len, T.width);
@@ -348,7 +389,7 @@ class RangedDuelist extends Duelist {
       ctx.restore();
     }
     if (this.kit.draw) this.kit.draw(this, ctx);
-    if (!this.dead) { ctx.strokeStyle = M.color + '33'; ctx.lineWidth = 0.03; Draw.circle(ctx, this.pos.x, this.pos.y, this.aaRange()); ctx.stroke(); }
+    if (!this.dead && seen) { ctx.strokeStyle = M.color + '33'; ctx.lineWidth = 0.03; Draw.circle(ctx, this.pos.x, this.pos.y, this.aaRange()); ctx.stroke(); }
   }
 }
 

@@ -312,6 +312,12 @@ Modes.duel = {
   side() {
     const e = this.enemy; if (!e) return '';
     const M = this.motif;
+    if (e.melee) {   // 근거리 암살자(다니엘): 상태·표식 + 대응 팁
+      const st = { stalk: '서성이며 각 재는 중', engage: '진입!', retreat: '후퇴' }[e.mode] + (e.stealthT > 0 ? ' · 은신' : '') + (e.shadow ? ' · 걸작(대상 지정 불가)' : '');
+      const mk = e.mark ? kv('영감 표식', e.mark.t >= e.kitCfg.W.ready ? `<b style="color:#ffd1ff">활성 — 공격받으면 폭발 ${Math.round(e.mark.acc)}</b>` : `${fmt(e.kitCfg.W.ready - e.mark.t, 1)}s 후 활성 (축적 ${Math.round(e.mark.acc)})`) : '';
+      return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 공속', `${e.ad} / ${fmt(e.curAs(), 2)}`)}${kv('치명 / 평타 증폭 / 방관', `${Math.round(e.critChance * 100)}% / ${Math.round(e.aaAmp * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('상태', st)}${mk}${['Q', 'W', 'E', 'R', 'D'].map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : (k === 'D' && e.cloakT > 0 ? '단검 재사용 가능' : '준비'))).join('')}
+      <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">다니엘은 정면으로 싸우지 않습니다. 6m 근처(부쉬 선호)에서 서성이다가 <b>캐시의 E(수쳐)·Q가 빠지거나 체력이 깎이면</b> 망토 → E 은신 돌진 → 건너편 순간이동 평타 → 가위(Q)+영감(W) → 단검 → R 걸작으로 들어옵니다. 은신 연기를 보면 바로 대비하고 <b>E 수쳐는 진입 순간을 위해 아껴 두세요</b>. 걸작(R) 중엔 대상 지정 불가 + 0.5초 침묵 — 빠져나오는 위치를 노리세요. 보라색 링(영감)이 밝아지면 맞는 순간 축적 피해가 터집니다.</div>`;
+    }
     return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 스킬 증폭', `${e.ad} / ${e.sp}`)}${kv('공속 / 치명 / 방관', `${e.as} / ${Math.round(e.critChance * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('평타 사거리', fmt(e.aaRange(), 2) + 'm' + (e.stance ? (e.stance === 'short' ? ' (단궁)' : ' (화궁)') : ''))}${['Q', 'W', 'E', 'R', 'D'].filter(k => e.kitCfg[k]).map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : '준비')).join('')}
       <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.</div>`;
   },

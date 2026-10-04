@@ -164,9 +164,9 @@ const UI = {
       const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
       const mb = ms.map(([k, l, c]) => `<button class="btn ${(this.duelMotif || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
       const cur = CONFIG.rangedMotifs[this.duelMotif];
-      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 <b>원거리 딜러 모티브</b> AI입니다(실제 스킬을 단순화한 버전). 유튜브 원딜 강의를 반영해 <b>쏘고 움직이기 · 좌우 무빙(E 예고선 회피) · 앞뒤 무빙(쏠 때만 들어오고 E 사거리 밖으로) · 벽 근처 회피 · 위험 스킬이 남아 있으면 이동기 아끼기</b>로 싸웁니다. 평타 사거리·공속은 나무위키 무기 수치(권총 4.85m / 석궁 5.2m / 활 5.5m / 저격총 6m) 기준.<br>쉬움: 반응 느림 · 보통: 예측샷·회피 · 어려움: 수쳐를 자주 피하고 캐시의 진입에 즉시 반응합니다.</div>
+      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 <b>원거리 딜러 4명 + 근거리 암살자 다니엘</b> 모티브 AI입니다(실제 스킬을 단순화한 버전). 다니엘은 다니엘 랭킹 1위 강의를 반영해 <b>정면 싸움 대신 서성이다가 캐시의 E·Q가 빠진 순간 은신 진입</b>합니다. 유튜브 원딜 강의를 반영해 <b>쏘고 움직이기 · 좌우 무빙(E 예고선 회피) · 앞뒤 무빙(쏠 때만 들어오고 E 사거리 밖으로) · 벽 근처 회피 · 위험 스킬이 남아 있으면 이동기 아끼기</b>로 싸웁니다. 평타 사거리·공속은 나무위키 무기 수치(권총 4.85m / 석궁 5.2m / 활 5.5m / 저격총 6m) 기준.<br>쉬움: 반응 느림 · 보통: 예측샷·회피 · 어려움: 수쳐를 자주 피하고 캐시의 진입에 즉시 반응합니다.</div>
         <div class="row"><label>상대</label>${mb}</div>
-        <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 4명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
+        <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대) — 2인 수쳐 응용 · 투사체 몸막이</label></div>
@@ -218,6 +218,9 @@ const UI = {
       <div class="row"><label>기본</label>${Object.entries(CAST_MODES).map(([k, l]) => `<button class="btn ${Settings.castMode === k ? 'sel' : ''}" data-a="cast" data-v="${k}">${l}</button>`).join('')}</div>
       <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '')}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
       <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동. 단검 1차(유틸)는 항상 즉시 발동.</div>
+      <h3>마우스</h3>
+      ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
+      <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
       <h3>표시 / 기타</h3>
       ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
@@ -229,6 +232,7 @@ const UI = {
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
+      'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
       'in:volume': el => { Settings.volume = +el.value; saveSettings(); },
       'in:gameSpeed': el => { Settings.gameSpeed = +el.value; saveSettings(); document.getElementById('spdv').textContent = 'x' + fmt(Settings.gameSpeed, 1); },
