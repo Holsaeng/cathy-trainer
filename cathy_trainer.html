@@ -72,14 +72,18 @@ const CONFIG = {
   bushes: [],                              // 현재 맵의 부쉬(수풀)
   // 맵: 가이드 영상 "부쉬와 암시야 이해", "벽으로 유도 후 벽 수쳐", "좁은 길목은 위험" 연습용
   maps: {
-    basic: { name: '기본 아레나', walls: [{ x: 10.8, y: 2.6, w: 1.2, h: 3.4 }, { x: 10.8, y: 12.0, w: 1.2, h: 3.4 }, { x: 21.4, y: 7.6, w: 1.4, h: 2.8 }], bushes: [],
+    // 벽 kind: 없음 = 높은 벽(이동·시야 차단) / 'low' = 낮은 턱·화단(이동만 차단, 시야 통과) / 'glass' = 창문 벽(이동 차단, 너머가 보임 — "병원 창문 벽은 함정")
+    basic: { name: '기본 아레나', walls: [{ x: 10.8, y: 2.6, w: 1.2, h: 3.4 }, { x: 10.8, y: 12.0, w: 1.2, h: 3.4 }, { x: 21.4, y: 7.6, w: 1.4, h: 2.8 },
+             { x: 14.6, y: 2.2, w: 3, h: 0.6, kind: 'low' }, { x: 14.6, y: 15.2, w: 3, h: 0.6, kind: 'low' }, { x: 26.5, y: 3.2, w: 0.5, h: 3.2, kind: 'glass' }, { x: 26.5, y: 11.6, w: 0.5, h: 3.2, kind: 'glass' }], bushes: [],
              spawns: { p: { x: 7, y: 9 }, e: { x: 25, y: 9 } }, animals: [{ x: 16, y: 5 }, { x: 16, y: 13 }, { x: 18.5, y: 9 }] },
     jungle: { name: '숲길 (부쉬·길목)',
       walls: [
         { x: 12, y: 2.8, w: 1.2, h: 5.4 }, { x: 12, y: 10, w: 1.2, h: 5.2 },        // 중앙 좁은 길목(폭 1.8m)
-        { x: 18.5, y: 6.2, w: 5, h: 1.2 }, { x: 18.5, y: 10.6, w: 5, h: 1.2 },      // 오른쪽 복도(폭 3.2m) — 벽꿍 각
+        { x: 18.5, y: 6.2, w: 5, h: 1.2, kind: 'glass' }, { x: 18.5, y: 10.6, w: 5, h: 1.2 },      // 오른쪽 복도(폭 3.2m) — 벽꿍 각. 위쪽은 창문 벽(너머가 보임)
         { x: 6, y: 3.8, w: 1.4, h: 1.4 }, { x: 6, y: 12.8, w: 1.4, h: 1.4 },
         { x: 27, y: 3, w: 1.4, h: 1.6 }, { x: 27, y: 13.4, w: 1.4, h: 1.6 },
+        { x: 7.6, y: 2.2, w: 3.2, h: 0.5, kind: 'low' }, { x: 7.6, y: 15.3, w: 3.2, h: 0.5, kind: 'low' },   // 화단 턱(시야 통과)
+        { x: 21.2, y: 1.2, w: 0.5, h: 3.2, kind: 'low' }, { x: 21.2, y: 13.6, w: 0.5, h: 3.2, kind: 'low' },
       ],
       bushes: [
         { x: 8.6, y: 7.6, w: 2.4, h: 2.8 },    // 길목 앞 매복 부쉬
@@ -95,6 +99,17 @@ const CONFIG = {
     bushReveal: 2.2,         // 부쉬 안의 유닛은 이 거리 안이거나 같은 부쉬에 있어야 보임
     actionReveal: 1.0,       // 부쉬 안에서 스킬·평타를 쓰면 이 시간(초) 동안 위치 노출
     hitReveal: 1.0,          // 피격되면 이 시간 동안 위치 노출
+    // 시야 시스템(1:1 결투) — 공식 패치 노트: 낮 기본 시야 8.5m, 밤이 되면 3.4m로 줄었다가 서서히 6.4m, 밤엔 카메라 시야 30% 감소
+    sight: 8.5, fogAlpha: 0.78, nightFog: 0.86, rays: 240, ghost: 2.5,   // ghost: 시야에서 사라진 적의 마지막 위치 잔상(초)
+    night: { start: 3.4, end: 6.4, ramp: 20 },   // ramp: 밤 시야가 회복되는 시간(초, 추정 — 시뮬레이터용으로 짧게)
+    cycle: { day: 45, night: 35 },                // 낮밤 교대 모드의 길이(초, 시뮬레이터용)
+    cameraNightMul: 0.7,
+    // 소음(시야 밖 행동): skill/attack = '!' 핑이 들리는 거리, step = 발소리 거리(부쉬 안 X) — 거리 수치는 추정
+    noise: { skill: 14, attack: 11, step: 6.5, stepEvery: 0.45, ping: 1.6, stepLife: 0.9, jitter: 0.8 },
+    rustle: 0.7,                                  // 부쉬 흔들림 표시 시간(초)
+    // 시야 아이템 (나무위키): 망원 카메라 반경 13m·60초·최대 2개 설치·재사용 3초·은신 감지 / 정찰 드론 목표 지점 5초
+    camera: { name: '망원 카메라', r: 13, dur: 60, max: 2, cd: 3, range: 4, stock: 3 },   // range: 설치 거리, stock: 라운드당 보유(시뮬레이터용)
+    drone: { name: '정찰 드론', r: 6, dur: 5, range: 24, speed: 26, cd: 6, stock: 2 },    // r: 드론 시야 반경(추정)
   },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
@@ -120,7 +135,8 @@ const CONFIG = {
   },
   passive: {
     name: '외과 전문의',
-    traumaDur: 4, traumaSp: 0.25, stacks: 3,
+    // 외상·치명적 외상은 지속 출혈(고정 피해): 수치는 지속시간 동안의 총합 (공식 위키: "true damage over 4 seconds")
+    traumaDur: 4, traumaSp: 0.25, stacks: 3, tick: 0.5,   // tick: 출혈 피해 간격(초, 추정)
     critDur: 4, critMaxHp: 0.06, critSp: 0.25, healReduction: 0.3,
     shield: [70, 120, 170], shieldSp: 0.45, shieldDur: 2,
     moveBoost: [0.05, 0.10, 0.15], moveBoostDur: 1.5, moveBoostAngle: 45,
@@ -170,8 +186,8 @@ const CONFIG = {
     s2: { name: '도약', cd: 10, dist: 5, time: 0.22 },
     s3: { name: '재생', cd: 20, healPct: 0.18, dur: 2.5 },
     difficulty: {
-      easy:   { label: '쉬움',   react: 0.55, dodge: 0.08, lead: 0,   kite: false, dmgMul: 0.65, aimErr: 0.2 },
-      normal: { label: '보통',   react: 0.30, dodge: 0.35, lead: 0.6, kite: false, dmgMul: 0.85, aimErr: 0.08 },
+      easy:   { label: '쉬움',   react: 0.55, dodge: 0.08, lead: 0,   kite: false, dmgMul: 0.58, aimErr: 0.2 },
+      normal: { label: '보통',   react: 0.30, dodge: 0.35, lead: 0.6, kite: false, dmgMul: 0.75, aimErr: 0.08 },
       hard:   { label: '어려움', react: 0.14, dodge: 0.65, lead: 1.0, kite: true,  dmgMul: 1.0,  aimErr: 0.03 },
     },
   },
@@ -250,8 +266,9 @@ const CONFIG = {
       D: { name: '강노', base: [50, 75, 100], bad: 0.7, sp: 0.25, cd: 25, range: 7.5, angle: 45, windup: 0.3, slow: 0.4, slowDur: 1.5,
            mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.15, 0.2, 0.25] } },
     },
-    // 다니엘 (나무위키 2026-10). P 고독한 예술가(밤 시야·이속)는 시뮬레이터가 낮이라 생략
+    // 다니엘 (나무위키 2026-10)
     daniel: {
+      P: { name: '고독한 예술가', sight: [0.14, 0.17, 0.2], ms: [0.02, 0.04, 0.06] },   // 밤에 시야·이동 속도 증가
       Q: { name: '그림자 가위', base: [30, 40, 50, 60, 70], ad: 1.1, center: { base: [40, 60, 80, 100, 120], ad: 1.4 }, cd: [10, 9, 8, 7, 6],
            range: 7, len: 3.5, angle: 65, front: 1.75, centerR: 0.9, windup: 0.53, slow: 0.35, slowDur: 1.5, asBuff: [0.8, 1.1, 1.4, 1.7, 2.0], asShots: 3, asDur: 3 },   // 지정 위치 부채꼴, 무빙 캐스팅
       W: { name: '영감', cd: 7, range: 7, acc: [4, 6, 8, 10, 12], accBad: 0.08, base: [20, 40, 60, 80, 100], ad: 0.6, ready: 4, popWindow: 2.5, slow: 0.5, slowDur: 1,
@@ -437,21 +454,120 @@ const Geo = {
 
 // ============================== 시야(부쉬) ==============================
 const Vision = {
-  reveals: [],   // 시야 확보 구역 {team, pos, r, t} — 카티야 정찰 다트 등
+  // 이터널 리턴 시야 규칙 (공식 패치 노트·나무위키·유튜브 시야 강의)
+  //  · 기본 시야 낮 8.5m / 밤 3.4m → 서서히 6.4m. 높은 벽은 시야를 막고(암시야), 낮은 턱·화단은 이동만 막고 시야는 통과, 창문 벽은 너머가 보임
+  //  · 부쉬: 안에서는 밖이 보이고 밖에서는 안이 안 보임(2.2m 이내·같은 부쉬 제외). 시야 안의 부쉬에 들어가면 흔들림이 보임
+  //  · 시야 밖 행동은 소음(스킬·평타 '!' 핑, 발소리 — 부쉬 안에선 발소리 없음)으로 대략적인 위치가 드러남
+  //  · 망원 카메라(13m, 벽에 가려짐, 은신 감지) · 정찰 드론(목표 지점 원형 5초, 벽 무시)
+  reveals: [],   // 원형 시야 구역 {team, pos, r, t, drone} — 정찰 드론·카티야 정찰 다트 등 (벽 무시)
+  fogOn: false,  // 시야 시스템 사용 여부 — 1:1 결투
+  ghosts: {},    // 시야에서 사라진 적의 마지막 위치 {id: {pos, r, color, t}}
+  noises: [],    // 소음 {pos, team, kind, r, t, max, src, born}
+  rustles: [],   // 부쉬 흔들림 {b, pt, t, team}
+  night: false, nightT: 0, cycleT: 0, timeMode: 'day',
+  isBlocker(w) { return !w.kind || w.kind === 'wall'; },   // 시야를 막는 벽(높은 벽)
+  // 시야 차단 벽까지의 거리 (없으면 Infinity)
+  rayBlock(o, d, dist) {
+    let best = Infinity;
+    for (const w of CONFIG.walls) { if (!Vision.isBlocker(w)) continue; const t = Geo._slab(o, d, w.x, w.y, w.x + w.w, w.y + w.h); if (t < best) best = t; }
+    return best <= dist ? Math.max(0, best) : Infinity;
+  },
+  baseSight() {
+    const V0 = CONFIG.vision; if (!Vision.night) return V0.sight;
+    return lerp(V0.night.start, V0.night.end, clamp(Vision.nightT / V0.night.ramp, 0, 1));
+  },
+  sightOf(u) { return (u.sight || Vision.baseSight()) * (u.sightMul || 1); },
+  // a→b 사이에 시야를 막는 벽이 없는가 (시야선)
+  los(a, b) { const d = V.dist(a, b); if (d < 1e-6) return true; return Vision.rayBlock(a, V.mul(V.sub(b, a), 1 / d), d) === Infinity; },
+  inSight(viewer, pt, r = 0) { return V.dist(viewer.pos, pt) - r <= Vision.sightOf(viewer) && Vision.los(viewer.pos, pt); },
+  // 팀의 설치물(카메라)·원형 시야 구역이 이 지점을 보는가
+  wards(team) { return Game.units.filter(u => u.kind === 'ward' && !u.dead && u.team === team); },
+  zoneSees(team, pt, r = 0) {
+    if (Vision.reveals.some(z => z.team === team && V.dist(z.pos, pt) - r <= z.r)) return true;
+    return Vision.wards(team).some(w => V.dist(w.pos, pt) - r <= w.sightR() && Vision.los(w.pos, pt));
+  },
+  detects(team, pt) { return Vision.wards(team).some(w => w.detect && V.dist(w.pos, pt) <= w.sightR() && Vision.los(w.pos, pt)); },   // 은신 감지(망원 카메라)
+  // 플레이어 기준으로 이 지점이 보이는가 (투사체·잔상·흔들림 표시용)
+  pointVisible(pt) { const p = Game.player; return !Vision.fogOn || !p || (!p.dead && Vision.inSight(p, pt)) || Vision.zoneSees(p.team, pt); },
+  // 시야 다각형: 반경까지 광선을 쏴서 시야 차단 벽에 막히는 지점들
+  polyFrom(pos, R) {
+    const N = CONFIG.vision.rays, pts = [];
+    for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, d = { x: Math.cos(a), y: Math.sin(a) }, t = Vision.rayBlock(pos, d, R); pts.push(V.add(pos, V.mul(d, t === Infinity ? R : t))); }
+    return pts;
+  },
+  poly(viewer) { return Vision.polyFrom(viewer.pos, Vision.sightOf(viewer)); },
   bushAt(p) { return (CONFIG.bushes || []).findIndex(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h); },
   // 점에서 부쉬 사각형까지 거리
   rectDist(p, b) { const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.w)), dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.h)); return Math.hypot(dx, dy); },
-  // viewer가 target을 볼 수 있는가: 부쉬 밖이면 보임 / 행동·피격으로 노출 중 / 같은 부쉬·가까움 / 아군 시야 구역 안
+  // viewer가 target을 볼 수 있는가
   visible(viewer, target) {
     if (!viewer || !target) return true;
-    if (target.stealthT > 0) return false;                                                        // 은신(다니엘 E)
-    if (viewer.blindT > 0 && V.dist(viewer.pos, target.pos) > (viewer.blindR || 4.5)) return false;   // 시야 감소(다니엘 W 영감)
-    if (target.revealT > 0) return true;
-    const b = Vision.bushAt(target.pos); if (b < 0) return true;
-    if (Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, target.pos) <= CONFIG.vision.bushReveal) return true;
-    return Vision.reveals.some(z => z.team === viewer.team && V.dist(z.pos, target.pos) <= z.r);
+    if (viewer.team === target.team) return true;
+    const pt = target.pos, zone = () => Vision.zoneSees(viewer.team, pt, target.r);
+    if (target.stealthT > 0) return Vision.detects(viewer.team, pt);                                     // 은신: 카메라만 감지
+    if (viewer.blindT > 0 && V.dist(viewer.pos, pt) > (viewer.blindR || 4.5)) return zone();             // 시야 감소(다니엘 W) — 설치물 시야는 그대로
+    if (Vision.fogOn && !Vision.inSight(viewer, pt, target.r)) return zone();                             // 시야 반경 밖·벽 뒤(암시야)
+    if (target.revealT > 0) return true;                                                                   // 행동·피격 노출
+    const b = Vision.bushAt(pt); if (b < 0) return true;
+    if (Vision.bushAt(viewer.pos) === b || V.dist(viewer.pos, pt) <= CONFIG.vision.bushReveal) return true;
+    return zone();                                                                                         // 부쉬 속: 카메라·드론 시야로만
   },
-  update(dt) { Vision.reveals = Vision.reveals.filter(z => (z.t -= dt) > 0); },
+  // ---------- 소음 ----------
+  // 시야 밖에서 난 소리: 스킬·평타는 '!' 핑, 이동은 발소리(부쉬 안에서는 발소리 없음)
+  noise(u, kind) {
+    if (!Vision.fogOn || !u || u.dead) return;
+    const N = CONFIG.vision.noise, r = N[kind] || N.skill;
+    if (kind === 'step' && Vision.bushAt(u.pos) >= 0) return;
+    const j = kind === 'step' ? 0.2 : N.jitter, pos = { x: u.pos.x + (Math.random() - 0.5) * 2 * j, y: u.pos.y + (Math.random() - 0.5) * 2 * j };
+    const life = kind === 'step' ? N.stepLife : N.ping;
+    Vision.noises.push({ pos, team: u.team, kind, r, t: life, max: life, src: u, born: Game.time });
+  },
+  // 행동(스킬·평타) = 부쉬 속이면 잠깐 노출 + 소음
+  act(u, kind = 'skill') { if (!u) return; u.revealT = Math.max(u.revealT || 0, CONFIG.vision.actionReveal); Vision.noise(u, kind); },
+  // 이 유닛(듣는 쪽) 기준, since 이후 들린 상대 소음 중 가장 최근 것
+  heard(listener, since = 0) {
+    let best = null;
+    for (const n of Vision.noises) if (n.team !== listener.team && n.team !== 2 && n.born > since && V.dist(n.pos, listener.pos) <= n.r && (!best || n.born > best.born)) best = n;
+    return best;
+  },
+  // ---------- 부쉬 흔들림 ----------
+  rustle(b, pt, team, skill) { if (b < 0) return; const R = Vision.rustles.find(r => r.b === b && r.team === team); if (R) { R.t = CONFIG.vision.rustle; R.pt = V.copy(pt); R.born = Game.time; R.skill = !!skill; } else Vision.rustles.push({ b, pt: V.copy(pt), t: CONFIG.vision.rustle, team, born: Game.time, skill: !!skill }); },
+  // ---------- 낮/밤 ----------
+  setTime(mode) { Vision.timeMode = mode || 'day'; Vision.night = mode === 'night'; Vision.nightT = 0; Vision.cycleT = 0; },
+  updateTime(dt) {
+    const V0 = CONFIG.vision;
+    if (Vision.night) Vision.nightT += dt;
+    if (Vision.timeMode !== 'cycle') return;
+    Vision.cycleT += dt;
+    const len = Vision.night ? V0.cycle.night : V0.cycle.day;
+    if (Vision.cycleT >= len) {
+      Vision.cycleT = 0; Vision.night = !Vision.night; Vision.nightT = 0;
+      FX.toast(Vision.night ? '🌙 밤이 되었습니다 — 시야 3.4m에서 서서히 회복' : '☀ 낮이 되었습니다 — 시야 8.5m', Vision.night ? '#8fa8ff' : CONFIG.theme.gold);
+    }
+  },
+  update(dt) {
+    Vision.reveals = Vision.reveals.filter(z => (z.t -= dt) > 0);
+    Vision.noises = Vision.noises.filter(n => (n.t -= dt) > 0);
+    Vision.rustles = Vision.rustles.filter(r => (r.t -= dt) > 0);
+    if (!Vision.fogOn || !Game.player) return;
+    Vision.updateTime(dt);
+    const N = CONFIG.vision.noise;
+    for (const u of Game.units) {
+      if (u.dead || u.kind === 'ward') continue;
+      // 발소리
+      const moving = V.len(u.vel || { x: 0, y: 0 }) > 0.6 || (u.act && u.act.type === 'dash');
+      if (moving && (u.stepT = (u.stepT || 0) - dt) <= 0) { u.stepT = N.stepEvery; if (u.team !== 2) Vision.noise(u, 'step'); }
+      // 부쉬 진입 흔들림
+      const b = Vision.bushAt(u.pos);
+      if (b >= 0 && u._bush !== b) Vision.rustle(b, u.pos, u.team);
+      u._bush = b;
+      // 마지막으로 본 위치 잔상(플레이어 시점)
+      if (u.team === 0) continue;
+      if (Vision.visible(Game.player, u)) Vision.ghosts[u.id] = { pos: V.copy(u.pos), r: u.r, color: u.color, t: CONFIG.vision.ghost, kind: u.kind };
+      else if (Vision.ghosts[u.id]) { const g = Vision.ghosts[u.id]; if ((g.t -= dt) <= 0) delete Vision.ghosts[u.id]; }
+    }
+    for (const id in Vision.ghosts) { const u = Game.units.find(x => x.id === +id); if (!u || u.dead) delete Vision.ghosts[id]; }
+  },
 };
 
 // ============================== 저장/설정 ==============================
@@ -459,8 +575,8 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a' };
-const DEFAULT_SETTINGS = { duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_SETTINGS = { fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -593,10 +709,10 @@ const Combat = {
     tgt.hp -= dmg - absorbed;
     tgt.flash = 0.12;
     const col = type === 'true' ? '#ffd1dc' : type === 'normal' ? (o.crit ? '#ff5d5d' : '#ffffff') : '#ffb347';
-    FX.text(tgt.pos, (o.crit ? '✦' : '') + Math.round(dmg), col, o.crit ? 20 : type === 'true' ? 12 : 15, { bold: o.crit || type === 'skill' });
+    if (o.tick) FX.text(tgt.pos, String(Math.max(1, Math.round(dmg))), '#ff8fa8', 10); else FX.text(tgt.pos, (o.crit ? '✦' : '') + Math.round(dmg), col, o.crit ? 20 : type === 'true' ? 12 : 15, { bold: o.crit || type === 'skill' });
     if (src === Game.player) Stats.dealt(o.source || '?', dmg);
     if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal); }   // 피격 시 위치 노출
-    else Sfx.play('hit');
+    else if (!o.tick) Sfx.play('hit');
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);
@@ -604,6 +720,7 @@ const Combat = {
     return dmg;
   },
   kill(src, tgt) {
+    if (tgt.kind === 'ward') { tgt.hp = 0; tgt.dead = true; FX.burst(tgt.pos, '#c9cfdb', 10, 3, 0.4); FX.text(tgt.pos, '카메라 파괴', '#c9cfdb', 11, { bold: true }); return; }   // 시야 아이템
     if (tgt.infinite) { tgt.hp = tgt.maxHp; FX.text(tgt.pos, '체력 리셋', '#8a93a6', 11); return; }
     tgt.hp = 0; tgt.dead = true; tgt.deathT = 0;
     FX.burst(tgt.pos, tgt.color, 26, 7, 0.8, 0.12); FX.ring(tgt.pos, 0.3, 2, '#ffffff', 0.5);
@@ -618,14 +735,14 @@ const Passive = {
   lvl() { return Game.player.build.passiveLv + 1; },
   applyTrauma(t, src) {
     const p = Game.player, P = CONFIG.passive;
-    if (!t || t.dead || t.crit > 0) return;
+    if (!t || t.dead || t.crit > 0 || t.kind === 'ward') return;
     if (P.traumaPerSkill) {   // 같은 스킬로는 한 번만 쌓임 — 지속시간만 갱신
       if (t.traumaT <= 0 || !t.traumaSrc) t.traumaSrc = new Set();
       if (src && t.traumaSrc.has(src)) { t.traumaT = P.traumaDur; return; }
       if (src) t.traumaSrc.add(src);
     }
     t.trauma = Math.min(P.stacks, t.trauma + 1); t.traumaT = P.traumaDur;
-    Combat.damage(p, t, Math.max(P.traumaMin || 0, p.sp * P.traumaSp), { type: 'true', source: 'P', noShake: true });
+    this.bleed(t, 'trauma', Math.max(P.traumaMin || 0, p.sp * P.traumaSp), P.traumaDur, true);
     if (!t.dead && t.trauma >= P.stacks) this.critical(t, 'stack');
   },
   critical(t, by) {
@@ -633,17 +750,35 @@ const Passive = {
     if (!t || t.dead) return;
     if (t.crit > 0) {   // 이미 치명적 외상: 갱신. R로 다시 부여하면 Q 쿨 감소도 적용 (영상: R 직후 Q 재사용)
       t.crit = P.critDur; t.healRed = P.critDur;
+      this.bleed(t, 'crit', t.maxHp * P.critMaxHp + p.sp * P.critSp, P.critDur);
       if (by === 'R' && CONFIG.passive.rReapplyQcdr) this.reduceQ(p);
       return;
     }
     t.trauma = 0; t.traumaT = 0; t.traumaSrc = null; t.crit = P.critDur; t.healRed = P.critDur;
     FX.ring(t.pos, 0.3, 1.8, CONFIG.theme.accent, 0.45, 0.12); FX.text(t.pos, '치명적 외상!', CONFIG.theme.accent, 17, { bold: true });
     Sfx.play('crit');
-    Combat.damage(p, t, t.maxHp * P.critMaxHp + p.sp * P.critSp, { type: 'true', source: 'P' });
+    t.bleeds = (t.bleeds || []).filter(b => b.kind !== 'trauma');   // 외상 → 치명적 외상으로 바뀜
+    this.bleed(t, 'crit', t.maxHp * P.critMaxHp + p.sp * P.critSp, P.critDur);
     // 보호막 + 이동 속도 증가 준비
     p.shield = Math.max(p.shield, lv(P.shield, this.lvl()) + p.sp * P.shieldSp); p.shieldT = P.shieldDur; p.shieldBoostUsed = false;
     if (CONFIG.skills.Q.cdrOnAnyCritical || by === 'Q') this.reduceQ(p);
     Stats.criticals++; Events.emit('critical', { target: t });
+  },
+  // 출혈(고정 피해 지속): total을 dur초 동안 tick 간격으로 나눠 입힘. stack=true면 부여마다 따로 쌓이고, 아니면 같은 종류를 새로 갱신
+  bleed(t, kind, total, dur, stack) {
+    const P = CONFIG.passive, n = Math.max(1, Math.round(dur / P.tick));
+    t.bleeds = t.bleeds || [];
+    if (!stack) t.bleeds = t.bleeds.filter(b => b.kind !== kind);
+    t.bleeds.push({ kind, src: Game.player, per: total / n, n, acc: 0 });
+  },
+  tickBleeds(u, dt) {
+    if (!u.bleeds || !u.bleeds.length || u.dead) return;
+    const P = CONFIG.passive;
+    for (const b of u.bleeds) {
+      b.acc += dt;
+      while (b.acc >= P.tick && b.n > 0 && !u.dead) { b.acc -= P.tick; b.n--; Combat.damage(b.src, u, b.per, { type: 'true', source: 'P', noShake: true, tick: true }); }
+    }
+    u.bleeds = u.bleeds.filter(b => b.n > 0);
   },
   // Q 쿨다운 감소
   reduceQ(p) {
@@ -667,7 +802,7 @@ class Unit {
     this.hp = this.maxHp; this.dead = false; this.deathT = 0;
     this.moveTarget = null; this.vel = { x: 0, y: 0 }; this.root = 0; this.stun = 0; this.slows = []; this.msBuffs = [];
     this.unstoppable = 0; this.forced = null; this.shield = 0; this.shieldT = 0; this.trauma = 0; this.traumaT = 0;
-    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
+    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.bleeds = []; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
   }
   revive() { this.resetState(); this.pos = V.copy(this.spawn); FX.ring(this.pos, 0.2, 1.2, '#8a93a6', 0.4); }
   msMul() {
@@ -698,6 +833,7 @@ class Unit {
   tickStatus(dt) {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
+    Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -866,7 +1002,7 @@ class Cathy extends Unit {
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
     c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k); this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
+    Stats.cast(c.k); Vision.act(this, 'skill');   // 부쉬 노출 + 시야 밖 상대에겐 '!' 소음
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) Stats.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
@@ -935,7 +1071,7 @@ class Cathy extends Unit {
       Stats.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
-    Stats.aaHits++; this.lastAA = { time: Game.time }; this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
+    Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
     this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
@@ -1230,7 +1366,7 @@ class Projectile {
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {
-      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0) continue;
+      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0 || u.kind === 'ward') continue;
       const rel = V.sub(u.pos, prev), along = V.dot(rel, this.dir), perp = Math.abs(rel.x * this.dir.y - rel.y * this.dir.x);
       if (along >= -u.r && along <= segEnd + u.r && perp <= u.r + this.width / 2 + (this.assist || 0)) cands.push({ u, along });
     }
@@ -1240,10 +1376,71 @@ class Projectile {
       if (this.onUnit(this, u) === 'stop') { this.pos = V.add(prev, V.mul(this.dir, Math.max(0, along))); this.finish(); return; }
     }
     this.pos = V.add(prev, V.mul(this.dir, segEnd)); this.traveled += segEnd;
+    const rb = Vision.bushAt(this.pos); if (rb >= 0 && rb !== this._rb) Vision.rustle(rb, this.pos, this.team, true); this._rb = rb;   // 스킬이 지나가면 부쉬가 흔들림
     if (tw < Infinity) { if (this.onWall) this.onWall(this, V.copy(this.pos)); this.finish(); return; }
     if (this.traveled >= this.range - 1e-6) this.finish();
   }
 }
+
+// ============================== 시야 아이템: 망원 카메라 · 정찰 드론 ==============================
+// 나무위키: 망원 카메라 = 반경 13m 시야(벽에 가려짐), 60초, 최대 2개 설치(초과 시 가장 먼저 설치한 것 파괴), 재사용 3초, 은신 감지,
+//          상대가 기본 공격 한 번으로 파괴 / 정찰 드론 = 목표 지점 5초 시야(벽 무시), 상대는 드론이 자기 시야 안에 있어야 범위가 보임
+class Ward extends Unit {
+  constructor(x, y, owner) {
+    const C = CONFIG.vision.camera;
+    super({ x, y, team: owner.team, kind: 'ward', name: C.name, hp: 1, def: 0, ms: 0, r: 0.28, color: owner.team === 0 ? '#7fd1ff' : '#ff8a8a' });
+    this.owner = owner; this.life = C.dur; this.detect = true; this.born = Game.time;
+  }
+  sightR() { return CONFIG.vision.camera.r * (Vision.night ? CONFIG.vision.cameraNightMul : 1); }
+  update(dt) { this.tickStatus(dt); if ((this.life -= dt) <= 0 && !this.dead) { this.dead = true; } }
+}
+
+const VisionItems = {
+  give(u) { const V0 = CONFIG.vision; u.items = { camera: V0.camera.stock, drone: V0.drone.stock }; u.itemCd = { camera: 0, drone: 0 }; },
+  tick(u, dt) { if (!u.itemCd) return; for (const k in u.itemCd) u.itemCd[k] = Math.max(0, u.itemCd[k] - dt); },
+  can(u, k) { return Vision.fogOn && u.items && u.items[k] > 0 && u.itemCd[k] <= 0 && !u.dead; },
+  // 망원 카메라 설치: 커서 방향 설치 거리 안
+  camera(u, pt, quiet) {
+    const C = CONFIG.vision.camera;
+    if (!this.can(u, 'camera')) { if (!quiet) this.fail(u, 'camera'); return false; }
+    const d = Math.min(C.range, V.dist(u.pos, pt)), dir = d > 1e-3 ? V.norm(V.sub(pt, u.pos)) : V.fromAng(u.facing || 0);
+    const pos = Geo.pushOut(V.add(u.pos, V.mul(dir, Geo.clampDash(u.pos, dir, d, 0.3))), 0.3);
+    const mine = Game.units.filter(w => w.kind === 'ward' && !w.dead && w.owner === u).sort((a, b) => a.born - b.born);
+    if (mine.length >= C.max) { mine[0].dead = true; FX.ring(mine[0].pos, 0.2, 0.8, '#8a93a6', 0.3); }   // 최대 2개: 가장 먼저 설치한 것 파괴
+    const w = new Ward(pos.x, pos.y, u); Game.units.push(w);
+    u.items.camera--; u.itemCd.camera = C.cd;
+    FX.ring(pos, 0.3, 1.2, w.color, 0.4); FX.text(pos, C.name, w.color, 11, { bold: true }); Sfx.play('throw');
+    return w;
+  },
+  // 정찰 드론: 목표 지점으로 날아가 5초간 원형 시야(벽 무시)
+  drone(u, pt, quiet) {
+    const D = CONFIG.vision.drone;
+    if (!this.can(u, 'drone')) { if (!quiet) this.fail(u, 'drone'); return false; }
+    const d = Math.min(D.range, V.dist(u.pos, pt)), dir = d > 1e-3 ? V.norm(V.sub(pt, u.pos)) : V.fromAng(u.facing || 0);
+    const to = V.add(u.pos, V.mul(dir, d)); to.x = clamp(to.x, 0.3, CONFIG.world.w - 0.3); to.y = clamp(to.y, 0.3, CONFIG.world.h - 0.3);
+    u.items.drone--; u.itemCd.drone = D.cd; Sfx.play('throw');
+    const fly = { from: V.copy(u.pos), to, t: 0, dur: d / D.speed + 0.05, team: u.team };
+    (Game.drones = Game.drones || []).push(fly);
+    if (!quiet || u === Game.player) FX.text(u.pos, D.name, u.team === 0 ? '#7fd1ff' : '#ff8a8a', 11, { bold: true });
+    return true;
+  },
+  fail(u, k) {
+    if (!Vision.fogOn) { FX.toast('시야 아이템은 1:1 결투(시야 시스템)에서만 쓸 수 있습니다', '#aaa'); return; }
+    if (!u.items || u.items[k] <= 0) FX.toast(`${CONFIG.vision[k].name}: 이번 라운드 보유량을 다 썼습니다`, '#aaa');
+    else { FX.toast(`${CONFIG.vision[k].name}: 재사용 대기 ${fmt(u.itemCd[k], 1)}초`, '#aaa'); Sfx.play('error'); }
+  },
+  update(dt) {
+    const D = CONFIG.vision.drone;
+    for (const f of Game.drones || []) {
+      f.t += dt;
+      if (!f.done && f.t >= f.dur) {
+        f.done = true; Vision.reveals.push({ team: f.team, pos: f.to, r: D.r, t: D.dur, drone: true });
+        const b = Vision.bushAt(f.to); if (b >= 0) Vision.rustle(b, f.to, f.team);
+      }
+    }
+    Game.drones = (Game.drones || []).filter(f => !f.done);
+  },
+};
 
 // ============================== AI: 표적 이동 패턴 ==============================
 function threatens(u, pr, range) {
@@ -1420,6 +1617,7 @@ class RangedDuelist extends Duelist {
     this.asBuffs = []; this.noAA = 0; this.objs = []; this.pendingShots = []; this.chans = [];
     this.side = Math.random() < 0.5 ? 1 : -1; this.kiteT = 0; this.castSeen = -1;
     Object.assign(this.stats, { kites: 0, sideSteps: 0 });
+    VisionItems.give(this); this.lastHeard = 0; this.lastRustle = 0;
     if (this.kit.init) this.kit.init(this);
   }
   // ---------- 수치 도우미 ----------
@@ -1446,8 +1644,8 @@ class RangedDuelist extends Duelist {
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = 999; }   // 대상 지정(회피 불가)
     Game.projectiles.push(pr); return pr;
   }
-  startCast(dur, onFire, tele) { this.act = { type: 'cast', t: 0, dur, onFire, tele }; this.moveTarget = null; }
-  startChannel(dur, o) { this.act = { type: 'channel', t: 0, dur, onTick: o.onTick, onEnd: o.onEnd, tele: o.tele, cancelIfClose: o.cancelIfClose }; this.moveTarget = null; }
+  startCast(dur, onFire, tele) { this.act = { type: 'cast', t: 0, dur, onFire, tele }; this.moveTarget = null; Vision.act(this, 'skill'); }
+  startChannel(dur, o) { this.act = { type: 'channel', t: 0, dur, onTick: o.onTick, onEnd: o.onEnd, tele: o.tele, cancelIfClose: o.cancelIfClose }; this.moveTarget = null; Vision.act(this, 'skill'); }
   dashTo(dir, dist, time, passWalls, name) {
     const len = passWalls ? Geo.passLanding(this.pos, dir, dist, this.r) : Geo.clampDash(this.pos, dir, dist, this.r);
     this.act = { type: 'dash', t: 0, dur: time, from: V.copy(this.pos), to: V.add(this.pos, V.mul(dir, len)) }; this.moveTarget = null;
@@ -1472,9 +1670,11 @@ class RangedDuelist extends Duelist {
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
-    if (!this.seesP) {   // 부쉬 속 캐시: 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬로 부쉬 체크
+    if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
+    if (!this.seesP) {   // 안 보이는 캐시(부쉬·암시야): 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬·시야 아이템으로 확인
       this.unseenT = (this.unseenT || 0) + dt;
       if (!this.belief) this.initBelief(p0);
+      this.listen();
       if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
@@ -1553,9 +1753,39 @@ class RangedDuelist extends Duelist {
     return Geo.pushOut(V.add(B.pos, V.mul(B.vel, Math.min(B.t, 1.2))), 0.5);
   }
   // 추정 위치에서 캐시 진입 거리(Q 4m + E 사거리) 밖을 유지하며 계속 움직이고, 다른 부쉬 근처(매복)도 피함
+  // 소리('!' 핑·발소리)와 시야 안 부쉬의 흔들림으로 캐시 위치 추정을 갱신
+  listen() {
+    const nz = Vision.heard(this, this.lastHeard);
+    if (nz) { this.lastHeard = nz.born; this.belief = { pos: V.copy(nz.pos), vel: { x: 0, y: 0 }, bush: Vision.bushAt(nz.pos), t: 0, heard: nz.kind }; }
+    for (const r of Vision.rustles) if (r.team === 0 && r.born > this.lastRustle && !r.skill && Vision.inSight(this, r.pt)) { this.lastRustle = r.born; this.belief = { pos: V.copy(r.pt), vel: { x: 0, y: 0 }, bush: r.b, t: 0, heard: 'rustle' }; }
+  }
+  // 시야 아이템: 오래 안 보이면 정찰 드론으로 추정 지점(부쉬)을 확인하고, 그래도 못 찾으면 망원 카메라를 설치
+  useVisionItem(est, B) {
+    const VI = CONFIG.vision, d = V.dist(this.pos, est), H = CONFIG.rangedAI.hunt;
+    if (this.diffKey === 'easy' && Math.random() < 0.6) return false;
+    if (this.unseenT > H.checkAfter + 0.4 && VisionItems.can(this, 'drone') && d <= VI.drone.range && (B.bush >= 0 || this.unseenT > 3) && !Vision.zoneSees(this.team, est)) {
+      VisionItems.drone(this, est, true); return true;
+    }
+    if (this.unseenT > 3.5 && VisionItems.can(this, 'camera') && !Vision.wards(this.team).some(w => V.dist(w.pos, est) < w.sightR() * 0.7)) {
+      VisionItems.camera(this, V.add(this.pos, V.mul(V.norm(V.sub(est, this.pos)), VI.camera.range)), true); return true;
+    }
+    return false;
+  }
+  // 캐시의 카메라가 보이면 부숴서 시야를 끊음(캐시가 멀거나 안 보일 때)
+  killWard(p) {
+    if (!Vision.fogOn || this.act || !this.canAct()) return false;
+    const engaged = this.seesP && p && !p.dead && V.dist(this.pos, p.pos) < 7.5;
+    if (engaged || (this.mode === 'engage')) return false;
+    const w = Vision.wards(0).filter(x => Vision.visible(this, x) && V.dist(x.pos, this.pos) < 9).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0];
+    if (!w) return false;
+    const reach = (this.melee ? this.motif.aaRange : this.aaRange()) + w.r + this.r;
+    if (V.dist(this.pos, w.pos) <= reach && this.aaCd <= 0) { this.aaTarget = w; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup }; this.moveTarget = null; return true; }
+    this.moveTarget = Geo.pushOut(V.add(w.pos, V.mul(V.norm(V.sub(this.pos, w.pos)), reach * 0.8)), this.r); return true;
+  }
   hunt() {
     const H = CONFIG.rangedAI.hunt, B = this.belief; B.t += H.think;
     const est = this.estimate();
+    if (this.canAct() && this.useVisionItem(est, B)) return;
     // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
     if (this.unseenT > H.checkAfter && this.canAct() && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
     if (B.t > H.forget) { this.belief.bush = -1; this.belief.pos = V.copy(est); this.belief.vel = { x: 0, y: 0 }; }   // 오래 못 봤으면 추정 갱신
@@ -1612,7 +1842,9 @@ class RangedDuelist extends Duelist {
       if (p && !p.dead) this.facing = V.ang(V.sub(p.pos, this.pos));
       if (a.t >= a.dur) {
         this.act = null; this.aaCd = 1 / this.curAs() - a.dur;   // 공격 간격 = 1/공속 (선딜 포함)
-        if (p && !p.dead) { this.fireAA(p); Sfx.play('aa'); this.startKite(p); }
+        const wt = this.aaTarget && this.aaTarget.kind === 'ward' ? this.aaTarget : null;
+        if (wt) { this.aaTarget = null; if (!wt.dead) { FX.trail(this.pos, wt.pos, this.motif.color, 0.12, 0.15); Combat.damage(this, wt, 1, { type: 'true', source: '적 평타', noShake: true }); Vision.act(this, 'attack'); } return; }
+        if (p && !p.dead) { Vision.act(this, 'attack'); this.fireAA(p); Sfx.play('aa'); this.startKite(p); }
       }
     } else if (a.type === 'cast') {
       if (a.tele && a.tele.dir) this.facing = V.ang(a.tele.dir);
@@ -2149,13 +2381,16 @@ Kits.daniel = {
   update(ai, dt) {
     const K = ai.kitCfg, p = Game.player;
     ai.modeT += dt; ai.lastHitT += dt;
+    // P 고독한 예술가: 밤에 시야·이동 속도 증가
+    ai.sightMul = Vision.night ? 1 + ai.pick(K.P.sight, 'P') : 1;
+    if (Vision.night) ai.addMsBuff(ai.pick(K.P.ms, 'P'), 0.25, false, 'danP');
     if (ai.shadowT > 0) { ai.shadowT -= dt; if (ai.shadowT <= 0) ai.stealthT = 0; }
     if (ai.cloakT > 0) { ai.cloakT -= dt; if (ai.cloakT <= 0) ai.cds.D = ai.pick(K.D.cd, 'D'); }   // 단검(2차) 안 쓰면 쿨 시작
     if (ai.qShots > 0 && !ai.asBuffs.some(a => a.tag === 'danQ')) ai.qShots = 0;
     if (ai.mark) {
       const M = ai.mark; M.t += dt;
       if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
-      else if (M.target === p) p.revealT = Math.max(p.revealT, 0.05);   // 표식 대상 주변 시야 (부쉬 속도 보임)
+      else if (M.target === p) Vision.reveals.push({ team: ai.team, pos: V.copy(p.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
     }
     for (const o of ai.objs) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; this.qLand(ai, o); } }
     ai.objs = ai.objs.filter(o => o.t < o.dur + 0.25);
@@ -2233,7 +2468,7 @@ Kits.daniel = {
     const pos = V.add(ai.pos, V.mul(dir, dist));
     ai.cds.Q = ai.pick(K.cd, 'Q'); ai.stealthT = 0;   // 다른 스킬을 쓰면 은신 해제
     ai.objs.push({ kind: 'scissor', pos, dir, t: 0, dur: K.windup });   // 무빙 캐스팅: 시전 중에도 계속 이동
-    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+    Vision.act(ai, 'skill');
     FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true }); Sfx.play('throw');
   },
   qLand(ai, o) {
@@ -2253,11 +2488,11 @@ Kits.daniel = {
     const K = ai.kitCfg.W; ai.cds.W = K.cd; ai.stealthT = 0;
     ai.mark = { target: u, t: 0, acc: 0 }; u.blindT = K.blind; u.blindR = K.blindR;
     FX.text(u.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(u.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw');
-    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+    Vision.act(ai, 'skill');
   },
   castE(ai, dir, dist) {
     const K = ai.kitCfg.E; ai.cds.E = ai.pick(K.cd, 'E');
-    FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16);   // 은신 연기(상대는 이 연기로 진입을 눈치챔)
+    FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16); Vision.noise(ai, 'skill');   // 은신 연기 + 시전 소리(상대는 이것으로 진입을 눈치챔)
     ai.dashTo(dir, Math.min(K.dist, dist ?? K.dist), K.time, false);
     ai.stealthT = ai.pick(K.stealth, 'E'); ai.shadowT = K.shadowDur; ai.revealT = 0;
     FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true });
@@ -2676,7 +2911,8 @@ Modes.duel = {
   newRound() {
     this.round++; Game.units = []; Game.projectiles = []; Game.zones = [];
     const sp = Game.map.spawns;
-    Scene.player(sp.p.x, sp.p.y); this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
+    Scene.player(sp.p.x, sp.p.y); VisionItems.give(Game.player); Game.drones = []; Vision.reveals = []; Vision.noises = [];
+    this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
     if (this.animals) for (const a of Game.map.animals) Scene.animal(a.x, a.y, this.enemyStage);   // 야생동물(2인 수쳐 응용)
     this.snap = Stats.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
     Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} ${this.stageInfo.label} · ${this.motif.weapon}` };
@@ -2792,7 +3028,8 @@ const Game = {
     this.mode = Modes[id]; Input.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
-    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = [];
+    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = [];
+    Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
@@ -2801,6 +3038,8 @@ const Game = {
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
     this.time += dt; Stats.tick(dt); Vision.update(dt);
     for (const u of this.units.slice()) u.update(dt);
+    VisionItems.update(dt); for (const u of this.units) VisionItems.tick(u, dt);
+    this.units = this.units.filter(u => !(u.dead && u.kind === 'ward'));   // 파괴·만료된 카메라 제거
     for (const pr of this.projectiles) pr.update(dt);
     this.projectiles = this.projectiles.filter(p => !p.dead);
     this.updateZones(dt);
@@ -2831,10 +3070,11 @@ const Game = {
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0)); },   // 대상 지정 불가(다니엘 걸작) 제외
+  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
   visibleEnemies() { return this.enemies().filter(e => Vision.visible(this.player, e)); },
   nearestEnemy(pos, range) { let best = null, bd = range; for (const e of this.visibleEnemies()) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
-  pickEnemyAt(pt, rad) { let best = null, bd = Infinity; for (const e of this.visibleEnemies()) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
+  pickEnemyAt(pt, rad) { let best = null, bd = Infinity; const wards = this.units.filter(u => u.kind === 'ward' && !u.dead && u.team !== 0 && Vision.visible(this.player, u));   // 상대 카메라는 평타로 파괴
+    for (const e of this.visibleEnemies().concat(wards)) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
 };
 
 // ============================== 등급/기록 ==============================
@@ -2954,6 +3194,8 @@ const Input = {
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
     if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
+    if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
+    if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
@@ -3032,7 +3274,16 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
-    for (const w of CONFIG.walls) { ctx.fillStyle = T.wall; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h); }
+    for (const w of CONFIG.walls) {
+      if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
+        ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }
+      } else if (w.kind === 'glass') {   // 창문 벽: 이동은 막고 너머가 보임
+        ctx.fillStyle = '#2b3346'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h);
+        ctx.fillStyle = 'rgba(140,200,255,.45)'; const L = Math.max(w.w, w.h), hz = w.w > w.h;
+        for (let t = 0.25; t < L - 0.2; t += 0.8) { if (hz) ctx.fillRect(w.x + t, w.y + w.h * 0.25, 0.5, w.h * 0.5); else ctx.fillRect(w.x + w.w * 0.25, w.y + t, w.w * 0.5, 0.5); }
+      } else { ctx.fillStyle = T.wall; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h); }
+    }
     if (Game.state === 'menu') return;
     this.drawIndicators(ctx, T);
     for (const m of FX.marks) { const k = m.life / m.max; ctx.strokeStyle = m.color; ctx.globalAlpha = k; ctx.lineWidth = 0.05; Draw.circle(ctx, m.x, m.y, 0.15 + (1 - k) * 0.4); ctx.stroke(); ctx.globalAlpha = 1; }
@@ -3059,6 +3310,56 @@ const Render = {
     for (const r of FX.rings) { const k = 1 - r.life / r.max; ctx.globalAlpha = 1 - k; ctx.strokeStyle = r.color; ctx.lineWidth = r.width; Draw.circle(ctx, r.x, r.y, lerp(r.r0, r.r1, k)); ctx.stroke(); }
     for (const p of FX.parts) { ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
+    if (Vision.fogOn && Game.player) this.drawFog(ctx);
+  },
+  // 전장의 안개: 시야 다각형(벽에 막힘)과 시야 구역만 밝게, 나머지는 어둡게 + 사라진 적의 마지막 위치
+  drawFog(ctx) {
+    const p = Game.player, cv = this.cv, V0 = CONFIG.vision;
+    if (!this.fogCv) this.fogCv = document.createElement('canvas');
+    const fc = this.fogCv; if (fc.width !== cv.width || fc.height !== cv.height) { fc.width = cv.width; fc.height = cv.height; }
+    const f = fc.getContext('2d');
+    f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, fc.width, fc.height);
+    f.fillStyle = Vision.night ? `rgba(2,4,12,${V0.nightFog})` : `rgba(4,6,10,${V0.fogAlpha})`; f.fillRect(0, 0, fc.width, fc.height);
+    f.setTransform(ctx.getTransform()); f.globalCompositeOperation = 'destination-out'; f.fillStyle = '#000';
+    if (!p.dead) { const pts = Vision.poly(p); f.beginPath(); f.moveTo(pts[0].x, pts[0].y); for (const q of pts) f.lineTo(q.x, q.y); f.closePath(); f.fill(); }
+    for (const z of Vision.reveals) if (z.team === p.team) { f.beginPath(); f.arc(z.pos.x, z.pos.y, z.r, 0, Math.PI * 2); f.fill(); }
+    for (const w of Vision.wards(p.team)) {   // 카메라 시야(벽에 가려짐) — 설치 위치가 고정이라 캐시
+      const R = w.sightR(); if (!w._poly || w._polyR !== R) { w._poly = Vision.polyFrom(w.pos, R); w._polyR = R; }
+      f.beginPath(); f.moveTo(w._poly[0].x, w._poly[0].y); for (const q of w._poly) f.lineTo(q.x, q.y); f.closePath(); f.fill();
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fc, 0, 0); ctx.restore();
+    // 아군 시야 구역 테두리(드론·카메라)
+    for (const z of Vision.reveals) if (z.team === p.team && z.drone) KU.ring(ctx, z.pos, z.r, '#7fd1ff', 0.35 * Math.min(1, z.t), true);
+    // 상대 드론: 드론이 내 시야 안에 있을 때만 범위가 보임
+    for (const z of Vision.reveals) if (z.team !== p.team && z.drone && Vision.pointVisible(z.pos)) { KU.ring(ctx, z.pos, z.r, '#ff8a8a', 0.5, true); KU.fill(ctx, z.pos, 0.18, '#ff8a8a', 0.9); }
+    for (const fl of Game.drones || []) { const k = clamp(fl.t / fl.dur, 0, 1), at = V.lerp(fl.from, fl.to, k); if (fl.team === p.team || Vision.pointVisible(at)) KU.fill(ctx, at, 0.16, fl.team === p.team ? '#7fd1ff' : '#ff8a8a', 0.9); }
+    this.drawNoises(ctx);
+    for (const id in Vision.ghosts) {   // 잔상: 흐린 테두리 + 물음표
+      const g = Vision.ghosts[id], u = Game.units.find(x => x.id === +id); if (u && Vision.visible(p, u)) continue;
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.35 * g.t / V0.ghost; ctx.strokeStyle = g.color; ctx.lineWidth = 0.06; ctx.setLineDash([0.15, 0.1]);
+      Draw.circle(ctx, g.pos.x, g.pos.y, g.r); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = g.color; ctx.font = 'bold 0.5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', g.pos.x, g.pos.y); ctx.restore();
+    }
+  },
+  // 소음: 시야 밖에서 들린 상대의 스킬·평타('!' 핑)와 발소리
+  drawNoises(ctx) {
+    const p = Game.player; if (!p || p.dead) return;
+    for (const nz of Vision.noises) {
+      if (nz.team === p.team || nz.team === 2 || V.dist(nz.pos, p.pos) > nz.r) continue;
+      if (nz.src && !nz.src.dead && Vision.visible(p, nz.src)) continue;   // 보이는 상대의 소리는 표시 안 함
+      const k = nz.t / nz.max;
+      ctx.save();
+      if (nz.kind === 'step') {   // 발소리: 작은 발자국 두 개
+        ctx.globalAlpha = 0.55 * k; ctx.fillStyle = '#d7dbe6';
+        ctx.beginPath(); ctx.ellipse(nz.pos.x - 0.1, nz.pos.y, 0.07, 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(nz.pos.x + 0.12, nz.pos.y - 0.18, 0.07, 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
+      } else {   // 스킬·평타 소음: 빨간 느낌표 핑
+        ctx.globalAlpha = 0.85 * k; ctx.strokeStyle = '#ff4d5e'; ctx.lineWidth = 0.07;
+        Draw.circle(ctx, nz.pos.x, nz.pos.y, 0.35 + (1 - k) * 0.6); ctx.stroke();
+        ctx.fillStyle = '#ff4d5e'; ctx.font = 'bold 0.55px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', nz.pos.x, nz.pos.y + 0.02);
+      }
+      ctx.restore();
+    }
   },
   // 스킬 사거리/범위 미리보기
   drawCastTelegraph(ctx, p) {
@@ -3117,16 +3418,27 @@ const Render = {
   },
   // 부쉬: 유닛 위에 반투명 잎사귀
   drawBushes(ctx) {
-    for (const b of CONFIG.bushes || []) {
-      ctx.save(); ctx.fillStyle = 'rgba(46,110,62,.55)'; Draw.rr(ctx, b.x, b.y, b.w, b.h, 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(120,200,120,.5)'; ctx.lineWidth = 0.05; ctx.stroke();
-      ctx.fillStyle = 'rgba(90,170,90,.45)';
-      for (let i = 0; i < b.w * b.h * 2.2; i++) { const x = b.x + ((i * 0.618034) % 1) * b.w, y = b.y + ((i * 0.381966 * 1.7) % 1) * b.h; ctx.beginPath(); ctx.ellipse(x, y, 0.22, 0.12, i, 0, Math.PI * 2); ctx.fill(); }
+    (CONFIG.bushes || []).forEach((b, bi) => {
+      // 흔들림: 내 시야(또는 아군 시야) 안의 부쉬에 누가 들어가거나 스킬이 지나가면 흔들림 — 시야 밖이면 안 보임
+      const R = Vision.rustles.find(r => r.b === bi && (r.team !== 0 || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.06 * (R.t / CONFIG.vision.rustle) : 0;
+      ctx.save(); ctx.fillStyle = R ? 'rgba(70,140,80,.62)' : 'rgba(46,110,62,.55)'; Draw.rr(ctx, b.x, b.y, b.w, b.h, 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(120,200,120,.5)'; ctx.lineWidth = 0.05; ctx.stroke();
+      ctx.fillStyle = R ? 'rgba(150,220,140,.6)' : 'rgba(90,170,90,.45)';
+      for (let i = 0; i < b.w * b.h * 2.2; i++) { const x = b.x + ((i * 0.618034) % 1) * b.w + sh * Math.sin(i), y = b.y + ((i * 0.381966 * 1.7) % 1) * b.h; ctx.beginPath(); ctx.ellipse(x, y, 0.22, 0.12, i + sh * 4, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore();
-    }
+    });
   },
   drawUnit(ctx, u, T) {
     if (u.dead) return;
     if (u.team !== 0 && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
+    if (u.kind === 'ward') {   // 망원 카메라: 삼각대 + 남은 시간 링 (내 카메라는 시야 반경 점선)
+      const k = clamp(u.life / CONFIG.vision.camera.dur, 0, 1);
+      ctx.save(); ctx.strokeStyle = u.color; ctx.lineWidth = 0.05;
+      ctx.beginPath(); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x - 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x + 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x, u.pos.y + 0.28); ctx.stroke();
+      ctx.fillStyle = u.color; ctx.fillRect(u.pos.x - 0.16, u.pos.y - 0.24, 0.32, 0.2);
+      ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+      if (u.team === 0 && Settings.showRange) { ctx.globalAlpha = 0.18; ctx.setLineDash([0.3, 0.25]); Draw.circle(ctx, u.pos.x, u.pos.y, u.sightR()); ctx.stroke(); }
+      ctx.restore(); return;
+    }
     ctx.save();
     if (u.invuln > 0 && Math.floor(Game.time * 20) % 2 === 0) ctx.globalAlpha = 0.45;
     if (u.kind === 'player' && Vision.bushAt(u.pos) >= 0) ctx.globalAlpha = 0.6;   // 부쉬 속: 상대에게 안 보임
@@ -3183,6 +3495,7 @@ const Render = {
     ctx.restore();
   },
   drawProjectile(ctx, pr, T) {
+    if (pr.team !== 0 && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
     ctx.save();
     if (pr.kind === 'needle') {
       if (pr.owner && !pr.owner.dead) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(pr.owner.pos.x, pr.owner.pos.y); ctx.lineTo(pr.pos.x, pr.pos.y); ctx.stroke(); }   // 실
@@ -3198,7 +3511,7 @@ const Render = {
   drawOverheads(ctx) {
     const L = this.L;
     for (const u of Game.units) {
-      if (u.dead || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
+      if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
       const s = this.toScreen(u.pos), R = u.r * L.ppm, bw = Math.max(44, R * 2.6), bh = 6, x = s.x - bw / 2, y = s.y - R - 16;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
@@ -3276,7 +3589,11 @@ const HUD = {
     if (p.unstoppable > 0) buffs.push(['저지 불가', T.gold]);
     let bxx = bx;
     for (const [t, c] of buffs) { ctx.font = `700 10px ${FONT}`; const w = ctx.measureText(t).width + 12; Draw.rr(ctx, bxx, by + 50, w, 16, 8); ctx.fillStyle = c + '33'; ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke(); Draw.text(ctx, t, bxx + w / 2, by + 58, { size: 10, bold: true, align: 'center', color: c }); bxx += w + 4; if (bxx > bx + bw - 30) break; }
-    Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 80, { size: 10, color: '#8a93a6' });
+    Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 74, { size: 10, color: '#8a93a6' });
+    if (Vision.fogOn && p.items) {   // 시야: 낮/밤 · 시야 거리 · 시야 아이템 보유량
+      const it = (k, key) => `${(Settings.keys[key] || '').toUpperCase()} ${CONFIG.vision[k].name} ×${p.items[k]}${p.itemCd[k] > 0 ? ` (${fmt(p.itemCd[k], 1)})` : ''}`;
+      Draw.text(ctx, `${Vision.night ? '🌙 밤' : '☀ 낮'} 시야 ${fmt(Vision.sightOf(p), 1)}m · ${it('camera', 'C')} · ${it('drone', 'V')}`, bx, by + 88, { size: 10, bold: true, color: Vision.night ? '#8fa8ff' : '#c9cfdb' });
+    }
     // 스킬 슬롯
     const sx0 = x0 + pw - slotsW - 8;
     ['Q', 'W', 'E', 'R', 'D', 'F'].forEach((k, i) => this.slot(ctx, p, k, sx0 + i * 52, y0 + 12, 46));
@@ -3473,16 +3790,18 @@ const UI = {
         <div class="row"><label>상대</label>${mb}</div>
         <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
+        <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대) — 2인 수쳐 응용 · 투사체 몸막이</label></div>
-        <div class="sub" style="margin:4px 0">숲길: 좁은 길목·복도(벽꿍 각)와 부쉬 5곳. 부쉬 안의 유닛은 2.2m 안이거나 같은 부쉬에 있어야 보입니다 — AI는 안 보이는 캐시를 공격하지 못합니다.</div>
+        <div class="sub" style="margin:4px 0">숲길: 좁은 길목·복도(벽꿍 각)와 부쉬 5곳. 부쉬 안의 유닛은 2.2m 안이거나 같은 부쉬에 있어야 보입니다 — AI는 안 보이는 캐시를 공격하지 못합니다. <b>시야 시스템</b>(설정에서 끄기 가능): 시야 낮 8.5m·밤 3.4→6.4m, 높은 벽 뒤는 암시야(낮은 턱 <i>점선</i>·창문 벽 <i>파란 창</i>은 너머가 보임), 시야 밖 행동은 <b style="color:#ff4d5e">!</b> 소음·발소리로, 시야 안 부쉬에 들어가면 흔들림으로 드러납니다. <b>C 망원 카메라</b>(13m, 은신 감지, 최대 2개) · <b>V 정찰 드론</b>(5초). AI도 같은 규칙으로 보고 듣고, 카메라를 부수며 드론·카메라로 부쉬를 확인합니다.</div>
         <div class="row"><label>난이도</label>${db}</div><div class="row">${back}<button class="btn primary" data-a="go">시작</button></div>`, Object.assign(H, {
         diff: d => { this.duelDiff = d.v; this.showModeOptions('duel'); },
         motif: d => { this.duelMotif = d.v === 'random' ? null : d.v; this.showModeOptions('duel'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('duel'); },
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
-        go: () => Game.start('duel', { diff: this.duelDiff, motif: this.duelMotif, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals }),
+        dtime: d => { Settings.duelTime = d.v; saveSettings(); this.showModeOptions('duel'); },
+        go: () => Game.start('duel', { diff: this.duelDiff, motif: this.duelMotif, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime }),
       }));
     } else if (id === 'challenge') this.showChallenges();
   },
@@ -3516,7 +3835,7 @@ const UI = {
 
   showSettings(back) {
     this.settingsBack = back;
-    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 점멸', S: '정지', A: '공격 이동' };
+    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 점멸', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식</h3>
@@ -3528,6 +3847,8 @@ const UI = {
       <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
       ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
+      <h3>시야</h3>
+      ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
       ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
@@ -3539,6 +3860,7 @@ const UI = {
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
+      'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
       'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
       'in:volume': el => { Settings.volume = +el.value; saveSettings(); },
@@ -3562,8 +3884,9 @@ const UI = {
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>
       · <b>선딜 캔슬</b>: 스킬 선딜 중 이동 입력을 하면 스킬이 끊깁니다(실수로 기록).<br>
       · <b>선입력</b>: 시전 중 누른 스킬은 ${CONFIG.input.bufferMs}ms 안에 시전이 끝나면 이어서 나갑니다. 너무 일찍 누르면 씹힙니다.<br>
-      · <b>외과 전문의</b>: 스킬 피해마다 외상 1중첩(스킬당 1회) → 3중첩 시 치명적 외상(최대 체력 6% 고정 피해, 치유 감소, 보호막, Q 쿨 감소). W 안쪽 범위와 E 충돌은 외상을 주지 않습니다.<br>
+      · <b>외과 전문의</b>: 스킬 피해마다 외상 1중첩(스킬당 1회, 4초간 스킬 증폭 25% 출혈) → 3중첩 시 치명적 외상(4초간 최대 체력 6%+스킬 증폭 25% 출혈, 치유 감소, 보호막, Q 쿨 감소). W 안쪽 범위와 E 충돌은 외상을 주지 않습니다.<br>
       · <b>강화 평타</b>: Q/W/E/R 사용 후 다음 평타가 추가 스킬 피해(외상 부여).<br>
+      · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
       <div class="row"><button class="btn" data-a="back">← 뒤로</button></div>`, { back: () => this.showMenu() });
   },

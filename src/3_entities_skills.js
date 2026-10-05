@@ -14,7 +14,7 @@ class Unit {
     this.hp = this.maxHp; this.dead = false; this.deathT = 0;
     this.moveTarget = null; this.vel = { x: 0, y: 0 }; this.root = 0; this.stun = 0; this.slows = []; this.msBuffs = [];
     this.unstoppable = 0; this.forced = null; this.shield = 0; this.shieldT = 0; this.trauma = 0; this.traumaT = 0;
-    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
+    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.bleeds = []; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
   }
   revive() { this.resetState(); this.pos = V.copy(this.spawn); FX.ring(this.pos, 0.2, 1.2, '#8a93a6', 0.4); }
   msMul() {
@@ -45,6 +45,7 @@ class Unit {
   tickStatus(dt) {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
+    Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -213,7 +214,7 @@ class Cathy extends Unit {
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
     c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k); this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
+    Stats.cast(c.k); Vision.act(this, 'skill');   // 부쉬 노출 + 시야 밖 상대에겐 '!' 소음
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) Stats.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
@@ -282,7 +283,7 @@ class Cathy extends Unit {
       Stats.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
-    Stats.aaHits++; this.lastAA = { time: Game.time }; this.revealT = Math.max(this.revealT, CONFIG.vision.actionReveal);
+    Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
     this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
@@ -577,7 +578,7 @@ class Projectile {
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {
-      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0) continue;
+      if (u.dead || u.team === this.team || this.hit.has(u.id) || u.untargetable > 0 || u.kind === 'ward') continue;
       const rel = V.sub(u.pos, prev), along = V.dot(rel, this.dir), perp = Math.abs(rel.x * this.dir.y - rel.y * this.dir.x);
       if (along >= -u.r && along <= segEnd + u.r && perp <= u.r + this.width / 2 + (this.assist || 0)) cands.push({ u, along });
     }
@@ -587,6 +588,7 @@ class Projectile {
       if (this.onUnit(this, u) === 'stop') { this.pos = V.add(prev, V.mul(this.dir, Math.max(0, along))); this.finish(); return; }
     }
     this.pos = V.add(prev, V.mul(this.dir, segEnd)); this.traveled += segEnd;
+    const rb = Vision.bushAt(this.pos); if (rb >= 0 && rb !== this._rb) Vision.rustle(rb, this.pos, this.team, true); this._rb = rb;   // 스킬이 지나가면 부쉬가 흔들림
     if (tw < Infinity) { if (this.onWall) this.onWall(this, V.copy(this.pos)); this.finish(); return; }
     if (this.traveled >= this.range - 1e-6) this.finish();
   }

@@ -18,13 +18,16 @@ Kits.daniel = {
   update(ai, dt) {
     const K = ai.kitCfg, p = Game.player;
     ai.modeT += dt; ai.lastHitT += dt;
+    // P 고독한 예술가: 밤에 시야·이동 속도 증가
+    ai.sightMul = Vision.night ? 1 + ai.pick(K.P.sight, 'P') : 1;
+    if (Vision.night) ai.addMsBuff(ai.pick(K.P.ms, 'P'), 0.25, false, 'danP');
     if (ai.shadowT > 0) { ai.shadowT -= dt; if (ai.shadowT <= 0) ai.stealthT = 0; }
     if (ai.cloakT > 0) { ai.cloakT -= dt; if (ai.cloakT <= 0) ai.cds.D = ai.pick(K.D.cd, 'D'); }   // 단검(2차) 안 쓰면 쿨 시작
     if (ai.qShots > 0 && !ai.asBuffs.some(a => a.tag === 'danQ')) ai.qShots = 0;
     if (ai.mark) {
       const M = ai.mark; M.t += dt;
       if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
-      else if (M.target === p) p.revealT = Math.max(p.revealT, 0.05);   // 표식 대상 주변 시야 (부쉬 속도 보임)
+      else if (M.target === p) Vision.reveals.push({ team: ai.team, pos: V.copy(p.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
     }
     for (const o of ai.objs) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; this.qLand(ai, o); } }
     ai.objs = ai.objs.filter(o => o.t < o.dur + 0.25);
@@ -102,7 +105,7 @@ Kits.daniel = {
     const pos = V.add(ai.pos, V.mul(dir, dist));
     ai.cds.Q = ai.pick(K.cd, 'Q'); ai.stealthT = 0;   // 다른 스킬을 쓰면 은신 해제
     ai.objs.push({ kind: 'scissor', pos, dir, t: 0, dur: K.windup });   // 무빙 캐스팅: 시전 중에도 계속 이동
-    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+    Vision.act(ai, 'skill');
     FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true }); Sfx.play('throw');
   },
   qLand(ai, o) {
@@ -122,11 +125,11 @@ Kits.daniel = {
     const K = ai.kitCfg.W; ai.cds.W = K.cd; ai.stealthT = 0;
     ai.mark = { target: u, t: 0, acc: 0 }; u.blindT = K.blind; u.blindR = K.blindR;
     FX.text(u.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(u.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw');
-    ai.revealT = Math.max(ai.revealT || 0, CONFIG.vision.actionReveal);
+    Vision.act(ai, 'skill');
   },
   castE(ai, dir, dist) {
     const K = ai.kitCfg.E; ai.cds.E = ai.pick(K.cd, 'E');
-    FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16);   // 은신 연기(상대는 이 연기로 진입을 눈치챔)
+    FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16); Vision.noise(ai, 'skill');   // 은신 연기 + 시전 소리(상대는 이것으로 진입을 눈치챔)
     ai.dashTo(dir, Math.min(K.dist, dist ?? K.dist), K.time, false);
     ai.stealthT = ai.pick(K.stealth, 'E'); ai.shadowT = K.shadowDur; ai.revealT = 0;
     FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true });

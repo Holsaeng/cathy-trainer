@@ -174,6 +174,7 @@ class RangedDuelist extends Duelist {
     this.asBuffs = []; this.noAA = 0; this.objs = []; this.pendingShots = []; this.chans = [];
     this.side = Math.random() < 0.5 ? 1 : -1; this.kiteT = 0; this.castSeen = -1;
     Object.assign(this.stats, { kites: 0, sideSteps: 0 });
+    VisionItems.give(this); this.lastHeard = 0; this.lastRustle = 0;
     if (this.kit.init) this.kit.init(this);
   }
   // ---------- 수치 도우미 ----------
@@ -200,8 +201,8 @@ class RangedDuelist extends Duelist {
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = 999; }   // 대상 지정(회피 불가)
     Game.projectiles.push(pr); return pr;
   }
-  startCast(dur, onFire, tele) { this.act = { type: 'cast', t: 0, dur, onFire, tele }; this.moveTarget = null; }
-  startChannel(dur, o) { this.act = { type: 'channel', t: 0, dur, onTick: o.onTick, onEnd: o.onEnd, tele: o.tele, cancelIfClose: o.cancelIfClose }; this.moveTarget = null; }
+  startCast(dur, onFire, tele) { this.act = { type: 'cast', t: 0, dur, onFire, tele }; this.moveTarget = null; Vision.act(this, 'skill'); }
+  startChannel(dur, o) { this.act = { type: 'channel', t: 0, dur, onTick: o.onTick, onEnd: o.onEnd, tele: o.tele, cancelIfClose: o.cancelIfClose }; this.moveTarget = null; Vision.act(this, 'skill'); }
   dashTo(dir, dist, time, passWalls, name) {
     const len = passWalls ? Geo.passLanding(this.pos, dir, dist, this.r) : Geo.clampDash(this.pos, dir, dist, this.r);
     this.act = { type: 'dash', t: 0, dur: time, from: V.copy(this.pos), to: V.add(this.pos, V.mul(dir, len)) }; this.moveTarget = null;
@@ -226,9 +227,11 @@ class RangedDuelist extends Duelist {
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
-    if (!this.seesP) {   // 부쉬 속 캐시: 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬로 부쉬 체크
+    if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
+    if (!this.seesP) {   // 안 보이는 캐시(부쉬·암시야): 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬·시야 아이템으로 확인
       this.unseenT = (this.unseenT || 0) + dt;
       if (!this.belief) this.initBelief(p0);
+      this.listen();
       if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
@@ -307,9 +310,39 @@ class RangedDuelist extends Duelist {
     return Geo.pushOut(V.add(B.pos, V.mul(B.vel, Math.min(B.t, 1.2))), 0.5);
   }
   // 추정 위치에서 캐시 진입 거리(Q 4m + E 사거리) 밖을 유지하며 계속 움직이고, 다른 부쉬 근처(매복)도 피함
+  // 소리('!' 핑·발소리)와 시야 안 부쉬의 흔들림으로 캐시 위치 추정을 갱신
+  listen() {
+    const nz = Vision.heard(this, this.lastHeard);
+    if (nz) { this.lastHeard = nz.born; this.belief = { pos: V.copy(nz.pos), vel: { x: 0, y: 0 }, bush: Vision.bushAt(nz.pos), t: 0, heard: nz.kind }; }
+    for (const r of Vision.rustles) if (r.team === 0 && r.born > this.lastRustle && !r.skill && Vision.inSight(this, r.pt)) { this.lastRustle = r.born; this.belief = { pos: V.copy(r.pt), vel: { x: 0, y: 0 }, bush: r.b, t: 0, heard: 'rustle' }; }
+  }
+  // 시야 아이템: 오래 안 보이면 정찰 드론으로 추정 지점(부쉬)을 확인하고, 그래도 못 찾으면 망원 카메라를 설치
+  useVisionItem(est, B) {
+    const VI = CONFIG.vision, d = V.dist(this.pos, est), H = CONFIG.rangedAI.hunt;
+    if (this.diffKey === 'easy' && Math.random() < 0.6) return false;
+    if (this.unseenT > H.checkAfter + 0.4 && VisionItems.can(this, 'drone') && d <= VI.drone.range && (B.bush >= 0 || this.unseenT > 3) && !Vision.zoneSees(this.team, est)) {
+      VisionItems.drone(this, est, true); return true;
+    }
+    if (this.unseenT > 3.5 && VisionItems.can(this, 'camera') && !Vision.wards(this.team).some(w => V.dist(w.pos, est) < w.sightR() * 0.7)) {
+      VisionItems.camera(this, V.add(this.pos, V.mul(V.norm(V.sub(est, this.pos)), VI.camera.range)), true); return true;
+    }
+    return false;
+  }
+  // 캐시의 카메라가 보이면 부숴서 시야를 끊음(캐시가 멀거나 안 보일 때)
+  killWard(p) {
+    if (!Vision.fogOn || this.act || !this.canAct()) return false;
+    const engaged = this.seesP && p && !p.dead && V.dist(this.pos, p.pos) < 7.5;
+    if (engaged || (this.mode === 'engage')) return false;
+    const w = Vision.wards(0).filter(x => Vision.visible(this, x) && V.dist(x.pos, this.pos) < 9).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0];
+    if (!w) return false;
+    const reach = (this.melee ? this.motif.aaRange : this.aaRange()) + w.r + this.r;
+    if (V.dist(this.pos, w.pos) <= reach && this.aaCd <= 0) { this.aaTarget = w; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup }; this.moveTarget = null; return true; }
+    this.moveTarget = Geo.pushOut(V.add(w.pos, V.mul(V.norm(V.sub(this.pos, w.pos)), reach * 0.8)), this.r); return true;
+  }
   hunt() {
     const H = CONFIG.rangedAI.hunt, B = this.belief; B.t += H.think;
     const est = this.estimate();
+    if (this.canAct() && this.useVisionItem(est, B)) return;
     // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
     if (this.unseenT > H.checkAfter && this.canAct() && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
     if (B.t > H.forget) { this.belief.bush = -1; this.belief.pos = V.copy(est); this.belief.vel = { x: 0, y: 0 }; }   // 오래 못 봤으면 추정 갱신
@@ -366,7 +399,9 @@ class RangedDuelist extends Duelist {
       if (p && !p.dead) this.facing = V.ang(V.sub(p.pos, this.pos));
       if (a.t >= a.dur) {
         this.act = null; this.aaCd = 1 / this.curAs() - a.dur;   // 공격 간격 = 1/공속 (선딜 포함)
-        if (p && !p.dead) { this.fireAA(p); Sfx.play('aa'); this.startKite(p); }
+        const wt = this.aaTarget && this.aaTarget.kind === 'ward' ? this.aaTarget : null;
+        if (wt) { this.aaTarget = null; if (!wt.dead) { FX.trail(this.pos, wt.pos, this.motif.color, 0.12, 0.15); Combat.damage(this, wt, 1, { type: 'true', source: '적 평타', noShake: true }); Vision.act(this, 'attack'); } return; }
+        if (p && !p.dead) { Vision.act(this, 'attack'); this.fireAA(p); Sfx.play('aa'); this.startKite(p); }
       }
     } else if (a.type === 'cast') {
       if (a.tele && a.tele.dir) this.facing = V.ang(a.tele.dir);

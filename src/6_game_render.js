@@ -9,7 +9,8 @@ const Game = {
     this.mode = Modes[id]; Input.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
-    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = [];
+    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = [];
+    Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
@@ -18,6 +19,8 @@ const Game = {
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
     this.time += dt; Stats.tick(dt); Vision.update(dt);
     for (const u of this.units.slice()) u.update(dt);
+    VisionItems.update(dt); for (const u of this.units) VisionItems.tick(u, dt);
+    this.units = this.units.filter(u => !(u.dead && u.kind === 'ward'));   // 파괴·만료된 카메라 제거
     for (const pr of this.projectiles) pr.update(dt);
     this.projectiles = this.projectiles.filter(p => !p.dead);
     this.updateZones(dt);
@@ -48,10 +51,11 @@ const Game = {
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0)); },   // 대상 지정 불가(다니엘 걸작) 제외
+  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
   visibleEnemies() { return this.enemies().filter(e => Vision.visible(this.player, e)); },
   nearestEnemy(pos, range) { let best = null, bd = range; for (const e of this.visibleEnemies()) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
-  pickEnemyAt(pt, rad) { let best = null, bd = Infinity; for (const e of this.visibleEnemies()) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
+  pickEnemyAt(pt, rad) { let best = null, bd = Infinity; const wards = this.units.filter(u => u.kind === 'ward' && !u.dead && u.team !== 0 && Vision.visible(this.player, u));   // 상대 카메라는 평타로 파괴
+    for (const e of this.visibleEnemies().concat(wards)) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
 };
 
 // ============================== 등급/기록 ==============================
@@ -171,6 +175,8 @@ const Input = {
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
     if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
+    if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
+    if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
@@ -249,7 +255,16 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
-    for (const w of CONFIG.walls) { ctx.fillStyle = T.wall; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h); }
+    for (const w of CONFIG.walls) {
+      if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
+        ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }
+      } else if (w.kind === 'glass') {   // 창문 벽: 이동은 막고 너머가 보임
+        ctx.fillStyle = '#2b3346'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h);
+        ctx.fillStyle = 'rgba(140,200,255,.45)'; const L = Math.max(w.w, w.h), hz = w.w > w.h;
+        for (let t = 0.25; t < L - 0.2; t += 0.8) { if (hz) ctx.fillRect(w.x + t, w.y + w.h * 0.25, 0.5, w.h * 0.5); else ctx.fillRect(w.x + w.w * 0.25, w.y + t, w.w * 0.5, 0.5); }
+      } else { ctx.fillStyle = T.wall; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#3c4660'; ctx.lineWidth = 0.06; ctx.strokeRect(w.x, w.y, w.w, w.h); }
+    }
     if (Game.state === 'menu') return;
     this.drawIndicators(ctx, T);
     for (const m of FX.marks) { const k = m.life / m.max; ctx.strokeStyle = m.color; ctx.globalAlpha = k; ctx.lineWidth = 0.05; Draw.circle(ctx, m.x, m.y, 0.15 + (1 - k) * 0.4); ctx.stroke(); ctx.globalAlpha = 1; }
@@ -276,6 +291,56 @@ const Render = {
     for (const r of FX.rings) { const k = 1 - r.life / r.max; ctx.globalAlpha = 1 - k; ctx.strokeStyle = r.color; ctx.lineWidth = r.width; Draw.circle(ctx, r.x, r.y, lerp(r.r0, r.r1, k)); ctx.stroke(); }
     for (const p of FX.parts) { ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
+    if (Vision.fogOn && Game.player) this.drawFog(ctx);
+  },
+  // 전장의 안개: 시야 다각형(벽에 막힘)과 시야 구역만 밝게, 나머지는 어둡게 + 사라진 적의 마지막 위치
+  drawFog(ctx) {
+    const p = Game.player, cv = this.cv, V0 = CONFIG.vision;
+    if (!this.fogCv) this.fogCv = document.createElement('canvas');
+    const fc = this.fogCv; if (fc.width !== cv.width || fc.height !== cv.height) { fc.width = cv.width; fc.height = cv.height; }
+    const f = fc.getContext('2d');
+    f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, fc.width, fc.height);
+    f.fillStyle = Vision.night ? `rgba(2,4,12,${V0.nightFog})` : `rgba(4,6,10,${V0.fogAlpha})`; f.fillRect(0, 0, fc.width, fc.height);
+    f.setTransform(ctx.getTransform()); f.globalCompositeOperation = 'destination-out'; f.fillStyle = '#000';
+    if (!p.dead) { const pts = Vision.poly(p); f.beginPath(); f.moveTo(pts[0].x, pts[0].y); for (const q of pts) f.lineTo(q.x, q.y); f.closePath(); f.fill(); }
+    for (const z of Vision.reveals) if (z.team === p.team) { f.beginPath(); f.arc(z.pos.x, z.pos.y, z.r, 0, Math.PI * 2); f.fill(); }
+    for (const w of Vision.wards(p.team)) {   // 카메라 시야(벽에 가려짐) — 설치 위치가 고정이라 캐시
+      const R = w.sightR(); if (!w._poly || w._polyR !== R) { w._poly = Vision.polyFrom(w.pos, R); w._polyR = R; }
+      f.beginPath(); f.moveTo(w._poly[0].x, w._poly[0].y); for (const q of w._poly) f.lineTo(q.x, q.y); f.closePath(); f.fill();
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(fc, 0, 0); ctx.restore();
+    // 아군 시야 구역 테두리(드론·카메라)
+    for (const z of Vision.reveals) if (z.team === p.team && z.drone) KU.ring(ctx, z.pos, z.r, '#7fd1ff', 0.35 * Math.min(1, z.t), true);
+    // 상대 드론: 드론이 내 시야 안에 있을 때만 범위가 보임
+    for (const z of Vision.reveals) if (z.team !== p.team && z.drone && Vision.pointVisible(z.pos)) { KU.ring(ctx, z.pos, z.r, '#ff8a8a', 0.5, true); KU.fill(ctx, z.pos, 0.18, '#ff8a8a', 0.9); }
+    for (const fl of Game.drones || []) { const k = clamp(fl.t / fl.dur, 0, 1), at = V.lerp(fl.from, fl.to, k); if (fl.team === p.team || Vision.pointVisible(at)) KU.fill(ctx, at, 0.16, fl.team === p.team ? '#7fd1ff' : '#ff8a8a', 0.9); }
+    this.drawNoises(ctx);
+    for (const id in Vision.ghosts) {   // 잔상: 흐린 테두리 + 물음표
+      const g = Vision.ghosts[id], u = Game.units.find(x => x.id === +id); if (u && Vision.visible(p, u)) continue;
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.35 * g.t / V0.ghost; ctx.strokeStyle = g.color; ctx.lineWidth = 0.06; ctx.setLineDash([0.15, 0.1]);
+      Draw.circle(ctx, g.pos.x, g.pos.y, g.r); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = g.color; ctx.font = 'bold 0.5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', g.pos.x, g.pos.y); ctx.restore();
+    }
+  },
+  // 소음: 시야 밖에서 들린 상대의 스킬·평타('!' 핑)와 발소리
+  drawNoises(ctx) {
+    const p = Game.player; if (!p || p.dead) return;
+    for (const nz of Vision.noises) {
+      if (nz.team === p.team || nz.team === 2 || V.dist(nz.pos, p.pos) > nz.r) continue;
+      if (nz.src && !nz.src.dead && Vision.visible(p, nz.src)) continue;   // 보이는 상대의 소리는 표시 안 함
+      const k = nz.t / nz.max;
+      ctx.save();
+      if (nz.kind === 'step') {   // 발소리: 작은 발자국 두 개
+        ctx.globalAlpha = 0.55 * k; ctx.fillStyle = '#d7dbe6';
+        ctx.beginPath(); ctx.ellipse(nz.pos.x - 0.1, nz.pos.y, 0.07, 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(nz.pos.x + 0.12, nz.pos.y - 0.18, 0.07, 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
+      } else {   // 스킬·평타 소음: 빨간 느낌표 핑
+        ctx.globalAlpha = 0.85 * k; ctx.strokeStyle = '#ff4d5e'; ctx.lineWidth = 0.07;
+        Draw.circle(ctx, nz.pos.x, nz.pos.y, 0.35 + (1 - k) * 0.6); ctx.stroke();
+        ctx.fillStyle = '#ff4d5e'; ctx.font = 'bold 0.55px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', nz.pos.x, nz.pos.y + 0.02);
+      }
+      ctx.restore();
+    }
   },
   // 스킬 사거리/범위 미리보기
   drawCastTelegraph(ctx, p) {
@@ -334,16 +399,27 @@ const Render = {
   },
   // 부쉬: 유닛 위에 반투명 잎사귀
   drawBushes(ctx) {
-    for (const b of CONFIG.bushes || []) {
-      ctx.save(); ctx.fillStyle = 'rgba(46,110,62,.55)'; Draw.rr(ctx, b.x, b.y, b.w, b.h, 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(120,200,120,.5)'; ctx.lineWidth = 0.05; ctx.stroke();
-      ctx.fillStyle = 'rgba(90,170,90,.45)';
-      for (let i = 0; i < b.w * b.h * 2.2; i++) { const x = b.x + ((i * 0.618034) % 1) * b.w, y = b.y + ((i * 0.381966 * 1.7) % 1) * b.h; ctx.beginPath(); ctx.ellipse(x, y, 0.22, 0.12, i, 0, Math.PI * 2); ctx.fill(); }
+    (CONFIG.bushes || []).forEach((b, bi) => {
+      // 흔들림: 내 시야(또는 아군 시야) 안의 부쉬에 누가 들어가거나 스킬이 지나가면 흔들림 — 시야 밖이면 안 보임
+      const R = Vision.rustles.find(r => r.b === bi && (r.team !== 0 || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.06 * (R.t / CONFIG.vision.rustle) : 0;
+      ctx.save(); ctx.fillStyle = R ? 'rgba(70,140,80,.62)' : 'rgba(46,110,62,.55)'; Draw.rr(ctx, b.x, b.y, b.w, b.h, 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(120,200,120,.5)'; ctx.lineWidth = 0.05; ctx.stroke();
+      ctx.fillStyle = R ? 'rgba(150,220,140,.6)' : 'rgba(90,170,90,.45)';
+      for (let i = 0; i < b.w * b.h * 2.2; i++) { const x = b.x + ((i * 0.618034) % 1) * b.w + sh * Math.sin(i), y = b.y + ((i * 0.381966 * 1.7) % 1) * b.h; ctx.beginPath(); ctx.ellipse(x, y, 0.22, 0.12, i + sh * 4, 0, Math.PI * 2); ctx.fill(); }
       ctx.restore();
-    }
+    });
   },
   drawUnit(ctx, u, T) {
     if (u.dead) return;
     if (u.team !== 0 && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
+    if (u.kind === 'ward') {   // 망원 카메라: 삼각대 + 남은 시간 링 (내 카메라는 시야 반경 점선)
+      const k = clamp(u.life / CONFIG.vision.camera.dur, 0, 1);
+      ctx.save(); ctx.strokeStyle = u.color; ctx.lineWidth = 0.05;
+      ctx.beginPath(); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x - 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x + 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x, u.pos.y + 0.28); ctx.stroke();
+      ctx.fillStyle = u.color; ctx.fillRect(u.pos.x - 0.16, u.pos.y - 0.24, 0.32, 0.2);
+      ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+      if (u.team === 0 && Settings.showRange) { ctx.globalAlpha = 0.18; ctx.setLineDash([0.3, 0.25]); Draw.circle(ctx, u.pos.x, u.pos.y, u.sightR()); ctx.stroke(); }
+      ctx.restore(); return;
+    }
     ctx.save();
     if (u.invuln > 0 && Math.floor(Game.time * 20) % 2 === 0) ctx.globalAlpha = 0.45;
     if (u.kind === 'player' && Vision.bushAt(u.pos) >= 0) ctx.globalAlpha = 0.6;   // 부쉬 속: 상대에게 안 보임
@@ -400,6 +476,7 @@ const Render = {
     ctx.restore();
   },
   drawProjectile(ctx, pr, T) {
+    if (pr.team !== 0 && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
     ctx.save();
     if (pr.kind === 'needle') {
       if (pr.owner && !pr.owner.dead) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(pr.owner.pos.x, pr.owner.pos.y); ctx.lineTo(pr.pos.x, pr.pos.y); ctx.stroke(); }   // 실
@@ -415,7 +492,7 @@ const Render = {
   drawOverheads(ctx) {
     const L = this.L;
     for (const u of Game.units) {
-      if (u.dead || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
+      if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
       const s = this.toScreen(u.pos), R = u.r * L.ppm, bw = Math.max(44, R * 2.6), bh = 6, x = s.x - bw / 2, y = s.y - R - 16;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
@@ -493,7 +570,11 @@ const HUD = {
     if (p.unstoppable > 0) buffs.push(['저지 불가', T.gold]);
     let bxx = bx;
     for (const [t, c] of buffs) { ctx.font = `700 10px ${FONT}`; const w = ctx.measureText(t).width + 12; Draw.rr(ctx, bxx, by + 50, w, 16, 8); ctx.fillStyle = c + '33'; ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke(); Draw.text(ctx, t, bxx + w / 2, by + 58, { size: 10, bold: true, align: 'center', color: c }); bxx += w + 4; if (bxx > bx + bw - 30) break; }
-    Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 80, { size: 10, color: '#8a93a6' });
+    Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 74, { size: 10, color: '#8a93a6' });
+    if (Vision.fogOn && p.items) {   // 시야: 낮/밤 · 시야 거리 · 시야 아이템 보유량
+      const it = (k, key) => `${(Settings.keys[key] || '').toUpperCase()} ${CONFIG.vision[k].name} ×${p.items[k]}${p.itemCd[k] > 0 ? ` (${fmt(p.itemCd[k], 1)})` : ''}`;
+      Draw.text(ctx, `${Vision.night ? '🌙 밤' : '☀ 낮'} 시야 ${fmt(Vision.sightOf(p), 1)}m · ${it('camera', 'C')} · ${it('drone', 'V')}`, bx, by + 88, { size: 10, bold: true, color: Vision.night ? '#8fa8ff' : '#c9cfdb' });
+    }
     // 스킬 슬롯
     const sx0 = x0 + pw - slotsW - 8;
     ['Q', 'W', 'E', 'R', 'D', 'F'].forEach((k, i) => this.slot(ctx, p, k, sx0 + i * 52, y0 + 12, 46));

@@ -268,7 +268,8 @@ Modes.duel = {
   newRound() {
     this.round++; Game.units = []; Game.projectiles = []; Game.zones = [];
     const sp = Game.map.spawns;
-    Scene.player(sp.p.x, sp.p.y); this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
+    Scene.player(sp.p.x, sp.p.y); VisionItems.give(Game.player); Game.drones = []; Vision.reveals = []; Vision.noises = [];
+    this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
     if (this.animals) for (const a of Game.map.animals) Scene.animal(a.x, a.y, this.enemyStage);   // 야생동물(2인 수쳐 응용)
     this.snap = Stats.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
     Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} ${this.stageInfo.label} · ${this.motif.weapon}` };
