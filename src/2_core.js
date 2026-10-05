@@ -77,15 +77,31 @@ const Geo = {
   },
   inWall(p, r) { return CONFIG.walls.some(w => p.x > w.x - r && p.x < w.x + w.w + r && p.y > w.y - r && p.y < w.y + w.h + r); },
   // 지형 통과 돌진의 착지점: 벽 안이면 진행 방향으로 빠져나간 지점, 그래도 안 되면 뒤로
-  passLanding(o, d, dist, r) {
+  // 광선이 사각형을 지나는 구간 [진입, 이탈] (없으면 null)
+  _span(o, d, x0, y0, x1, y1) {
+    let tmin = -Infinity, tmax = Infinity;
+    if (Math.abs(d.x) < 1e-9) { if (o.x < x0 || o.x > x1) return null; } else { let a = (x0 - o.x) / d.x, b = (x1 - o.x) / d.x; if (a > b) [a, b] = [b, a]; tmin = Math.max(tmin, a); tmax = Math.min(tmax, b); }
+    if (Math.abs(d.y) < 1e-9) { if (o.y < y0 || o.y > y1) return null; } else { let a = (y0 - o.y) / d.y, b = (y1 - o.y) / d.y; if (a > b) [a, b] = [b, a]; tmin = Math.max(tmin, a); tmax = Math.min(tmax, b); }
+    return tmax >= tmin && tmax > 0 ? [tmin, tmax] : null;
+  },
+  // 벽 넘는 돌진: 돌진 끝이 벽 안이면, 벽 두께의 thresh 비율 이상 지났으면 벽 너머로, 아니면 벽 앞에서 멈춤
+  //  캐시 Q = 0.85 (벽 85%를 지나면 넘음) / 캐시 R = 0.8 / 다니엘 E·AI 도약 = 0.5 (벽 중심 안쪽에서 끝나면 못 넘음)
+  passDash(o, d, dist, r, thresh = 0.5) {
     const W = CONFIG.world.w, H = CONFIG.world.h, inB = p => p.x >= r && p.x <= W - r && p.y >= r && p.y <= H - r;
     let L = dist; const end = q => V.add(o, V.mul(d, q));
     while (!inB(end(L)) && L > 0) L -= 0.05;   // 아레나 경계
-    if (!Geo.inWall(end(L), r)) return L;
-    for (let x = L; x <= L + 2.5; x += 0.05) if (inB(end(x)) && !Geo.inWall(end(x), r)) return x;
-    for (let x = L; x >= 0; x -= 0.05) if (!Geo.inWall(end(x), r)) return x;
-    return 0;
+    for (const w of CONFIG.walls) {
+      const e = Geo._span(o, d, w.x - r, w.y - r, w.x + w.w + r, w.y + w.h + r);   // 몸 반경만큼 넓힌 벽
+      if (!e || e[0] <= 0 || !(e[0] < L && L < e[1])) continue;                     // 돌진 끝이 이 벽 안일 때만
+      const raw = Geo._span(o, d, w.x, w.y, w.x + w.w, w.y + w.h);
+      const f = raw ? (L - raw[0]) / Math.max(1e-6, raw[1] - raw[0]) : 0;
+      if (f >= thresh && inB(end(e[1] + 0.03)) && !Geo.inWall(end(e[1] + 0.03), r)) return e[1] + 0.03;   // 넘어감
+      return Math.max(0, e[0] - 0.03);                                                                        // 벽 앞에서 멈춤
+    }
+    if (Geo.inWall(end(L), r)) return Geo.clampDash(o, d, L, r);
+    return L;
   },
+  passLanding(o, d, dist, r) { return Geo.passDash(o, d, dist, r, 0.5); },   // AI 도약(카티야 E 등): 벽 중심 규칙
   clampDash(o, d, dist, pad) { const t = Geo.rayHit(o, d, dist, pad); return t === Infinity ? dist : Math.max(0, t - 0.02); },
   // 벽 밖으로 밀어내기
   pushOut(pos, r) {
@@ -226,7 +242,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -367,7 +383,8 @@ const Combat = {
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);
-    if (o.trauma && src === Game.player && !tgt.dead) Passive.applyTrauma(tgt, o.source);
+    if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);   // 다니엘: 영감 축적·최근 피해
+    if (o.trauma && src === Game.player && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source);
     return dmg;
   },
   kill(src, tgt) {

@@ -69,7 +69,7 @@ const Charts = {
 
 // ============================== UI (메뉴/설정/결과) ==============================
 const UI = {
-  handlers: {}, waitKey: null, settingsBack: null, comboSel: 0, comboDiff: 'intro', duelDiff: 'normal',
+  handlers: {}, keys: {}, waitKey: null, settingsBack: null,
   init() {
     this.ov = document.getElementById('overlay'); this.card = document.getElementById('card');
     this.card.addEventListener('click', e => {
@@ -78,8 +78,16 @@ const UI = {
     });
     const onIn = e => { const el = e.target; if (el.dataset && el.dataset.in) { const h = this.handlers['in:' + el.dataset.in]; if (h) h(el); } };
     this.card.addEventListener('input', onIn); this.card.addEventListener('change', onIn);
+    // 화면별 단축키 (메뉴 1~4·Enter, 옵션 Enter·Esc, 결과 R·M) — 플레이 중이 아닐 때만
+    window.addEventListener('keydown', e => {
+      if (this.waitKey || !this.ov.classList.contains('show') || Game.state === 'play' || e.repeat) return;
+      if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) && e.key !== 'Escape') return;
+      const k = this.keys[e.key] || this.keys[e.key.toLowerCase()]; if (!k) return;
+      const [a, v] = Array.isArray(k) ? k : [k]; const h = this.handlers[a]; if (!h) return;
+      e.preventDefault(); Sfx.init(); Sfx.play('click'); h({ v });
+    });
   },
-  show(html, handlers) { this.card.innerHTML = html; this.handlers = handlers || {}; this.ov.classList.add('show'); this.card.scrollTop = 0; Side.update(); },
+  show(html, handlers, keys) { this.card.innerHTML = html; this.handlers = handlers || {}; this.keys = keys || {}; this.ov.classList.add('show'); this.card.scrollTop = 0; Side.update(); },
   hide() { this.ov.classList.remove('show'); Side.update(); },
   // 상대(AI) 레벨 버튼: 캐시와 같게 / Lv6 / Lv12 / Lv18
   enemyBuildBtns() {
@@ -89,59 +97,92 @@ const UI = {
   customCombos() { return Store.get('combos', []); },
   allCombos() { return CONFIG.combos.concat(CONFIG.videoCombos, this.customCombos()); },
 
+  // 모드 시작 (마지막 플레이로 저장 → 메뉴의 「최근 플레이 다시」·Enter)
+  start(id, opts) { Settings.lastPlay = { id, opts }; saveSettings(); Game.start(id, opts); },
+  modeList() {
+    return [
+      ['duel', '⚔️', '1:1 결투', '원딜 4명·다니엘 AI와 3판 2선승. 시야·부쉬·카메라·휴식까지 실전처럼.'],
+      ['dummy', '🎯', '허수아비', 'DPS·스킬별 피해 비율 측정. 개수·체력·방어력 설정.'],
+      ['combo', '🧩', '콤보 트레이너', '콤보 순서·입력 간격(ms) 판정. 입문 / 숙련 / 마스터.'],
+      ['dodge', '💨', '회피 수련', '점점 빨라지는 투사체·장판. 생존 시간과 피격 히트맵.'],
+    ];
+  },
+  // 각 모드의 「바로 시작」 옵션 (마지막으로 고른 값)
+  quickOpts(id) {
+    if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
+    if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
+    if (id === 'duel') return { diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime };
+    return {};
+  },
+  quickLabel(id) {
+    const o = this.quickOpts(id);
+    if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
+    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
+    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}`;
+    return `목숨 ${CONFIG.modes.dodge.lives}개`;
+  },
+  lastLabel() {
+    const L = Settings.lastPlay; if (!L || !Modes[L.id]) return '';
+    const name = (this.modeList().find(m => m[0] === L.id) || [])[2] || L.id, o = L.opts || {};
+    if (L.id === 'duel') return `${name} — ${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤'} · ${CONFIG.enemy.difficulty[o.diff || 'normal'].label}`;
+    if (L.id === 'combo') return `${name} — ${o.combo ? o.combo.name : ''}`;
+    return name;
+  },
+
   showMenu() {
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
-    const modes = [
-      ['dummy', '🎯 허수아비 모드', '고정 허수아비로 DPS·스킬별 피해 비율 측정. 체력·방어력·무한 체력 설정.'],
-      ['combo', '🧩 콤보 트레이너', '정해진 콤보 순서·입력 간격(ms) 판정. 입문 / 숙련 / 마스터.'],
-      ['skillshot', '🏹 스킬샷 사격장', '직선·지그재그·회피·원형 이동 표적. 명중률·예측샷·연속 명중.'],
-      ['dodge', '💨 회피 수련', '직선·장판·지연 폭발 패턴이 점점 빨라짐. 생존 시간 & 피격 히트맵.'],
-      ['duel', '⚔ 1:1 결투', '쿨타임을 읽고 회피하는 AI와 3판 2선승. 라운드별 요약.'],
-      ['challenge', '🏆 챌린지', `${CONFIG.challenges.length}개 과제 · 별 3개 평가 · 순차 잠금 해제.`],
-    ];
+    const modes = this.modeList(), dan = Settings.character === 'daniel';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
     const bb = Object.entries(CONFIG.builds).map(([k, b]) => `<button class="btn ${Settings.build === k ? 'sel' : ''}" data-a="build" data-v="${k}">${b.label}</button>`).join('');
-    this.show(`<h1>CATHY <span>수련장</span></h1>
-      <div class="sub">이터널 리턴 · 실험체 「캐시」 숙련도 트레이닝 시뮬레이터 — 외상 3중첩 → 치명적 외상, 2인 수쳐, 강화 평타 연계까지.</div>
-      <div class="row"><label>무기</label>${wb('dagger', '단검')}${wb('dual', '쌍검')}<label style="margin-left:14px">빌드</label>${bb}</div>
-      <div class="row"><label>상대(AI) 레벨</label>${this.enemyBuildBtns()}</div>
-      <div class="row"><label>시전 방식</label>${Object.entries(CAST_MODES).map(([k, l]) => `<button class="btn ${Settings.castMode === k ? 'sel' : ''}" data-a="cast" data-v="${k}">${l}</button>`).join('')}</div>
-      <div class="grid" style="margin-top:14px">${modes.map(([id, t, d]) => `<div class="mode" data-a="mode" data-v="${id}"><b>${t}</b><small>${d}</small></div>`).join('')}</div>
-      <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button></div>`, {
+    const last = this.lastLabel();
+    this.show(`<h1>${dan ? 'DANIEL' : 'CATHY'} <span>수련장</span></h1>
+      <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
+      <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
+        <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
+      <div class="row"><label>빌드</label>${bb}</div>
+      ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
+      <div class="grid" style="margin-top:14px">${modes.map(([id, ic, t, d], i) => `<div class="mode" data-a="mode" data-v="${id}">
+        <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
+        <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
+        <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
+      <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
+        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
+      char: d => { Settings.character = d.v; saveSettings(); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
-      mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
-      cast: d => { Settings.castMode = d.v; saveSettings(); this.showMenu(); },
-      ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
+      quick: d => this.start(d.v, this.quickOpts(d.v)),
+      last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
-    });
+    }, Object.assign({ Enter: 'last' }, Object.fromEntries(modes.map(([id], i) => [String(i + 1), ['mode', id]]))));
   },
 
   showModeOptions(id) {
-    const back = `<button class="btn" data-a="back">← 뒤로</button>`, H = { back: () => this.showMenu() };
+    const back = `<button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button>`, go = `<button class="btn primary" data-a="go">▶ 시작 <kbd>Enter</kbd></button>`, H = { back: () => this.showMenu() }, K = { Escape: 'back', Enter: 'go' };
     if (id === 'dummy') {
-      const o = Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
+      const o = this.quickOpts('dummy');
       this.show(`<h2>🎯 허수아비 모드</h2><div class="sub">움직이지 않는 허수아비. 오른쪽 패널에 DPS와 스킬별 피해 비율이 실시간 표시됩니다. ESC → 「결과 보기」로 세션을 마칩니다.</div>
         <div class="row"><label>개수</label><input type="number" id="o-count" min="1" max="5" value="${o.count}"><label>체력</label><input type="number" id="o-hp" min="100" step="100" value="${o.hp}"><label>방어력</label><input type="number" id="o-def" min="0" value="${o.def}"><label><input type="checkbox" id="o-inf" ${o.infinite ? 'checked' : ''}> 무한 체력</label></div>
-        <div class="row" style="margin-top:14px">${back}<button class="btn primary" data-a="go">시작</button></div>`, Object.assign(H, {
+        <div class="row" style="margin-top:14px">${back}${go}</div>`, Object.assign(H, {
         go: () => {
           const v = { count: clamp(+document.getElementById('o-count').value || 1, 1, 5), hp: Math.max(100, +document.getElementById('o-hp').value || 3000), def: Math.max(0, +document.getElementById('o-def').value || 0), infinite: document.getElementById('o-inf').checked };
-          Store.set('dummyOpts', v); Game.start('dummy', v);
+          Store.set('dummyOpts', v); this.start('dummy', v);
         },
-      }));
+      }), K);
     } else if (id === 'combo') {
-      const list = this.allCombos(); this.comboSel = clamp(this.comboSel, 0, list.length - 1);
-      const nC = CONFIG.combos.length + CONFIG.videoCombos.length;
-      const dbtn = (v, l) => `<button class="btn ${this.comboDiff === v ? 'sel' : ''}" data-a="diff" data-v="${v}">${l}</button>`;
-      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.</div>
-        ${list.map((c, i) => `<div class="combo ${i === this.comboSel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${i >= nC ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
+      const list = this.allCombos(); Settings.comboSel = clamp(Settings.comboSel || 0, 0, list.length - 1);
+      const sel = Settings.comboSel, cd = Settings.comboDiff || 'intro', nC = CONFIG.combos.length + CONFIG.videoCombos.length;
+      const dbtn = (v, l) => `<button class="btn ${cd === v ? 'sel' : ''}" data-a="diff" data-v="${v}">${l}</button>`;
+      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${Settings.character === 'daniel' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
         <div class="row"><label>난이도</label>${dbtn('intro', '입문 (시간 제한 없음)')}${dbtn('skilled', '숙련 (간격 ≤ 2.0s)')}${dbtn('master', '마스터 (간격 ≤ 1.0s)')}</div>
-        <h3>콤보 직접 추가 (JSON)</h3><textarea id="o-json">{"name":"내 콤보","steps":["E","AA","Q","W"],"setup":"single","tip":"설명"}</textarea>
+        ${list.map((c, i) => `<div class="combo ${i === sel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${i >= nC ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
+        <div class="row" style="margin-top:10px">${back}${go}</div>
+        <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">콤보 직접 추가 / 삭제</summary>
+        <textarea id="o-json">{"name":"내 콤보","steps":["E","AA","Q","W"],"setup":"single","tip":"설명"}</textarea>
         <div class="sub" style="margin:4px 0">토큰: Q W E R D F AA D1(단검 1차) D2(쌍검 2식) · "W|E" 택1 · "W?" 생략 가능 · "Q~8" 그 단계 허용 간격 8초 · setup "pair" = 허수아비 2개</div>
-        <div class="row">${back}<button class="btn" data-a="add">콤보 추가</button><button class="btn" data-a="del" ${this.comboSel < nC ? 'disabled' : ''}>선택한 사용자 콤보 삭제</button><button class="btn primary" data-a="go">시작</button></div>`, Object.assign(H, {
-        sel: d => { this.comboSel = +d.v; this.showModeOptions('combo'); },
-        diff: d => { this.comboDiff = d.v; this.showModeOptions('combo'); },
+        <div class="row"><button class="btn" data-a="add">콤보 추가</button><button class="btn" data-a="del" ${sel < nC ? 'disabled' : ''}>선택한 사용자 콤보 삭제</button></div></details>`, Object.assign(H, {
+        sel: d => { Settings.comboSel = +d.v; saveSettings(); this.showModeOptions('combo'); },
+        diff: d => { Settings.comboDiff = d.v; saveSettings(); this.showModeOptions('combo'); },
         add: () => {
           try {
             const c = JSON.parse(document.getElementById('o-json').value);
@@ -149,55 +190,45 @@ const UI = {
             if (!c.name || !Array.isArray(c.steps) || !c.steps.length) throw new Error('name, steps 필요');
             for (const t of c.steps) for (const a of String(t).toUpperCase().replace(/~[\d.]+$/, '').replace(/\?$/, '').split('|')) if (!ok.test(a.trim())) throw new Error('알 수 없는 토큰: ' + a);
             c.id = 'u' + Date.now(); const cs = this.customCombos(); cs.push(c); Store.set('combos', cs);
-            this.comboSel = this.allCombos().length - 1; this.showModeOptions('combo');
+            Settings.comboSel = this.allCombos().length - 1; saveSettings(); this.showModeOptions('combo');
           } catch (e) { alert('콤보 JSON 오류: ' + e.message); }
         },
-        del: () => { const cs = this.customCombos(); cs.splice(this.comboSel - nC, 1); Store.set('combos', cs); this.comboSel = 0; this.showModeOptions('combo'); },
-        go: () => Game.start('combo', { combo: list[this.comboSel], diff: this.comboDiff }),
-      }));
-    } else if (id === 'skillshot' || id === 'dodge') {
-      const info = id === 'skillshot'
-        ? ['🏹 스킬샷 사격장', `${CONFIG.modes.skillshot.duration}초 동안 움직이는 표적 4종(직선·지그재그·회피형·원형)을 맞추세요. 쿨타임 ${Math.round((1 - CONFIG.modes.skillshot.cdMul) * 100)}% 감소. Q/W/E 명중률, 예측샷 성공률, 연속 명중을 기록합니다.`]
-        : ['💨 회피 수련', `목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 Q·점멸·D로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.`];
-      this.show(`<h2>${info[0]}</h2><div class="sub">${info[1]}</div><div class="row">${back}<button class="btn primary" data-a="go">시작</button></div>`, Object.assign(H, { go: () => Game.start(id, {}) }));
+        del: () => { const cs = this.customCombos(); cs.splice(sel - nC, 1); Store.set('combos', cs); Settings.comboSel = 0; saveSettings(); this.showModeOptions('combo'); },
+        go: () => this.start('combo', this.quickOpts('combo')),
+      }), K);
+    } else if (id === 'dodge') {
+      this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·점멸로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
     } else if (id === 'duel') {
-      const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${this.duelDiff === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');
+      const dd = Settings.duelDiff || 'normal', dm = Settings.duelMotif || null;
+      const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${dd === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');
       const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
-      const mb = ms.map(([k, l, c]) => `<button class="btn ${(this.duelMotif || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
-      const cur = CONFIG.rangedMotifs[this.duelMotif];
-      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 <b>원거리 딜러 4명 + 근거리 암살자 다니엘</b> 모티브 AI입니다(실제 스킬을 단순화한 버전). 다니엘은 다니엘 랭킹 1위 강의를 반영해 <b>정면 싸움 대신 서성이다가 캐시의 E·Q가 빠진 순간 은신 진입</b>합니다. 유튜브 원딜 강의를 반영해 <b>쏘고 움직이기 · 좌우 무빙(E 예고선 회피) · 앞뒤 무빙(쏠 때만 들어오고 E 사거리 밖으로) · 벽 근처 회피 · 위험 스킬이 남아 있으면 이동기 아끼기</b>로 싸웁니다. 평타 사거리·공속은 나무위키 무기 수치(권총 4.85m / 석궁 5.2m / 활 5.5m / 저격총 6m) 기준.<br>쉬움: 반응 느림 · 보통: 예측샷·회피 · 어려움: 수쳐를 자주 피하고 캐시의 진입에 즉시 반응합니다.</div>
+      const mb = ms.map(([k, l, c]) => `<button class="btn ${(dm || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
+      const cur = CONFIG.rangedMotifs[dm];
+      this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 원거리 딜러 4명 + 근거리 암살자 다니엘 모티브 AI (실제 스킬 수치, 랭크 영상 HUD 실측 능력치).</div>
         <div class="row"><label>상대</label>${mb}</div>
-        <div class="sub" style="margin:4px 0">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[this.duelMotif][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'} · 스킬은 나무위키 실제 수치, 능력치는 유튜브 랭크 영상 HUD 실측(Lv6/12/18)</div>
+        <div class="sub" style="margin:2px 0 6px">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[dm][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'}</div>
+        <div class="row"><label>난이도</label>${db}</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
-          <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대) — 2인 수쳐 응용 · 투사체 몸막이</label></div>
-        <div class="sub" style="margin:4px 0">숲길: 좁은 길목·복도(벽꿍 각)와 부쉬 5곳. 부쉬 안의 유닛은 2.2m 안이거나 같은 부쉬에 있어야 보입니다 — AI는 안 보이는 캐시를 공격하지 못합니다. <b>시야 시스템</b>(설정에서 끄기 가능): 시야 낮 8.5m·밤 3.4→6.4m, 높은 벽 뒤는 암시야(낮은 턱 <i>점선</i>·창문 벽 <i>파란 창</i>은 너머가 보임), 시야 밖 행동은 <b style="color:#ff4d5e">!</b> 소음·발소리로, 시야 안 부쉬에 들어가면 흔들림으로 드러납니다. <b>C 망원 카메라</b>(13m, 은신 감지, 최대 2개) · <b>V 정찰 드론</b>(5초). AI도 같은 규칙으로 보고 듣고, 카메라를 부수며 드론·카메라로 부쉬를 확인합니다.</div>
-        <div class="row"><label>난이도</label>${db}</div><div class="row">${back}<button class="btn primary" data-a="go">시작</button></div>`, Object.assign(H, {
-        diff: d => { this.duelDiff = d.v; this.showModeOptions('duel'); },
-        motif: d => { this.duelMotif = d.v === 'random' ? null : d.v; this.showModeOptions('duel'); },
+          <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
+        ${Settings.character === 'daniel' ? '<div class="sub" style="margin:4px 0;color:#d9a8ff">다니엘은 은신(E)·영감 시야 감소(W)·걸작(R)으로 원딜을 한 번에 무는 암살자라 <b>어려움</b>을 권장합니다.</div>' : ''}
+        <div class="row" style="margin-top:12px">${back}${go}</div>
+        <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">AI·맵·시야 설명 자세히</summary><div class="sub" style="margin-top:6px">
+          · <b>원딜 AI</b>: 유튜브 원딜 강의 반영 — 쏘고 움직이기, 좌우 무빙(E 예고선 회피), 앞뒤 무빙(쏠 때만 들어오고 진입 거리 밖으로), 벽 근처 회피, 위험 스킬이 남아 있으면 이동기 아끼기. 평타 사거리: 권총 4.85m / 석궁 5.2m / 활 6.4m / 저격총 6m.<br>
+          · <b>다니엘 AI</b>: 다니엘 랭킹 1위 강의 반영 — 정면 싸움 대신 서성이다가 캐시의 E·Q가 빠진 순간 은신 진입.<br>
+          · <b>난이도</b>: 쉬움 = 반응 느림 · 보통 = 예측샷·회피 · 어려움 = 자주 피하고 진입에 즉시 반응.<br>
+          · <b>숲길</b>: 좁은 길목·복도(벽꿍 각), 부쉬 5곳, 낮은 턱·창문 벽.<br>
+          · <b>시야 시스템</b>(설정에서 끄기): 시야 낮 8.5m·밤 3.4→6.4m, 높은 벽 뒤 암시야(낮은 턱 점선·창문 벽은 너머가 보임), 시야 밖 행동은 <b style="color:#ff4d5e">!</b> 소음·발소리, 시야 안 부쉬 진입 시 흔들림. <b>C</b> 망원 카메라 · <b>V</b> 정찰 드론 · <b>X</b> 휴식. AI도 같은 규칙으로 보고 듣습니다.</div></details>`, Object.assign(H, {
+        diff: d => { Settings.duelDiff = d.v; saveSettings(); this.showModeOptions('duel'); },
+        motif: d => { Settings.duelMotif = d.v === 'random' ? null : d.v; saveSettings(); this.showModeOptions('duel'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('duel'); },
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
         dtime: d => { Settings.duelTime = d.v; saveSettings(); this.showModeOptions('duel'); },
-        go: () => Game.start('duel', { diff: this.duelDiff, motif: this.duelMotif, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime }),
-      }));
-    } else if (id === 'challenge') this.showChallenges();
-  },
-
-  showChallenges() {
-    const st = ChallengeStore.get();
-    const rows = CONFIG.challenges.map((ch, i) => {
-      const unlocked = i === 0 || (st[CONFIG.challenges[i - 1].id] || 0) >= 1, s = st[ch.id] || 0;
-      return `<tr><td>${i + 1}</td><td><b>${esc(ch.name)}</b><br><span class="lock">${esc(ch.desc)}</span></td><td class="stars">${'★'.repeat(s)}${'☆'.repeat(3 - s)}</td>
-        <td>${unlocked ? `<button class="btn primary" data-a="go" data-v="${i}">도전</button>` : '<span class="lock">🔒 이전 과제 ★1 필요</span>'}</td></tr>`;
-    }).join('');
-    const total = CONFIG.challenges.reduce((a, ch) => a + (st[ch.id] || 0), 0);
-    this.show(`<h2>🏆 챌린지</h2><div class="sub">챌린지는 밸런스를 위해 <b>중반 빌드</b>로 고정됩니다(무기는 선택한 무기). 별 합계 ${total} / ${CONFIG.challenges.length * 3}</div>
-      <table>${rows}</table><div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 뒤로</button></div>`, {
-      back: () => this.showMenu(),
-      go: d => Game.start('challenge', { ch: CONFIG.challenges[+d.v], build: 'mid' }),
-    });
+        go: () => this.start('duel', this.quickOpts('duel')),
+      }), K);
+    }
   },
 
   showPause() {
@@ -265,46 +296,47 @@ const UI = {
       · <b>선입력</b>: 시전 중 누른 스킬은 ${CONFIG.input.bufferMs}ms 안에 시전이 끝나면 이어서 나갑니다. 너무 일찍 누르면 씹힙니다.<br>
       · <b>외과 전문의</b>: 스킬 피해마다 외상 1중첩(스킬당 1회, 4초간 스킬 증폭 25% 출혈) → 3중첩 시 치명적 외상(4초간 최대 체력 6%+스킬 증폭 25% 출혈, 치유 감소, 보호막, Q 쿨 감소). W 안쪽 범위와 E 충돌은 외상을 주지 않습니다.<br>
       · <b>강화 평타</b>: Q/W/E/R 사용 후 다음 평타가 추가 스킬 피해(외상 부여).<br>
+      · <b>다니엘(메인 메뉴 → 실험체)</b>: Q 그림자 가위 — 지정 위치(7m) 부채꼴, 0.53초 뒤 적중(시전 중 이동 가능), 중앙은 강화 피해·둔화, 적중 시 다음 평타 3번 공속 증가 · W 영감 — 대상 지정(7m) 표식, 4초 뒤 활성 → 공격하면 축적 피해 폭발, 대상 시야 4.5m로 감소 · E 그림자 이동 — 앞으로 3m 은신 돌진, 3초간 평타 사거리 3m + 평타 시 대상 건너편 순간이동 · R 걸작 — 4초 안에 피해를 준 적(3m)의 그림자 속으로(침묵 0.5초, 2초 대상 지정 불가·지속 피해), R 재사용·종료 시 커서 쪽으로 탈출 · D 망토와 단검 · P 밤에 시야·이속 증가. 결투·허수아비·회피 모드에서 사용.<br>
       · <b>X 휴식</b>: 앉아서 회복 — 1단계 3초 체력 10%·기력 20% → 2단계 3초 15%·25% → 3단계 4초 30%·30%(반복). 비전투(5초간 직접 피해 없음)면 0.5초마다 2% 추가. 시야가 1m 줄고(밤 0.4m), 피격·방해 효과·이동/공격/스킬 시 취소, 끝난 뒤 1초 대기. AI도 안전하다고 판단하면 쉽니다.<br>
       · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
-      <div class="row"><button class="btn" data-a="back">← 뒤로</button></div>`, { back: () => this.showMenu() });
+      <div class="row"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, { back: () => this.showMenu() }, { Escape: 'back' });
   },
 
   showRecords() {
-    const all = Records.all(), keys = Object.keys(all), st = ChallengeStore.get();
-    const stars = CONFIG.challenges.reduce((a, ch) => a + (st[ch.id] || 0), 0);
-    this.show(`<h2>📊 기록</h2><div class="sub">모드별 최고 기록과 최근 10판 추이. 챌린지 별 ${stars} / ${CONFIG.challenges.length * 3}</div>
+    const all = Records.all(), keys = Object.keys(all).filter(k => !/^(skillshot|challenge)/.test(k));   // 삭제된 모드 기록은 숨김
+    this.show(`<h2>📊 기록</h2><div class="sub">모드별 최고 기록과 최근 10판 추이.</div>
       ${keys.length ? keys.map((k, i) => `<h3>${esc(all[k].title || k)} — 최고 ${all[k].best} <span class="lock">(${esc(all[k].label || '')})</span></h3><canvas class="chart" id="rec-${i}"></canvas>`).join('') : '<div class="sub">아직 기록이 없습니다.</div>'}
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 뒤로</button>${keys.length ? '<button class="btn" data-a="clear">기록 초기화</button>' : ''}</div>`, {
       back: () => this.showMenu(),
-      clear: () => { if (confirm('모든 기록과 챌린지 별을 삭제할까요?')) { Store.set('records', {}); Store.set('challenges', {}); this.showRecords(); } },
-    });
+      clear: () => { if (confirm('모든 기록을 삭제할까요?')) { Store.set('records', {}); Store.set('challenges', {}); this.showRecords(); } },
+    }, { Escape: 'back' });
     keys.forEach((k, i) => Charts.trend('rec-' + i, all[k].hist));
   },
 
   showResults(r) {
     Side.update();
+    const dan = Game.player && Game.player.charKey === 'daniel';   // 다니엘: 캐시 전용 통계 숨김
     const St = Stats, { c, h } = St.totalCasts(), waste = Object.values(St.waste).reduce((a, b) => a + b, 0);
     const gc = { S: CONFIG.theme.gold, A: CONFIG.theme.accent2, B: '#7aa2ff', C: '#c0c4cc', D: '#ff5d5d' }[r.grade];
     const stat = (k, v) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`;
     const skillRows = SKILL_KEYS.map(k => {
-      const name = k === 'D' ? (Settings.weapon === 'dagger' ? 'D 단검' : 'D 쌍검') : SRC_LABEL[k];
+      const name = dan && k !== 'F' ? `${k} ${Game.player.skillDef(k).name}` : k === 'D' ? (Settings.weapon === 'dagger' ? 'D 단검' : 'D 쌍검') : SRC_LABEL[k];
       return `<tr><td>${name}</td><td>${St.casts[k] || 0}</td><td>${St.hits[k] || 0}</td><td>${pct(St.hits[k] || 0, St.casts[k] || 0)}</td><td>${Math.round(St.dmgBy[k] || 0)}</td><td>${fmt(St.waste[k] || 0, 1)}s</td></tr>`;
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
     const H = { retry: () => Game.restart(), menu: () => this.showMenu() };
-    if (r.nextCh) H.next = () => Game.start('challenge', { ch: r.nextCh, build: 'mid' });
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
-          ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}</div></div>
-      <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat('평타 / 강화 평타', `${St.aaHits} / ${St.enhAA}`)}
+          ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
+          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div></div></div>
+      <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
-        ${stat(Game.modeId === 'dodge' || (Game.modeId === 'challenge' && Game.mode.base === Modes.dodge) ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' || (Game.modeId === 'challenge' && Game.mode.base === Modes.dodge) ? St.playerHits : Math.round(St.takenTotal))}
-        ${stat('치명적 외상', St.criticals)}${stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('강화 평타', St.enhAA)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
+        ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
+        ${dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       <h3>실수 분석</h3>${mist.length ? `<ul class="mist">${mist.map(([k, v]) => `<li>${esc(k)} <b style="color:#ffb347">${v}회</b></li>`).join('')}</ul>` : '<div class="sub">기록된 실수가 없습니다. 👍</div>'}
@@ -313,7 +345,7 @@ const UI = {
       <h3>스킬별 기여도</h3><canvas class="chart" id="cv-contrib"></canvas>
       ${r.heatmap ? '<h3>피격 위치 히트맵</h3><canvas class="chart" id="cv-heat"></canvas>' : ''}
       <h3>최근 10판 추이 (${esc(r.scoreLabel || '')})</h3><canvas class="chart" id="cv-trend"></canvas>
-      <div class="row" style="margin-top:14px">${r.nextCh ? '<button class="btn primary" data-a="next">다음 챌린지 →</button>' : ''}<button class="btn ${r.nextCh ? '' : 'primary'}" data-a="retry">다시 하기</button><button class="btn" data-a="menu">메인 메뉴</button></div>`, H);
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`, H, { r: 'retry', Enter: 'retry', m: 'menu', Escape: 'menu' });
     Charts.dps('cv-dps'); Charts.contrib('cv-contrib'); Charts.trend('cv-trend', r.hist); if (r.heatmap) Charts.heat('cv-heat', r.heatmap);
   },
 };

@@ -18,7 +18,11 @@ h2{font-size:20px;margin-bottom:10px}h3{font-size:14px;margin:16px 0 8px;color:v
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .mode{background:#1b2030;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;transition:.15s}
 .mode:hover{border-color:var(--accent);transform:translateY(-2px)}
-.mode b{display:block;font-size:16px;margin-bottom:5px}.mode small{color:var(--muted);font-size:12px;line-height:1.5}
+.mode b{display:block;font-size:16px;margin-bottom:5px}.mode small{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+.btn kbd{margin-left:4px;font-size:10px;padding:0 4px;background:rgba(0,0,0,.25);border-color:rgba(255,255,255,.2)}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:640px){.grid{grid-template-columns:1fr}}
+.grid .mode{display:flex;flex-direction:column}
 .btn{background:#222a3b;border:1px solid var(--line);color:var(--text);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit}
 .btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .btn.sel{border-color:var(--accent2);color:var(--accent2);background:#16302f}
@@ -152,7 +156,7 @@ const CONFIG = {
     traumaMin: 1,         // 스킬 증폭이 0이어도 외상 피해 최소 1
   },
   skills: {
-    Q: { name: '동맥절제술', short: '절제', dmg: [90, 120, 150, 180, 210], sp: 0.8, cd: 15,
+    Q: { wallPass: 0.85, name: '동맥절제술', short: '절제', dmg: [90, 120, 150, 180, 210], sp: 0.8, cd: 15,
          critCdr: [0.5, 0.55, 0.6, 0.65, 0.7], cdrOnAnyCritical: true,
          dashDist: 4, dashTime: 0.09, hitWidth: 1.2, passWalls: true,   // 벽(지형) 통과 가능               // 영상: 거의 순간 돌진
          windup: 0.05, recovery: 0.06, stamina: 12,             // 영상(1440p): Q 적중 → 강화 평타 적중 약 0.3초
@@ -173,7 +177,7 @@ const CONFIG = {
          homingAngle: 35,     // 첫 적중 후 진행 방향 기준 이 각도 안의 적에게 유도
          homingRange: 3.5,    // 첫 적중 대상 기준 유도 가능 거리(m)
          homingTurn: 14 },    // 유도 회전 속도(rad/s)    // 영상: 2인 적중 → 충돌까지 약 0.28초 (관통 이동 포함)
-    R: { name: '이머전시 OP', short: 'OP', minDmg: [100, 175, 250], minSp: 0.7, maxDmg: [200, 350, 500], maxSp: 1.4,
+    R: { wallPass: 0.8, name: '이머전시 OP', short: 'OP', minDmg: [100, 175, 250], minSp: 0.7, maxDmg: [200, 350, 500], maxSp: 1.4,
          cd: [80, 70, 60], minDist: 3, maxDist: 6.5, width: 3, maxHpThreshold: 0.3,
          windup: 0.45, dashTime: 0.16, recovery: 0.25,          // 영상: 범위 표시 약 0.5초 후 빠른 돌진
          channel: true,       // 정신집중: 누르면 제자리 고정, 이동 입력 무시(끊기지 않음) → 돌진
@@ -280,7 +284,7 @@ const CONFIG = {
            range: 7, len: 3.5, angle: 65, front: 1.75, centerR: 0.9, windup: 0.53, slow: 0.35, slowDur: 1.5, asBuff: [0.8, 1.1, 1.4, 1.7, 2.0], asShots: 3, asDur: 3 },   // 지정 위치 부채꼴, 무빙 캐스팅
       W: { name: '영감', cd: 7, range: 7, acc: [4, 6, 8, 10, 12], accBad: 0.08, base: [20, 40, 60, 80, 100], ad: 0.6, ready: 4, popWindow: 2.5, slow: 0.5, slowDur: 1,
            blind: 2, blindR: 4.5 },   // 표식 4초 유지 → 2.5초 안에 공격하면 축적 피해(고정) + 스킬 피해 폭발 / 대상 시야 감소(2초, 다니엘에게 맞을 때까지)
-      E: { name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
+      E: { wallPass: 0.5, name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
       R: { name: '걸작', tick: { base: [10, 30, 50], ad: 0.3 }, last: { base: [40, 105, 170], ad: 0.9 }, cd: [70, 60, 50], range: 3, recent: 4, silence: 0.5, dur: 2, ticks: 4, exit: 2.2, exitTime: 0.25 },
       D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.2, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
     },
@@ -291,7 +295,6 @@ const CONFIG = {
   meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12, comboGap: 0.08 },
   modes: {
     dummy: { respawn: 2 },
-    skillshot: { duration: 60, cdMul: 0.25 },
     dodge: { lives: 5, cdMul: 0.6, circleTele: 1.25, circleTeleMin: 0.55 },   // 보라 장판 예고시간(기존 1.05 / 최소 0.45)
     combo: { gap: { intro: Infinity, skilled: 2.0, master: 1.0 }, resetDelay: 1.0, dummyHp: 6000, dummyDef: 50 },
   },
@@ -337,21 +340,5 @@ const CONFIG = {
       tip: '적 위치를 파악한 뒤 단검 1차를 먼저 쓰고 진입. 단검 2차는 1차 후 3초 이내.' },
     { id: 'g7', weapon: 'dagger', name: '[가이드·단검] (D1 선사용) Q → D2 → E → W → R', steps: ['Q', 'D', 'E', 'W', 'R'],
       tip: '부쉬 등에서 D(1차)를 미리 누르고(판정 제외) 바로 시작. 1차 후 3초 안에 D2까지 이어야 합니다.' },
-  ],
-  // 챌린지 — 챌린지는 밸런스를 위해 '중반' 빌드로 고정
-  challenges: [
-    { id: 'c01', name: '첫 집도', desc: '허수아비 1개를 처치하라', scene: { type: 'dummy', count: 1, hp: 4000, def: 60, infinite: false, respawn: false }, limit: 25, goal: { event: 'kill', count: 1 }, stars: { time: [25, 14, 9] } },
-    { id: 'c02', name: '연속 수술', desc: '허수아비 3개를 모두 처치하라', scene: { type: 'dummy', count: 3, hp: 1500, def: 50, infinite: false, respawn: false }, limit: 15, goal: { event: 'kill', count: 3 }, stars: { time: [15, 10, 7] } },
-    { id: 'c03', name: '외상 전문의', desc: '치명적 외상을 4회 발동시켜라', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true }, limit: 35, goal: { event: 'critical', count: 4 }, stars: { time: [35, 24, 16] } },
-    { id: 'c04', name: '메스 연타', desc: '강화 평타를 6회 적중시켜라', scene: { type: 'dummy', count: 1, hp: 5000, def: 40, infinite: true }, limit: 35, goal: { event: 'enhAA', count: 6 }, stars: { time: [35, 25, 18] } },
-    { id: 'c06', name: '봉합의 달인', desc: '움직이는 2인에게 관통 기절(2인 수쳐) 2회', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true, layout: 'pair', wander: true }, limit: 45, goal: { event: 'eDouble', count: 2 }, stars: { time: [45, 30, 20] } },
-    { id: 'c07', name: '벽꿍 수술', desc: '수쳐로 적을 벽에 충돌시켜 기절 2회', scene: { type: 'dummy', count: 1, hp: 5000, def: 40, infinite: true, layout: 'wall' }, limit: 45, goal: { event: 'eWall', count: 2 }, stars: { time: [45, 30, 20] } },
-    { id: 'c08', name: '저격수', desc: '움직이는 표적에게 스킬샷(Q/W/E) 5연속 명중', scene: { type: 'skillshot', cdMul: 0.25 }, limit: 50, goal: { event: 'streak', reach: 5 }, stars: { time: [50, 32, 20] } },
-    { id: 'c09', name: '무빙 마스터', desc: '30초 버티기 (피격 2회 초과 시 실패)', scene: { type: 'dodge', lives: 3 }, limit: 30, goal: { survive: 30, maxHits: 2 }, stars: { hits: [2, 1, 0] } },
-    { id: 'c10', name: '이중 절제', desc: '치명적 외상으로 줄어든 Q 재사용 2회', scene: { type: 'dummy', count: 2, hp: 5000, def: 40, infinite: true, layout: 'pair' }, limit: 45, goal: { event: 'qReset', count: 2 }, stars: { time: [45, 30, 20] } },
-    { id: 'c11', name: '응급 OP', desc: '체력 30% 이하 대상을 R 최대 피해로 처치', scene: { type: 'dummy', count: 1, hp: 5500, def: 60, infinite: false, respawn: true }, limit: 60, goal: { event: 'rKillMax', count: 1 }, stars: { time: [60, 35, 22] } },
-    { id: 'c12', name: '결투 입문', desc: '보통 AI와 1라운드 결투에서 승리', scene: { type: 'duel', diff: 'normal', rounds: 1 }, limit: 120, goal: { event: 'roundWin', count: 1 }, stars: { time: [120, 60, 35] } },
-    { id: 'c13', name: '집도의', desc: '어려움 AI와 1라운드 결투에서 승리', scene: { type: 'duel', diff: 'hard', rounds: 1 }, limit: 150, goal: { event: 'roundWin', count: 1 }, stars: { time: [150, 80, 50] } },
-    { id: 'c14', name: '생존 극한', desc: '빠른 패턴에서 40초 버티기 (피격 3회 초과 시 실패)', scene: { type: 'dodge', lives: 4, startK: 1.2 }, limit: 40, goal: { survive: 40, maxHits: 3 }, stars: { hits: [3, 1, 0] } },
   ],
 };

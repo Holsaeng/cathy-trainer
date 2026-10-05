@@ -1,32 +1,12 @@
 
-// ============================== AI: 표적 이동 패턴 ==============================
+// ============================== AI: 공통 (투사체 위협 판정 · 배회) ==============================
 function threatens(u, pr, range) {
   const rel = V.sub(u.pos, pr.pos), along = V.dot(rel, pr.dir);
   if (along < 0 || along > range) return false;
   return Math.abs(rel.x * pr.dir.y - rel.y * pr.dir.x) < u.r + pr.width / 2 + 0.35;
 }
 const AI = {
-  line(u) { const a = u.ai; if (!u.moveTarget) { a.dir = -(a.dir || 1); u.moveTarget = { x: a.dir > 0 ? a.x1 : a.x0, y: a.y }; } },
-  zigzag(u, dt) { const a = u.ai; a.t = (a.t || 0) - dt; if (a.t <= 0 || !u.moveTarget) { a.t = rand(0.5, 1.0); u.moveTarget = { x: rand(a.x0, a.x1), y: rand(a.y0, a.y1) }; } },
-  strafe(u, dt) { const a = u.ai; a.ang = (a.ang || 0) + dt * a.speed / a.R; u.moveTarget = { x: a.cx + Math.cos(a.ang) * a.R, y: a.cy + Math.sin(a.ang) * a.R }; },
   wander(u, dt) { const a = u.ai; a.t = (a.t || 0) - dt; if (a.t <= 0) { a.t = rand(0.8, 1.6); u.moveTarget = Geo.pushOut({ x: u.spawn.x + rand(-1.3, 1.3), y: u.spawn.y + rand(-1.3, 1.3) }, u.r); } },
-  // 투사체를 보고 일정 확률로 옆으로 피하는 표적
-  dodger(u, dt) {
-    const a = u.ai;
-    for (const pr of Game.projectiles) {
-      if (pr.team === u.team || pr.dead || pr.seen.has(u.id)) continue;
-      if (threatens(u, pr, 6)) { pr.seen.add(u.id); if (Math.random() < a.dodge) { a.dodgeT = a.react; a.dodgePr = pr; } }
-    }
-    if (a.dodgeT > 0) {
-      a.dodgeT -= dt;
-      if (a.dodgeT <= 0 && a.dodgePr) {
-        const pr = a.dodgePr, rel = V.sub(u.pos, pr.pos), side = (pr.dir.x * rel.y - pr.dir.y * rel.x) >= 0 ? 1 : -1;
-        u.moveTarget = Geo.pushOut(V.add(u.pos, V.mul(V.perp(pr.dir), 1.8 * side)), u.r); a.t = 0.6; a.dodgePr = null;
-        return;
-      }
-    }
-    AI.zigzag(u, dt);
-  },
 };
 
 // ============================== AI: 1:1 결투 상대 ==============================
@@ -250,6 +230,26 @@ class RangedDuelist extends Duelist {
     }
     this.moveStep(dt);
   }
+  // 바닥 예고 범위(플레이어 다니엘 Q 그림자 가위)를 보고 밖으로 — 시야 안에서 보인 예고만
+  watchZones(dt) {
+    const p = Game.player;
+    if (p && p.pendingQ && p.K) for (const o of p.pendingQ) {
+      if (o.done) continue; o.seen = o.seen || new Set(); if (o.seen.has(this.id)) continue;
+      if (!Vision.inSight(this, o.pos) && !Vision.zoneSees(this.team, o.pos)) continue;
+      o.seen.add(this.id);
+      const K = p.K.Q, apex = V.sub(o.pos, V.mul(o.dir, K.front));
+      if (Geo.inSector(apex, V.ang(o.dir), K.len + 0.4, (K.angle / 2 + 6) * Math.PI / 180, this.pos, this.r) && Math.random() < Math.min(0.95, this.diff.dodge + 0.2)) this.zoneDodge = { t: this.diff.react * 0.6, o, apex };
+    }
+    const Z = this.zoneDodge; if (!Z || (Z.t -= dt) > 0) return;
+    this.zoneDodge = null;
+    if (Z.o.done || !this.canMove()) return;
+    if (this.act) { if (this.act.type === 'aa') this.act = null; else return; }
+    // 부채꼴 축에서 옆으로 + 중앙(강화 피해·둔화)에서 멀어지는 쪽
+    const rel = V.sub(this.pos, Z.apex), side = (Z.o.dir.x * rel.y - Z.o.dir.y * rel.x) >= 0 ? 1 : -1;
+    let pd = V.mul(V.perp(Z.o.dir), side); if (wallClearance(V.add(this.pos, V.mul(pd, 2))) < 0.8) pd = V.mul(pd, -1);
+    if (this.kit.dodge && this.diffKey === 'hard' && Math.random() < 0.4 && this.kit.dodge(this, pd)) { this.stats.dodges++; return; }
+    this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(pd, 2.6)), this.r); this.kiteT = 0.5; this.stats.dodges++;
+  }
   // ② 좌우 무빙: 캐시 E 선딜(예고선)을 보고 옆으로
   watchCathyCast(dt) {
     const p = Game.player;
@@ -275,6 +275,7 @@ class RangedDuelist extends Duelist {
       if (pr.team === this.team || pr.dead || pr.seen.has(this.id)) continue;
       if (threatens(this, pr, 9)) { pr.seen.add(this.id); if (!this.dodgeQ && Math.random() < this.diff.dodge) this.dodgeQ = { t: this.diff.react * 0.9, pr }; }
     }
+    this.watchZones(dt);
     if (!this.dodgeQ || (this.dodgeQ.t -= dt) > 0) return;
     const pr = this.dodgeQ.pr; this.dodgeQ = null;
     if (pr.dead || !this.canMove()) return;
@@ -287,7 +288,10 @@ class RangedDuelist extends Duelist {
     const p = Game.player; if (!p || p.dead) return;
     const RA = CONFIG.rangedAI, d = V.dist(this.pos, p.pos);
     // ⑥ 위협(캐시가 붙음 / Q·R 돌진) → 키트별 이탈·반격 (벽 쪽은 피해서)
-    const close = d < (this.diffKey === 'hard' ? 3.6 : 2.8), diving = p.cast && (p.cast.k === 'Q' || p.cast.k === 'R') && d < 7;
+    // 플레이어 다니엘: 그림자 평타(3m) 상태면 더 멀리서부터 위협, 영감 표식이 걸리면 빠짐 ("표식 = 암살 선언")
+    const dan = p.charKey === 'daniel', marked = dan && p.mark && p.mark.target === this && d < 7 && !this.melee;
+    if (marked && this.kiteT <= 0 && this.diffKey !== 'easy') { this.moveTarget = this.pickSpot(p, 8.5, 2.4); this.kiteT = 0.5; }
+    const close = d < (this.diffKey === 'hard' ? 3.6 : 2.8) + (dan && p.shadowT > 0 ? 1.2 : 0), diving = p.cast && (p.cast.k === 'Q' || p.cast.k === 'R' || (dan && p.cast.k === 'E')) && d < 7;
     if (!this.melee && (close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || Math.random() < 0.5)) {
       const away = V.norm(V.sub(this.pos, p.pos)); let best = away, bs = -Infinity;
       for (let i = -2; i <= 2; i++) {
@@ -383,10 +387,12 @@ class RangedDuelist extends Duelist {
   startKite(p) {
     if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
-    const danger = p.skills.E.cd <= 0.8 || p.skills.Q.cd <= 0.8;
-    const want = danger ? Math.max(RA.eThreatRange + 0.4, this.aaRange()) : this.aaRange() - 0.3;
+    const danger = p.charKey === 'daniel' ? (p.skills.E.cd <= 0.8 || p.daggerReady > 0 || p.shadowT > 0) : (p.skills.E.cd <= 0.8 || p.skills.Q.cd <= 0.8);
+    const want = danger ? Math.max(this.threatRange(p) + 0.4, this.aaRange()) : this.aaRange() - 0.3;
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
+  // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
+  threatRange(p) { return p.charKey === 'daniel' ? (p.skills.E.cd <= 0.8 ? p.K.E.dist + p.K.E.aaRange + 0.5 : 3.5) : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = Math.random() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {

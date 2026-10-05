@@ -179,6 +179,7 @@ const Input = {
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
+    if (act === 'R' && p.shadow) { p.cmdSkill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
     const mode = castModeOf(act);
@@ -273,6 +274,7 @@ const Render = {
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
     for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
     for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
+    if (Game.player && Game.player.drawExtra && Game.state !== 'menu') Game.player.drawExtra(ctx);
     this.drawBushes(ctx);
     for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
     for (const s of FX.slashes) {
@@ -300,6 +302,7 @@ const Render = {
     const p = Game.player, cv = this.cv, V0 = CONFIG.vision;
     if (!this.fogCv) this.fogCv = document.createElement('canvas');
     const fc = this.fogCv; if (fc.width !== cv.width || fc.height !== cv.height) { fc.width = cv.width; fc.height = cv.height; }
+    if (!fc.width || !fc.height) return;   // 창이 최소화되는 등 캔버스 크기가 0이면 건너뜀
     const f = fc.getContext('2d');
     f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, fc.width, fc.height);
     f.fillStyle = Vision.night ? `rgba(2,4,12,${V0.nightFog})` : `rgba(4,6,10,${V0.fogAlpha})`; f.fillRect(0, 0, fc.width, fc.height);
@@ -346,7 +349,7 @@ const Render = {
   },
   // 스킬 사거리/범위 미리보기
   drawCastTelegraph(ctx, p) {
-    const c = p.cast; if (!c || c.phase !== 'windup') return;
+    const c = p.cast; if (!c || c.phase !== 'windup' || p.charKey) return;   // 캐시 전용 연출
     const k = clamp(c.t / Math.max(0.01, c.windup), 0, 1);
     if (c.k === 'E') {
       const L = S.E.range, w = 0.85;
@@ -379,6 +382,7 @@ const Render = {
     if (p.cast && p.cast.phase === 'windup' && p.cast.k !== 'E' && p.cast.k !== 'R') this.drawSkillShape(ctx, p, p.cast.k, p.cast.aim, 0.2 + 0.35 * (p.cast.t / Math.max(0.01, p.cast.windup)));
   },
   drawSkillShape(ctx, p, k, aim, alpha) {
+    if (p.drawShape && p.drawShape(ctx, k, aim, alpha)) return;   // 캐릭터별 조준 미리보기(다니엘)
     const dir = V.norm(V.sub(aim, p.pos)), ang = V.ang(dir);
     ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = CONFIG.theme.accent; ctx.strokeStyle = CONFIG.theme.accent; ctx.lineWidth = 0.05;
     const ring = r => { ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = 'transparent'; Draw.circle(ctx, p.pos.x, p.pos.y, r); ctx.stroke(); ctx.restore(); };
@@ -424,7 +428,9 @@ const Render = {
     }
     ctx.save();
     if (u.invuln > 0 && Math.floor(Game.time * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+    if (u.kind === 'player' && u.shadow && u.shadow.phase !== 'out') { ctx.restore(); return; }   // 걸작: 대상 그림자 속
     if (u.kind === 'player' && Vision.bushAt(u.pos) >= 0) ctx.globalAlpha = 0.6;   // 부쉬 속: 상대에게 안 보임
+    if (u.kind === 'player' && u.stealthT > 0) ctx.globalAlpha = 0.35;              // 은신
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.55, u.r * 0.95, u.r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
     if (u.slows.length) { ctx.strokeStyle = 'rgba(255,170,60,.85)'; ctx.lineWidth = 0.07; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.45, u.r * 1.05, u.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); }
     if (u.trauma > 0 && u.crit <= 0) {
@@ -549,8 +555,8 @@ const HUD = {
     Draw.panel(ctx, x0, y0, pw, ph);
     // 초상화 + 레벨
     const cx = x0 + 50, cy = y0 + 52;
-    Draw.circle(ctx, cx, cy, 36); ctx.fillStyle = '#1b2030'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = T.accent; ctx.stroke();
-    Draw.text(ctx, '캐시', cx, cy, { size: 16, bold: true, align: 'center' });
+    Draw.circle(ctx, cx, cy, 36); ctx.fillStyle = '#1b2030'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = p.charKey ? p.color : T.accent; ctx.stroke();
+    Draw.text(ctx, p.name || '캐시', cx, cy, { size: 16, bold: true, align: 'center' });
     Draw.circle(ctx, cx + 27, cy + 25, 12); ctx.fillStyle = T.accent; ctx.fill();
     Draw.text(ctx, String(p.build.level), cx + 27, cy + 25, { size: 11, bold: true, align: 'center', color: '#fff' });
     // 체력/스태미나
@@ -569,7 +575,15 @@ const HUD = {
     if (p.msBuffs.some(m => m.tag === 'pboost')) buffs.push(['이속↑', T.accent2]);
     if (p.daggerReady > 0) buffs.push([`단검 ${fmt(p.daggerReady, 1)}`, '#b18cff']);
     if (p.dualRecast > 0) buffs.push([`2식 ${fmt(p.dualRecast, 1)}`, '#ff8fa3']);
-    if (p.unstoppable > 0) buffs.push(['저지 불가', T.gold]);
+    if (p.unstoppable > 0 && !p.shadow) buffs.push(['저지 불가', T.gold]);
+    if (p.charKey === 'daniel') {
+      if (p.stealthT > 0) buffs.push([`은신 ${fmt(p.stealthT, 1)}`, '#b07cff']);
+      if (p.shadowT > 0) buffs.push([`그림자 평타 ${fmt(p.shadowT, 1)}`, '#7d5cb8']);
+      if (p.qShots > 0) buffs.push([`가위 공속 ×${p.qShots}`, '#d9a8ff']);
+      if (p.mark) buffs.push([p.mark.t >= p.K.W.ready ? '영감 활성!' : `영감 ${fmt(p.K.W.ready - p.mark.t, 1)}`, p.mark.t >= p.K.W.ready ? '#ffd1ff' : '#b07cff']);
+      if (p.shadow) buffs.push(['걸작 (R 재사용: 탈출)', p.color]);
+      if (Vision.night) buffs.push(['밤: 고독한 예술가', '#8fa8ff']);
+    }
     if (p.rest) buffs.push([`휴식 ${Rest.stageOf(p) + 1}단계${Rest.inCombat(p) ? '' : ' +비전투'}`, '#9fe0ff']);
     else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;

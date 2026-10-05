@@ -380,7 +380,7 @@ const Impl = {
       const s = p.skills.Q;
       if (s.reduced) { Events.emit('qReset'); FX.text(p.pos, 'Q 재사용!', CONFIG.theme.accent2, 14, { bold: true }); }
       p.startCd('Q');
-      const len = S.Q.passWalls ? Geo.passLanding(p.pos, c.dir, S.Q.dashDist, p.r) : Geo.clampDash(p.pos, c.dir, S.Q.dashDist, p.r);
+      const len = S.Q.passWalls ? Geo.passDash(p.pos, c.dir, S.Q.dashDist, p.r, S.Q.wallPass) : Geo.clampDash(p.pos, c.dir, S.Q.dashDist, p.r);   // 벽 85% 이상 지나면 넘음
       Object.assign(c.data, { from: V.copy(p.pos), to: V.add(p.pos, V.mul(c.dir, len)), dur: Math.max(0.03, S.Q.dashTime * len / S.Q.dashDist), t: 0, hit: new Set() });
       Sfx.play('dash');
     },
@@ -470,7 +470,7 @@ const Impl = {
     start(p, c) { c.data.len = clamp(V.dist(p.pos, c.aim), S.R.minDist, S.R.maxDist); },
     fire(p, c) {
       p.startCd('R'); Sfx.play('ult'); FX.addShake(6);
-      const len = Geo.clampDash(p.pos, c.dir, c.data.len, p.r);
+      const len = Geo.passDash(p.pos, c.dir, c.data.len, p.r, S.R.wallPass);   // 벽 넘기: 벽 두께의 80% 이상 지나서 끝나야 넘음
       Object.assign(c.data, { from: V.copy(p.pos), to: V.add(p.pos, V.mul(c.dir, len)), len, dur: Math.max(0.08, S.R.dashTime * len / S.R.maxDist), t: 0, hit: new Set() });
       p.unstoppable = c.data.dur + 0.1; p.slows = []; p.root = 0;   // 이동 중 저지 불가
     },

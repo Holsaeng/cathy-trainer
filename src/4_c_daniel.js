@@ -130,7 +130,7 @@ Kits.daniel = {
   castE(ai, dir, dist) {
     const K = ai.kitCfg.E; ai.cds.E = ai.pick(K.cd, 'E');
     FX.burst(ai.pos, '#4b3a66', 18, 2.5, 0.7, 0.16); Vision.noise(ai, 'skill');   // 은신 연기 + 시전 소리(상대는 이것으로 진입을 눈치챔)
-    ai.dashTo(dir, Math.min(K.dist, dist ?? K.dist), K.time, false);
+    ai.dashTo(dir, K.dist, K.time, true);   // 앞으로 3m 고정, 돌진 거리로 닿는 벽은 넘음(벽 중심 규칙)
     ai.stealthT = ai.pick(K.stealth, 'E'); ai.shadowT = K.shadowDur; ai.revealT = 0;
     FX.text(ai.pos, K.name, ai.motif.color, 12, { bold: true });
   },
