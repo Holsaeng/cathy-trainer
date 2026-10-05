@@ -9,7 +9,7 @@ const Game = {
     this.mode = Modes[id]; Input.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
-    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = [];
+    CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = []; Sphere.stop();
     Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
@@ -175,7 +175,7 @@ const Input = {
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
     if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
-    if (act === 'X') { this.aiming = null; this.amove = false; if (p.rest) Rest.stop(p); else Rest.start(p); return; }   // 휴식 (다시 누르면 일어남)
+    if (act === 'X') { this.aiming = null; this.amove = false; if (p.rest) Rest.stop(p, null, true); else Rest.start(p); return; }   // 휴식 (다시 누르면 일어남)
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
@@ -275,6 +275,7 @@ const Render = {
     for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
     for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     if (Game.player && Game.player.drawExtra && Game.state !== 'menu') Game.player.drawExtra(ctx);
+    if (Game.player && Game.state !== 'menu') Tactical.draw(ctx, Game.player);
     this.drawBushes(ctx);
     for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
     for (const s of FX.slashes) {
@@ -584,7 +585,7 @@ const HUD = {
       if (p.shadow) buffs.push(['걸작 (R 재사용: 탈출)', p.color]);
       if (Vision.night) buffs.push(['밤: 고독한 예술가', '#8fa8ff']);
     }
-    if (p.rest) buffs.push([`휴식 ${Rest.stageOf(p) + 1}단계${Rest.inCombat(p) ? '' : ' +비전투'}`, '#9fe0ff']);
+    if (p.rest) buffs.push([Rest.done(p) ? '휴식 완료' : `휴식 ${p.rest.stage + 1}단계 → +${Math.round(Rest.nextHeal(p))}`, '#9fe0ff']);
     else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;
     for (const [t, c] of buffs) { ctx.font = `700 10px ${FONT}`; const w = ctx.measureText(t).width + 12; Draw.rr(ctx, bxx, by + 50, w, 16, 8); ctx.fillStyle = c + '33'; ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke(); Draw.text(ctx, t, bxx + w / 2, by + 58, { size: 10, bold: true, align: 'center', color: c }); bxx += w + 4; if (bxx > bx + bw - 30) break; }

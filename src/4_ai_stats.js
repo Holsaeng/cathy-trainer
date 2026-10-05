@@ -65,7 +65,7 @@ class Duelist extends Unit {
     if (hpR < 0.4 && this.cds.s3 <= 0 && !this.healing) {
       this.healing = { t: E.s3.dur, rate: this.maxHp * E.s3.healPct / E.s3.dur }; this.cds.s3 = E.s3.cd; FX.text(this.pos, E.s3.name, '#5dff9a', 14, { bold: true });
     }
-    // 어려움: 캐시의 이동기(Q/점멸)·E 쿨타임을 보고 진입 여부 결정
+    // 어려움: 캐시의 이동기(Q/블링크)·E 쿨타임을 보고 진입 여부 결정
     let engage = true;
     if (this.diff.kite) {
       engage = p.skills.Q.cd > 1.5 || p.skills.F.cd > 1.5 || p.skills.E.cd > 2 || pR < 0.4 || hpR > pR + 0.3;
@@ -209,7 +209,8 @@ class RangedDuelist extends Duelist {
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
     if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남
       const before = this.lastHeard; this.listen();
-      if (this.seesP || this.lastHeard !== before) Rest.stop(this); else { this.vel = { x: 0, y: 0 }; return; }
+      const near = this.seesP && Game.player && V.dist(this.pos, Game.player.pos) < CONFIG.rest.ai.safe;   // 시즌 12: 전투 중에도 쉴 수 있으니 멀리 보이는 정도로는 계속 쉼
+      if (near || (this.lastHeard !== before && V.dist(this.pos, Vision.noises[Vision.noises.length - 1]?.pos || this.pos) < 7)) Rest.stop(this, null, true); else { this.vel = { x: 0, y: 0 }; return; }
     }
     if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
     if (!this.seesP) {   // 안 보이는 캐시(부쉬·암시야): 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬·시야 아이템으로 확인
@@ -217,7 +218,7 @@ class RangedDuelist extends Duelist {
       if (!this.belief) this.initBelief(p0);
       this.listen();
       const RA = CONFIG.rest.ai;   // 안전해 보이면 휴식(X)으로 회복
-      if (this.hp / this.maxHp < RA.hp && this.unseenT > RA.unseen && Game.time - (this.lastHeard || -99) > RA.quiet && !Rest.inCombat(this) && Rest.start(this, true)) return;
+      if (this.hp / this.maxHp < RA.hp && this.unseenT > RA.unseen && Game.time - (this.lastHeard || -99) > RA.quiet && Rest.start(this, true)) return;
       if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
@@ -366,7 +367,7 @@ class RangedDuelist extends Duelist {
       const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
       let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
       const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
-      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + Math.random() * 0.3;
+      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + Math.random() * 0.3 - Sphere.penalty(q);
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -378,7 +379,7 @@ class RangedDuelist extends Duelist {
     for (let i = 0; i < 16; i++) {
       const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), step)), this.r);
       const dq = V.dist(q, p.pos), da = angDiff(V.ang(V.sub(q, p.pos)), base), sideOk = Math.sign(da) === this.side ? 0.4 : 0;
-      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + Math.random() * 0.2;
+      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + Math.random() * 0.2 - Sphere.penalty(q);   // 크로노 스피어 차단벽 근처 회피
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;

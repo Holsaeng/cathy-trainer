@@ -111,14 +111,14 @@ const UI = {
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'duel') return { diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime };
+    if (id === 'duel') return { diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
     if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
-    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}`;
+    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
   },
   lastLabel() {
@@ -140,6 +140,8 @@ const UI = {
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
       <div class="row"><label>빌드</label>${bb}</div>
+      <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
+        <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
       <div class="grid" style="margin-top:14px">${modes.map(([id, ic, t, d], i) => `<div class="mode" data-a="mode" data-v="${id}">
         <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
@@ -149,6 +151,7 @@ const UI = {
         <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       char: d => { Settings.character = d.v; saveSettings(); this.showMenu(); },
+      'in:tac': el => { Settings.tactical = el.value; saveSettings(); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
       quick: d => this.start(d.v, this.quickOpts(d.v)),
@@ -197,7 +200,7 @@ const UI = {
         go: () => this.start('combo', this.quickOpts('combo')),
       }), K);
     } else if (id === 'dodge') {
-      this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·점멸로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
+      this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·블링크로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
     } else if (id === 'duel') {
       const dd = Settings.duelDiff || 'normal', dm = Settings.duelMotif || null;
       const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${dd === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');
@@ -212,6 +215,7 @@ const UI = {
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
+        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 끝까지 승부가 안 나면 남은 체력 비율로 판정</label></div>
         ${Settings.character === 'daniel' ? '<div class="sub" style="margin:4px 0;color:#d9a8ff">다니엘은 은신(E)·영감 시야 감소(W)·걸작(R)으로 원딜을 한 번에 무는 암살자라 <b>어려움</b>을 권장합니다.</div>' : ''}
         <div class="row" style="margin-top:12px">${back}${go}</div>
         <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">AI·맵·시야 설명 자세히</summary><div class="sub" style="margin-top:6px">
@@ -225,6 +229,7 @@ const UI = {
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('duel'); },
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
+        'in:sphere': el => { Settings.duelSphere = el.checked; saveSettings(); },
         dtime: d => { Settings.duelTime = d.v; saveSettings(); this.showModeOptions('duel'); },
         go: () => this.start('duel', this.quickOpts('duel')),
       }), K);
@@ -245,7 +250,7 @@ const UI = {
 
   showSettings(back) {
     this.settingsBack = back;
-    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 점멸', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식' };
+    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 블링크', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식</h3>
@@ -267,6 +272,7 @@ const UI = {
       <table>${Object.keys(names).map(k => `<tr><td>${names[k]}</td><td><button class="btn" data-a="bind" data-k="${k}">${(Settings.keys[k] || '').toUpperCase()}</button></td></tr>`).join('')}</table>
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showSettings(back); },
+      mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
@@ -288,7 +294,7 @@ const UI = {
       <tr><td><kbd>S</kbd></td><td>정지 (평타 후딜도 끊음)</td></tr>
       <tr><td><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd></td><td>스킬. 시전 방식은 메인 메뉴·설정에서 선택(스킬별 지정 가능)<br>· 일반: 키 → 범위 확인 → 좌클릭(또는 같은 키 한 번 더)<br>· 스마트: 키를 누르면 즉시 커서 방향으로 발동<br>· 범위 표시 후 떼면 발동: 누르는 동안 범위 표시, 떼면 발동</td></tr>
       <tr><td><kbd>D</kbd></td><td>단검: 1차 = 이동 속도 증가(3초) → 2차 = 2.5m 내 대상 뒤로 이동 + 피해 / 쌍검: 돌진 6연타 → 적중 시 5초 내 2식</td></tr>
-      <tr><td><kbd>F</kbd></td><td>점멸 (시뮬레이터용 전술 스킬)</td></tr>
+      <tr><td><kbd>F</kbd></td><td>전술 스킬 — 메인 메뉴에서 선택 (블링크·리펄서 미사일·붉은 폭풍·라이트 윙·진실의 칼날·플라즈마 대시·퀘이크·초월·아티팩트·무효화)</td></tr>
       <tr><td><kbd>ESC</kbd> / <kbd>Tab</kbd></td><td>일시정지·설정·결과 보기 / 통계 패널 켜기·끄기</td></tr></table>
       <h3>핵심 메커니즘</h3><div class="sub">
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>
@@ -297,7 +303,8 @@ const UI = {
       · <b>외과 전문의</b>: 스킬 피해마다 외상 1중첩(스킬당 1회, 4초간 스킬 증폭 25% 출혈) → 3중첩 시 치명적 외상(4초간 최대 체력 6%+스킬 증폭 25% 출혈, 치유 감소, 보호막, Q 쿨 감소). W 안쪽 범위와 E 충돌은 외상을 주지 않습니다.<br>
       · <b>강화 평타</b>: Q/W/E/R 사용 후 다음 평타가 추가 스킬 피해(외상 부여).<br>
       · <b>다니엘(메인 메뉴 → 실험체)</b>: Q 그림자 가위 — 지정 위치(7m) 부채꼴, 0.53초 뒤 적중(시전 중 이동 가능), 중앙은 강화 피해·둔화, 적중 시 다음 평타 3번 공속 증가 · W 영감 — 대상 지정(7m) 표식, 4초 뒤 활성 → 공격하면 축적 피해 폭발, 대상 시야 4.5m로 감소 · E 그림자 이동 — 앞으로 3m 은신 돌진, 3초간 평타 사거리 3m + 평타 시 대상 건너편 순간이동 · R 걸작 — 4초 안에 피해를 준 적(3m)의 그림자 속으로(침묵 0.5초, 2초 대상 지정 불가·지속 피해), R 재사용·종료 시 커서 쪽으로 탈출 · D 망토와 단검 · P 밤에 시야·이속 증가. 결투·허수아비·회피 모드에서 사용.<br>
-      · <b>X 휴식</b>: 앉아서 회복 — 1단계 3초 체력 10%·기력 20% → 2단계 3초 15%·25% → 3단계 4초 30%·30%(반복). 비전투(5초간 직접 피해 없음)면 0.5초마다 2% 추가. 시야가 1m 줄고(밤 0.4m), 피격·방해 효과·이동/공격/스킬 시 취소, 끝난 뒤 1초 대기. AI도 안전하다고 판단하면 쉽니다.<br>
+      · <b>X 휴식 (시즌 12)</b>: 전투 중에도 시작 가능한 3단계 캐스팅 — 1단계 3초 → 최대 체력 15%, 2단계 3초 → 15%, 3단계 4초 → 50%가 <b>단계가 끝날 때 한 번에</b> 회복(도중 취소 시 그 단계는 회복 없음). 단계 종료 0.25초 이내 이동 입력은 회복 후 이동. 피격·군중 제어·이동/공격/스킬·X 재입력 시 취소, 취소 후 1초 대기. 휴식 중 시야 1m 감소(밤 0.4m). 체력바 아래에 캐스팅 바와 예상 회복량이 표시되며 상대 AI도 쉽니다.<br>
+      · <b>F 블링크</b>: 커서 방향 3m 순간 이동(벽 중심을 넘으면 벽 너머로). 쿨 90초, Lv12·18 빌드는 2레벨 — 쿨 45초 + 2.5초 이속 15%.<br>
       · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
       <div class="row"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, { back: () => this.showMenu() }, { Escape: 'back' });

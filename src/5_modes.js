@@ -214,7 +214,7 @@ Modes.dodge = {
     Draw.text(ctx, '♥'.repeat(Math.max(0, this.lives)) + '♡'.repeat(Math.max(0, this.maxLives - this.lives)), L.W / 2, 24 + oy, { size: 22, align: 'center', color: '#ff5d7a' });
     Draw.text(ctx, `생존 ${fmt(this.t, 1)}s · 단계 ${fmt(this.level(), 1)}`, L.W / 2, 48 + oy, { size: 14, bold: true, align: 'center', stroke: true });
   },
-  side() { return `<h4>💨 회피 수련</h4>${kv('생존 시간', fmt(this.t, 1) + 's')}${kv('피격', Stats.playerHits)}${kv('난이도 단계', fmt(this.level(), 2))}<h5>패턴</h5><div style="color:#8a93a6;line-height:1.6">빨간 선: 직선 투사체<br>보라 원: 장판 (안쪽 원이 차면 폭발)<br>주황 점선: 지연 폭발 (0.5초 추적 후 고정)<br>Q·점멸·D로 회피 가능 (쿨 40% 감소)</div>`; },
+  side() { return `<h4>💨 회피 수련</h4>${kv('생존 시간', fmt(this.t, 1) + 's')}${kv('피격', Stats.playerHits)}${kv('난이도 단계', fmt(this.level(), 2))}<h5>패턴</h5><div style="color:#8a93a6;line-height:1.6">빨간 선: 직선 투사체<br>보라 원: 장판 (안쪽 원이 차면 폭발)<br>주황 점선: 지연 폭발 (0.5초 추적 후 고정)<br>Q·블링크·D로 회피 가능 (쿨 40% 감소)</div>`; },
   result() { return { key: 'dodge', score: Math.round(this.t * 10) / 10, scoreLabel: '생존 시간(초)', modeRatio: clamp(this.t / 90, 0, 1), modeLabel: '생존 시간', weights: { acc: 0, waste: 0, mistake: 10, mode: 90 }, heatmap: Stats.hitPositions.slice() }; },
 };
 
@@ -230,7 +230,8 @@ Modes.duel = {
     this.enemyStage = CONFIG.rangedAI.stages[eb] ? eb : 'mid';
     this.stageInfo = CONFIG.rangedAI.stages[this.enemyStage];
     this.title = `1:1 결투 vs ${this.motif.name} ${this.stageInfo.label} (${CONFIG.enemy.difficulty[this.diff].label})` + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '');
-    this.animals = !!o.animals;
+    this.animals = !!o.animals; this.sphere = !!o.sphere;
+    if (this.sphere) this.title += ' · 크로노 스피어';
     this.wins = { p: 0, e: 0 }; this.round = 0; this.history = []; this.newRound();
   },
   newRound() {
@@ -239,6 +240,7 @@ Modes.duel = {
     Scene.player(sp.p.x, sp.p.y); VisionItems.give(Game.player); Game.drones = []; Vision.reveals = []; Vision.noises = [];
     this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
     if (this.animals) for (const a of Game.map.animals) Scene.animal(a.x, a.y, this.enemyStage);   // 야생동물(2인 수쳐 응용)
+    if (this.sphere) Sphere.start(); else Sphere.stop();   // 크로노 스피어: 줄어드는 차단벽 안에서 결투
     this.snap = Stats.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
     Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} ${this.stageInfo.label} · ${this.motif.weapon}` };
   },
@@ -246,6 +248,14 @@ Modes.duel = {
     if (this.banner && (this.banner.t -= dt) <= 0) this.banner = null;
     if (this.inter) { if ((this.inter.t -= dt) <= 0) this.newRound(); return; }
     if (frozen || this.ended) return;
+    if (this.sphere) {
+      Sphere.update(dt);
+      if (Sphere.done && !this.enemy.dead && !Game.player.dead) {   // 끝까지 승부가 안 나면 남은 체력 비율로 판정
+        const pr = Game.player.hp / Game.player.maxHp, er = this.enemy.hp / this.enemy.maxHp;
+        FX.toast(`크로노 스피어 종료 — 판정 (${Math.round(pr * 100)}% vs ${Math.round(er * 100)}%)`, '#9fe0ff');
+        this.roundEnd(pr >= er ? 'p' : 'e'); return;
+      }
+    }
     if (this.enemy.dead) this.roundEnd('p'); else if (Game.player.dead) this.roundEnd('e');
   },
   roundEnd(w) {
@@ -262,6 +272,7 @@ Modes.duel = {
   },
   drawScreen(ctx, L, oy = 0) {
     Draw.text(ctx, `${Game.player ? Game.player.name : '캐시'} ${this.wins.p}  :  ${this.wins.e} ${this.motif.name}  ·  ROUND ${this.round}`, L.W / 2, 24 + oy, { size: 18, bold: true, align: 'center', stroke: true });
+    if (this.sphere && Sphere.active) Draw.text(ctx, Sphere.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: '#9fe0ff', stroke: true });
     if (this.banner) { Draw.text(ctx, this.banner.text, L.W / 2, L.H * 0.4, { size: 46, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true }); if (this.banner.sub) Draw.text(ctx, this.banner.sub, L.W / 2, L.H * 0.4 + 44, { size: 18, bold: true, align: 'center', color: this.motif.color, stroke: true }); }
     if (this.inter) {
       const s = this.inter.sum, w = 420, h = 230, x = L.W / 2 - w / 2, y = L.H * 0.22;
@@ -277,7 +288,7 @@ Modes.duel = {
       Draw.text(ctx, `다음 라운드까지 ${Math.ceil(this.inter.t)}초`, L.W / 2, y + h - 16, { size: 12, align: 'center', color: '#8a93a6' });
     }
   },
-  drawWorld(ctx) { if (this.enemy && this.enemy.drawExtra) this.enemy.drawExtra(ctx); },
+  drawWorld(ctx) { if (this.sphere) Sphere.draw(ctx); if (this.enemy && this.enemy.drawExtra) this.enemy.drawExtra(ctx); },
   side() {
     const e = this.enemy; if (!e) return '';
     const M = this.motif;

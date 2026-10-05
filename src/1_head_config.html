@@ -115,12 +115,39 @@ const CONFIG = {
     camera: { name: '망원 카메라', r: 13, dur: 60, max: 2, cd: 3, range: 4, stock: 3 },   // range: 설치 거리, stock: 라운드당 보유(시뮬레이터용)
     drone: { name: '정찰 드론', r: 6, dur: 5, range: 24, speed: 26, cd: 6, stock: 2 },    // r: 드론 시야 반경(추정)
   },
-  // 휴식(X) — 나무위키 가이드. combatDur(비전투 판정까지 시간)는 추정
+  // 전술 스킬(F) — 나무위키 「이터널 리턴/전술 스킬」(시즌 12). 쿨다운 고정, [1레벨, 2레벨]. 플라즈마 대시 투사체 수(5)는 추정
+  tactical: {
+    blink:      { name: '블링크', short: '블링크', cd: [90, 45], desc: '3m 순간 이동(벽 넘기). 2레벨: 2.5초 이속 15%' },
+    repulser:   { name: '리펄서 미사일', short: '리펄서', cd: [50, 40], dist: 3, speed: 18, range: 8.5, missiles: [5, 8], mSpeed: 25, mBase: 10, mLv: 1, mHp: 0.006, desc: '3m 돌진 후 가까운 적에게 미사일 5발(2레벨 8발) — 발당 10+레벨+최대 체력 0.6% 고정 피해. 벽 못 넘음' },
+    redstorm:   { name: '붉은 폭풍', short: '폭풍', cd: [40, 30], dist: 2.5, time: 0.1, range: [0.10, 0.15], dur: [10, 12], desc: '0.1초 2.5m 이동 + 기본 공격 사거리 10%(15%) 증가 10(12)초. 벽 못 넘음' },
+    lightwing:  { name: '라이트 윙', short: '윙', cd: [50, 40], ms: [0.15, 0.20], msLv: 0.01, dur: 7, as: 0.2, extend: 0.5, desc: '둔화 제거 + 7초 이속 15/20%(+레벨×1%)·공속 20%. 2레벨: 적 평타 적중 시 +0.5초' },
+    truthblade: { name: '진실의 칼날', short: '칼날', cd: [10, 8], r: 2.5, base: 140, lv: 20, base2: 50, lv2: 10, ms: 0.20, msPer: [0.05, 0.10], msMax: [0.30, 0.40], msDur: 2.5, desc: '주변 2.5m 140+레벨×20 피해 + 2.5초 이속. 2레벨: 칼날 하나 더(50+레벨×10)' },
+    plasmadash: { name: '플라즈마 대시', short: '플라즈마', cd: [50, 40], dist: 2.5, speed: 18, shots: 5, angle: 60, pRange: 7, pSpeed: 17, base: [120, 150], lv: [5, 10], slow: 0.3, slowDur: 1, desc: '2.5m 이동 + 전방 60° 투사체, 120/150+레벨×5/10 피해·1초 30% 둔화' },
+    quake:      { name: '퀘이크', short: '퀘이크', cd: [40, 30], r: 4, base: [50, 100], lv: 10, hp: 0.10, slow: [0.4, 0.5], slowDur: 2, auraDur: 6, auraEvery: 0.5, auraR: 3.5, auraBase: 10, auraLv: 2, auraHp: 0.025, desc: '주변 4m 50/100+레벨×10 피해 + 2초 40/50% 둔화. 2레벨: 6초간 0.5초마다 지속 피해' },
+    transcend:  { name: '초월', short: '초월', cd: [40, 30], base: [150, 200], hp: [0.8, 1.0], dur: 3, desc: '3초 보호막 150/200(+추가 체력 80/100%)' },
+    artifact:   { name: '아티팩트', short: '아티팩트', cd: [90, 45], dur: 2.5, desc: '2.5초 경직 — 무적·대상 지정 불가, 행동 불가. 2레벨: 경직 중 스킬 쿨다운 2.5배 속도' },
+    nullify:    { name: '무효화', short: '무효화', cd: [40, 30], ms: [0.20, 0.30], bonus: 0.30, msDur: 1, desc: '해로운 상태 해제(에어본·넉백 제외) + 1초 이속 20/30%, 해제 시 +30%' },
+  },
+  // 크로노 스피어(시즌 12 임시 안전지대) — 공식 12.0 패치노트 스케줄. 이동 단계 시간(6초)·이동 목표 여백은 추정
+  sphere: {
+    targetMargin: 9,
+    phases: [
+      { type: 'wait', dur: 5, r: 30, label: '안전지대 생성 (반경 30m)' },
+      { type: 'shrink', dur: 20, r: 10, label: '1차 축소 → 10m' },
+      { type: 'show', dur: 10, r: 10, label: '이동 지점 표시' },
+      { type: 'move', dur: 6, r: 10, label: '안전지대 이동' },
+      { type: 'shrink', dur: 15, r: 5, label: '2차 축소 → 5m' },
+      { type: 'wait', dur: 40, r: 5, label: '반경 5m 유지' },
+      { type: 'shrink', dur: 5, r: 0, label: '3차 축소 → 0m' },
+    ],
+  },
+  // 휴식(X) — 시즌 12 개편 (공식 12.0 패치노트): 단계 완료 시 최대 체력 15% / 15% / 50% 일괄 회복, 전투 중에도 가능
+  //  combatDur: AI가 '안전하다'고 판단하는 데 쓰는 전투 상태 시간(추정)
   rest: {
-    stages: [{ dur: 3, hp: 0.10, sp: 0.20 }, { dur: 3, hp: 0.15, sp: 0.25 }, { dur: 4, hp: 0.30, sp: 0.30 }],   // 3단계는 반복
-    bonus: 0.02, bonusEvery: 0.5, cd: 1, combatDur: 5,
+    stages: [{ dur: 3, hp: 0.15 }, { dur: 3, hp: 0.15 }, { dur: 4, hp: 0.50 }],
+    grace: 0.25, cd: 1, combatDur: 5,                // grace: 단계 종료 0.25초 이내 이동 입력은 회복 후 이동
     sightDay: 1.0, sightNight: 0.4,                 // 휴식 중 시야 감소: 낮 8.5→7.5m, 밤 3.4→3m ~ 6.4→6m (공식 패치 노트)
-    ai: { hp: 0.7, unseen: 2.5, quiet: 2.0 },       // AI: 체력 70% 미만 · 캐시를 2.5초 이상 못 봄 · 2초간 소리 없음 · 비전투면 휴식
+    ai: { hp: 0.7, unseen: 2.0, quiet: 1.5, safe: 9 },   // AI: 체력 70% 미만 · 캐시를 2초 이상 못 봄 · 1.5초간 소리 없음이면 휴식, 캐시가 9m 안에 보이면 일어남
   },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
@@ -188,7 +215,8 @@ const CONFIG = {
     D_dual: { name: '쌍검 무기 스킬', short: '쌍검', dmg1: [20, 35, 50], ad1: [0.2, 0.3, 0.4], sp1: [0.05, 0.06, 0.07], hits1: 6,
          dmg2: [100, 175, 250], ad2: [1, 1.25, 1.5], sp2: [0.4, 0.5, 0.6], dist: 3.5, hitWidth: 1.4,
          cd: 25, fixedCd: true, time1: 0.66, time2: 0.2, recastWindow: 5, recovery: 0.1 },   // 영상: 1식 = 빠르게 파고든 뒤 제자리 연속 베기
-    F: { name: '점멸 (시뮬레이터용)', short: '점멸', dist: 4, cd: 24, fixedCd: true },
+    // 전술 스킬 블링크 (나무위키): 지정 위치로 3m 순간 이동(벽 넘기 가능), 쿨 90초 / 2레벨 45초 + 2.5초 이속 15%. 단계별 레벨: Lv6 = 1, Lv12·18 = 2 (추정)
+    F: { name: '블링크', short: '블링크', dist: 3, cd: [90, 45], lvByBuild: { early: 1, mid: 2, late: 2 }, lv2Ms: 0.15, lv2MsDur: 2.5, fixedCd: true },
   },
   // 1:1 결투 상대 — 플레이어 빌드에 비례해 스케일
   enemy: {
@@ -286,7 +314,7 @@ const CONFIG = {
            blind: 2, blindR: 4.5 },   // 표식 4초 유지 → 2.5초 안에 공격하면 축적 피해(고정) + 스킬 피해 폭발 / 대상 시야 감소(2초, 다니엘에게 맞을 때까지)
       E: { wallPass: 0.5, name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
       R: { name: '걸작', tick: { base: [10, 30, 50], ad: 0.3 }, last: { base: [40, 105, 170], ad: 0.9 }, cd: [70, 60, 50], range: 3, recent: 4, silence: 0.5, dur: 2, ticks: 4, exit: 2.2, exitTime: 0.25 },
-      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.2, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
+      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.5, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
     },
   },
   // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"

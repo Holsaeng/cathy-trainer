@@ -86,27 +86,30 @@ class Cathy extends Unit {
     this.build = b; this.weapon = Settings.weapon;
     this.ad = b.ad; this.bonusAd = b.bonusAd; this.sp = b.sp; this.critChance = b.crit; this.cdr = b.cdr;
     this.as = +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 무기별 공속 보정(쌍검은 느림)
-    this.pendingHits = [];
+    this.pendingHits = []; this.baseHpAtLv = 970 + 88 * (b.level - 1);   // 레벨 기본 체력(나무위키) — 추가 체력 계산용
     this.maxSt = b.stamina; this.st = b.stamina;
     this.skills = {};
-    for (const k of ['Q', 'W', 'E', 'R', 'D', 'F']) this.skills[k] = { lv: k === 'F' ? 1 : b.skill[k], cd: 0, cdMax: 1, reduced: false };
+    for (const k of ['Q', 'W', 'E', 'R', 'D', 'F']) this.skills[k] = { lv: k === 'F' ? (CONFIG.skills.F.lvByBuild[Game.buildId] || 1) : b.skill[k], cd: 0, cdMax: 1, reduced: false };
     this.cast = null; this.aa = { phase: 'none', t: 0, dur: 0 }; this.aaCd = 0;
     this.attackTarget = null; this.attackMove = null; this.enhanced = 0; this.buffer = null;
     this.daggerReady = 0; this.dualRecast = 0; this.lastAA = null; this.shieldBoostUsed = false; this.castSeq = 0; this.pendingMove = null;
   }
-  skillDef(k) { return k === 'D' ? CONFIG.skills[this.weapon === 'dagger' ? 'D_dagger' : 'D_dual'] : CONFIG.skills[k]; }
+  skillDef(k) { if (k === 'F') return Object.assign({}, CONFIG.skills.F, Tactical.def(Tactical.key())); return k === 'D' ? CONFIG.skills[this.weapon === 'dagger' ? 'D_dagger' : 'D_dual'] : CONFIG.skills[k]; }
   skillLabel(k) { return k + ' ' + this.skillDef(k).name; }
   startCd(k) {
     const def = this.skillDef(k), s = this.skills[k];
-    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 1 - this.cdr) * Game.cdMul; s.reduced = false;
+    // 쿨감 공식(8.0 패치~, 상한 없음): 최종 쿨 = 기본 쿨 × 100 / (100 + 쿨감) — 쿨감 30이면 약 23% 감소. 무기·전술 스킬은 쿨 고정
+    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 100 / (100 + this.cdr * 100)) * Game.cdMul; s.reduced = false;
   }
-  aaCfg() { return CONFIG.basicAttack[this.weapon]; }
-  aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.as) : this.aaCfg().windupRatio / this.as; }
+  baseAaCfg() { return CONFIG.basicAttack[this.weapon]; }
+  aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가
+  atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1); }                                                     // 라이트 윙: 공속 20%
+  aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.atkSpd()) : this.aaCfg().windupRatio / this.atkSpd(); }
   validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === 0 || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
-    Stats.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this);
+    Stats.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this, null, true);
     this.attackTarget = null; this.attackMove = null;
     const dest = Geo.pushOut(V.copy(pt), this.r);
     if (this.cast) {
@@ -125,13 +128,13 @@ class Cathy extends Unit {
     this.moveTarget = dest;
   }
   cmdAttack(t) {
-    Stats.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this);
+    Stats.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     if (this.attackTarget !== t && this.aa.phase === 'windup') this.aa.phase = 'none';
     this.attackTarget = t; this.attackMove = null; this.moveTarget = null;
   }
   cmdAttackMove(pt) {
-    Stats.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this);
+    Stats.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     this.breakAA(false);
     this.attackTarget = null; this.attackMove = Geo.pushOut(V.copy(pt), this.r); this.moveTarget = V.copy(this.attackMove);
@@ -145,7 +148,7 @@ class Cathy extends Unit {
   cmdSkill(k, aim) {
     Stats.input();
     if (this.dead) return;
-    if (this.rest) Rest.stop(this);
+    if (this.rest) Rest.stop(this, null, true);
     const busy = (this.cast && this.cast.phase !== 'recovery') || this.forced || this.stun > 0;
     if (busy) { this.buffer = { k, aim: V.copy(aim), time: performance.now() }; return; }
     this.tryCast(k, aim);
@@ -161,7 +164,7 @@ class Cathy extends Unit {
     const s = this.skills[k], def = this.skillDef(k);
     if (!s || s.lv <= 0) { FX.toast(`${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
     if (!this.canAct()) return false;
-    if (k === 'F') { if (s.cd > 0) { this.cdError(k); return false; } this.interruptForCast(); this.blink(aim); return true; }
+    if (k === 'F') { if (s.cd > 0) { this.cdError(k); return false; } return Tactical.use(this, aim); }   // 전술 스킬 (메뉴에서 선택)
     if (this.silence > 0) { FX.toast('침묵 — 스킬 사용 불가', '#b07cff'); Sfx.play('error'); return false; }
     if (k === 'D') return this.tryWeapon(aim);
     if (s.cd > 0) { this.cdError(k); return false; }
@@ -196,7 +199,8 @@ class Cathy extends Unit {
   }
   blink(aim) {
     const def = CONFIG.skills.F, dir = V.norm(V.sub(aim, this.pos)), dist = Math.min(def.dist, V.dist(this.pos, aim));
-    const from = V.copy(this.pos); this.pos = Geo.pushOut(V.add(this.pos, V.mul(dir, dist)), this.r);
+    const from = V.copy(this.pos); this.pos = Geo.pushOut(V.add(this.pos, V.mul(dir, Geo.passDash(this.pos, dir, dist, this.r, 0.5))), this.r);   // 벽 넘기 가능(벽 중심 규칙)
+    if (this.skills.F.lv >= 2) this.addMsBuff(def.lv2Ms, def.lv2MsDur, false, 'blink');
     FX.burst(from, '#ffffff', 12, 3); FX.ring(this.pos, 0.2, 1, '#ffffff', 0.3); Sfx.play('blink');
     this.moveTarget = null; this.startCd('F'); Events.emit('action', { k: 'F' });
   }
@@ -262,7 +266,7 @@ class Cathy extends Unit {
       const d = V.dist(this.pos, t.pos) - t.r - this.r;
       if (d <= this.aaCfg().range) {
         this.moveTarget = null;
-        if (this.aaCd <= 0 && this.canAct()) { a.phase = 'windup'; a.t = 0; a.dur = this.instantAA > 0 && this.enhanced > 0 ? 0.02 : this.aaWindupTime(); this.instantAA = 0; this.aaCd = 1 / this.as; }
+        if (this.aaCd <= 0 && this.canAct()) { a.phase = 'windup'; a.t = 0; a.dur = this.instantAA > 0 && this.enhanced > 0 ? 0.02 : this.aaWindupTime(); this.instantAA = 0; this.aaCd = 1 / this.atkSpd(); }
         return true;
       }
       if (this.canMove()) this.moveTarget = V.copy(t.pos);
@@ -288,12 +292,13 @@ class Cathy extends Unit {
     Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
-    this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
+    Tactical.onAA(this, t);
+    this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.atkSpd();
   }
 
   // ---------- 매 스텝 ----------
   update(dt) {
-    this.tickStatus(dt);
+    this.tickStatus(dt); Tactical.update(this, dt);
     for (const k in this.skills) { const s = this.skills[k]; s.cd = Math.max(0, s.cd - dt); }
     this.aaCd -= dt;
     this.st = Math.min(this.maxSt, this.st + CONFIG.staminaRegen * dt);
@@ -321,6 +326,7 @@ class Cathy extends Unit {
     Stats.trackWaste(this, dt);
     this.passiveMoveBoost();
     if (this.forced) return;
+    if (this.stasis) { this.vel = { x: 0, y: 0 }; return; }   // 아티팩트 경직: 행동 불가
     if (this.stun > 0) { if (this.cast && this.cast.phase === 'windup') this.cancelCast(false); this.aa.phase = 'none'; return; }
     if (this.fear > 0) {   // 공포: 시전 취소, 시전자 반대로 걸어감
       if (this.cast && this.cast.phase === 'windup') this.cancelCast(false);

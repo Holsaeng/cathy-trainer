@@ -141,7 +141,7 @@ Kits.daniel = {
   dagger(ai, u) {   // 2차: 대상 뒤로 순간이동 + 피해·둔화
     const K = ai.kitCfg.D, dir = V.norm(V.sub(u.pos, ai.pos)), from = V.copy(ai.pos);
     ai.cloakT = 0; ai.cds.D = ai.pick(K.cd, 'D'); ai.stealthT = 0; ai.shadowT = 0;
-    ai.pos = Geo.pushOut(V.add(u.pos, V.mul(dir, u.r + ai.r + K.behind * 0.3)), ai.r);
+    ai.pos = Geo.pushOut(V.add(u.pos, V.mul(dir, K.behind)), ai.r);   // 대상 건너 1.5m 착지(지형 통과)
     FX.trail(from, ai.pos, '#b07cff', 0.2, 0.25);
     ai.hitP(u, ai.calc(K, 'D') + u.hp * K.curHp * ai.diff.dmgMul, { name: '단검' }); u.addSlow(ai.pick(K.slow, 'D'), K.slowDur);
   },

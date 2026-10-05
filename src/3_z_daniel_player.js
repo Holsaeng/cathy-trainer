@@ -13,7 +13,7 @@ class DanielPlayer extends Cathy {
     super(x, y);
     const M = CONFIG.rangedMotifs.daniel, st = ['early', 'mid', 'late'].includes(Game.buildId) ? Game.buildId : 'mid', si = ['early', 'mid', 'late'].indexOf(st);
     this.charKey = 'daniel'; this.name = '다니엘'; this.color = M.color; this.weapon = 'dagger'; this.usesTrauma = false;
-    this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si];
+    this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si]; this.baseHpAtLv = 920 + 90 * (CONFIG.rangedAI.stages[st].level - 1);
     this.ad = M.ad[si]; this.bonusAd = Math.max(0, M.ad[si] - M.baseAd[si]); this.sp = 0; this.critChance = M.crit[si]; this.pen = M.pen[si]; this.aaAmp = M.aaAmp[si];
     this.baseAs = M.as[si]; this.as = this.baseAs; this.cdr = [0.15, 0.25, 0.25][si];   // 쿨감: HUD 실측 Lv11~20 25%
     this.build = Object.assign({}, this.build, { level: CONFIG.rangedAI.stages[st].level });
@@ -27,11 +27,11 @@ class DanielPlayer extends Cathy {
   calc(o, k) { return lv(o.base, this.L(k)) + this.ad * lv(o.ad || 0, this.L(k)) + this.bonusAd * lv(o.bad || 0, this.L(k)); }
   skillDef(k) {
     if (k === 'D') return CONFIG.skills.D_dagger;
-    if (k === 'F') return CONFIG.skills.F;
+    if (k === 'F') return super.skillDef('F');   // 선택한 전술 스킬
     const d = this.K[k]; return Object.assign({ short: DANIEL_SHORT[k] }, d);
   }
-  aaCfg() { const b = CONFIG.basicAttack.dagger; return this.shadowT > 0 ? Object.assign({}, b, { range: this.K.E.aaRange }) : b; }
-  aaWindupTime() { return CONFIG.basicAttack.dagger.windupRatio / this.as; }
+  baseAaCfg() { const b = CONFIG.basicAttack.dagger; return this.shadowT > 0 ? Object.assign({}, b, { range: this.K.E.aaRange }) : b; }
+  aaWindupTime() { return CONFIG.basicAttack.dagger.windupRatio / this.atkSpd(); }
 
   // ---------- 시전 ----------
   tryCast(k, aim) {
@@ -135,7 +135,8 @@ class DanielPlayer extends Cathy {
     Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA' });
     FX.slash(this.pos, V.ang(V.sub(t.pos, this.pos)), 1.3, 0.6, this.color, 0.15); FX.burst(t.pos, '#ffffff', 6, 3); Sfx.play('aa');
-    this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.as;
+    Tactical.onAA(this, t);
+    this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.atkSpd();
   }
   passiveMoveBoost() {}   // 캐시 패시브 없음
   // ---------- 매 스텝 ----------

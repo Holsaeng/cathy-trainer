@@ -16,8 +16,8 @@ const lv = (v, l) => Array.isArray(v) ? v[clamp(l - 1, 0, v.length - 1)] : v;   
 const fmt = (n, d = 0) => Number(n).toFixed(d);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const SKILL_KEYS = ['Q', 'W', 'E', 'R', 'D'];
-const SRC_LABEL = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', 'E충돌': 'E 충돌', R: 'R 이머전시 OP', D: 'D 무기 스킬', AA: '기본 공격', 'AA+': '강화 평타', P: '패시브 외상' };
-const SRC_COLOR = { Q: '#ff3b5c', W: '#ff8f3b', E: '#3fd0c9', 'E충돌': '#7fe3dc', R: '#ffc857', D: '#b18cff', AA: '#d0d4dd', 'AA+': '#ff9fb2', P: '#ff6b9a' };
+const SRC_LABEL = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', 'E충돌': 'E 충돌', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 전술 스킬', AA: '기본 공격', 'AA+': '강화 평타', P: '패시브 외상' };
+const SRC_COLOR = { Q: '#ff3b5c', W: '#ff8f3b', E: '#3fd0c9', 'E충돌': '#7fe3dc', R: '#ffc857', D: '#b18cff', F: '#9fd8ff', AA: '#d0d4dd', 'AA+': '#ff9fb2', P: '#ff6b9a' };
 
 // ============================== 기하/충돌 ==============================
 const Geo = {
@@ -242,7 +242,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
