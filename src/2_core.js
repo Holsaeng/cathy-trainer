@@ -126,7 +126,7 @@ const Vision = {
     const V0 = CONFIG.vision; if (!Vision.night) return V0.sight;
     return lerp(V0.night.start, V0.night.end, clamp(Vision.nightT / V0.night.ramp, 0, 1));
   },
-  sightOf(u) { return (u.sight || Vision.baseSight()) * (u.sightMul || 1); },
+  sightOf(u) { const rest = u.rest ? (Vision.night ? CONFIG.rest.sightNight : CONFIG.rest.sightDay) : 0; return ((u.sight || Vision.baseSight()) - rest) * (u.sightMul || 1); },   // 휴식 중 시야 감소
   // a→b 사이에 시야를 막는 벽이 없는가 (시야선)
   los(a, b) { const d = V.dist(a, b); if (d < 1e-6) return true; return Vision.rayBlock(a, V.mul(V.sub(b, a), 1 / d), d) === Infinity; },
   inSight(viewer, pt, r = 0) { return V.dist(viewer.pos, pt) - r <= Vision.sightOf(viewer) && Vision.los(viewer.pos, pt); },
@@ -225,7 +225,7 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
 const DEFAULT_SETTINGS = { fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
@@ -363,6 +363,7 @@ const Combat = {
     if (src === Game.player) Stats.dealt(o.source || '?', dmg);
     if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal); }   // 피격 시 위치 노출
     else if (!o.tick) Sfx.play('hit');
+    Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);

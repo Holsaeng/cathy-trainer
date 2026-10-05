@@ -111,6 +111,13 @@ const CONFIG = {
     camera: { name: '망원 카메라', r: 13, dur: 60, max: 2, cd: 3, range: 4, stock: 3 },   // range: 설치 거리, stock: 라운드당 보유(시뮬레이터용)
     drone: { name: '정찰 드론', r: 6, dur: 5, range: 24, speed: 26, cd: 6, stock: 2 },    // r: 드론 시야 반경(추정)
   },
+  // 휴식(X) — 나무위키 가이드. combatDur(비전투 판정까지 시간)는 추정
+  rest: {
+    stages: [{ dur: 3, hp: 0.10, sp: 0.20 }, { dur: 3, hp: 0.15, sp: 0.25 }, { dur: 4, hp: 0.30, sp: 0.30 }],   // 3단계는 반복
+    bonus: 0.02, bonusEvery: 0.5, cd: 1, combatDur: 5,
+    sightDay: 1.0, sightNight: 0.4,                 // 휴식 중 시야 감소: 낮 8.5→7.5m, 밤 3.4→3m ~ 6.4→6m (공식 패치 노트)
+    ai: { hp: 0.7, unseen: 2.5, quiet: 2.0 },       // AI: 체력 70% 미만 · 캐시를 2.5초 이상 못 봄 · 2초간 소리 없음 · 비전투면 휴식
+  },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
     bufferMs: 100,            // 선입력 버퍼

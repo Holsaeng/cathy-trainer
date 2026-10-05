@@ -111,6 +111,13 @@ const CONFIG = {
     camera: { name: '망원 카메라', r: 13, dur: 60, max: 2, cd: 3, range: 4, stock: 3 },   // range: 설치 거리, stock: 라운드당 보유(시뮬레이터용)
     drone: { name: '정찰 드론', r: 6, dur: 5, range: 24, speed: 26, cd: 6, stock: 2 },    // r: 드론 시야 반경(추정)
   },
+  // 휴식(X) — 나무위키 가이드. combatDur(비전투 판정까지 시간)는 추정
+  rest: {
+    stages: [{ dur: 3, hp: 0.10, sp: 0.20 }, { dur: 3, hp: 0.15, sp: 0.25 }, { dur: 4, hp: 0.30, sp: 0.30 }],   // 3단계는 반복
+    bonus: 0.02, bonusEvery: 0.5, cd: 1, combatDur: 5,
+    sightDay: 1.0, sightNight: 0.4,                 // 휴식 중 시야 감소: 낮 8.5→7.5m, 밤 3.4→3m ~ 6.4→6m (공식 패치 노트)
+    ai: { hp: 0.7, unseen: 2.5, quiet: 2.0 },       // AI: 체력 70% 미만 · 캐시를 2.5초 이상 못 봄 · 2초간 소리 없음 · 비전투면 휴식
+  },
   sim: { step: 1 / 120, maxSteps: 30 },    // 고정 시뮬레이션 스텝(프레임 저하와 무관한 판정)
   input: {
     bufferMs: 100,            // 선입력 버퍼
@@ -476,7 +483,7 @@ const Vision = {
     const V0 = CONFIG.vision; if (!Vision.night) return V0.sight;
     return lerp(V0.night.start, V0.night.end, clamp(Vision.nightT / V0.night.ramp, 0, 1));
   },
-  sightOf(u) { return (u.sight || Vision.baseSight()) * (u.sightMul || 1); },
+  sightOf(u) { const rest = u.rest ? (Vision.night ? CONFIG.rest.sightNight : CONFIG.rest.sightDay) : 0; return ((u.sight || Vision.baseSight()) - rest) * (u.sightMul || 1); },   // 휴식 중 시야 감소
   // a→b 사이에 시야를 막는 벽이 없는가 (시야선)
   los(a, b) { const d = V.dist(a, b); if (d < 1e-6) return true; return Vision.rayBlock(a, V.mul(V.sub(b, a), 1 / d), d) === Infinity; },
   inSight(viewer, pt, r = 0) { return V.dist(viewer.pos, pt) - r <= Vision.sightOf(viewer) && Vision.los(viewer.pos, pt); },
@@ -575,7 +582,7 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
 const DEFAULT_SETTINGS = { fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
@@ -713,6 +720,7 @@ const Combat = {
     if (src === Game.player) Stats.dealt(o.source || '?', dmg);
     if (tgt === Game.player) { Stats.takenTotal += dmg; Stats.playerHits++; Events.emit('playerHit', { dmg }); Sfx.play('hurt'); tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal); }   // 피격 시 위치 노출
     else if (!o.tick) Sfx.play('hit');
+    Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);
@@ -834,6 +842,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -893,7 +902,7 @@ class Cathy extends Unit {
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
-    Stats.input(); FX.mark(pt, '#5dff9a');
+    Stats.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this);
     this.attackTarget = null; this.attackMove = null;
     const dest = Geo.pushOut(V.copy(pt), this.r);
     if (this.cast) {
@@ -912,13 +921,13 @@ class Cathy extends Unit {
     this.moveTarget = dest;
   }
   cmdAttack(t) {
-    Stats.input(); FX.mark(t.pos, '#ff5d5d');
+    Stats.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     if (this.attackTarget !== t && this.aa.phase === 'windup') this.aa.phase = 'none';
     this.attackTarget = t; this.attackMove = null; this.moveTarget = null;
   }
   cmdAttackMove(pt) {
-    Stats.input(); FX.mark(pt, '#ffb347');
+    Stats.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     this.breakAA(false);
     this.attackTarget = null; this.attackMove = Geo.pushOut(V.copy(pt), this.r); this.moveTarget = V.copy(this.attackMove);
@@ -932,6 +941,7 @@ class Cathy extends Unit {
   cmdSkill(k, aim) {
     Stats.input();
     if (this.dead) return;
+    if (this.rest) Rest.stop(this);
     const busy = (this.cast && this.cast.phase !== 'recovery') || this.forced || this.stun > 0;
     if (busy) { this.buffer = { k, aim: V.copy(aim), time: performance.now() }; return; }
     this.tryCast(k, aim);
@@ -1382,6 +1392,60 @@ class Projectile {
   }
 }
 
+// ============================== 휴식 (X) ==============================
+// 나무위키 가이드: 자리에 앉아 휴식, 도중에 시야 감소(공식 패치 노트: 낮 8.5→7.5m, 밤 3.4→3m ~ 6.4→6m)
+//  1단계 3초: 최대 체력 10%·기력 20% / 2단계 3초: 15%·25% / 3단계 4초: 30%·30% (3단계는 계속 반복)
+//  비전투 상태면 0.5초마다 최대 체력·기력 2% 추가 회복 / 직접 피해(지속 피해 제외)·방해 효과·행동 시 취소 / 종료 후 1초 쿨다운
+const Rest = {
+  stageOf(u) { return Math.min(u.rest.stage, CONFIG.rest.stages.length - 1); },
+  inCombat(u) { return Game.time - (u.combatT ?? -99) < CONFIG.rest.combatDur; },
+  can(u) { return !u.dead && !u.rest && (u.restCd || 0) <= 0 && u.canAct() && u.canMove() && !u.cast && !(u.act && u.act.type !== 'aa'); },
+  start(u, quiet) {
+    if (!Rest.can(u)) { if (!quiet && u === Game.player && (u.restCd || 0) > 0) FX.toast(`휴식 재사용 대기 ${fmt(u.restCd, 1)}초`, '#aaa'); return false; }
+    u.rest = { stage: 0, t: 0, acc: 0, accT: 0.5, tick: 0 };
+    u.moveTarget = null; u.vel = { x: 0, y: 0 }; if (u.act) u.act = null;
+    if (u.attackTarget !== undefined) u.attackTarget = null; if (u.attackMove !== undefined) u.attackMove = null; if (u.aa) u.aa.phase = 'none';
+    if (!quiet || u === Game.player) FX.text(u.pos, '휴식', '#9fe0ff', 12, { bold: true });
+    return true;
+  },
+  stop(u, why) {
+    if (!u.rest) return;
+    if (u.rest.acc > 1) FX.text(u.pos, '+' + Math.round(u.rest.acc), '#5dff9a', 12);
+    u.rest = null; u.restCd = CONFIG.rest.cd;
+    if (why && (u === Game.player || Vision.visible(Game.player, u))) FX.text(u.pos, '휴식 취소 · ' + why, '#ffb347', 11);
+  },
+  // 직접 피해를 받거나 입히면 전투 상태 (지속 피해 제외)
+  onDamage(src, tgt, o) {
+    if (o.tick) return;
+    tgt.combatT = Game.time; if (src) src.combatT = Game.time;
+    if (tgt.rest) Rest.stop(tgt, '피격');
+  },
+  update(u, dt) {
+    if (u.restCd > 0) u.restCd = Math.max(0, u.restCd - dt);
+    const R = u.rest; if (!R) return;
+    if (u.dead) { u.rest = null; return; }
+    // 방해 효과
+    if (u.stun > 0 || u.root > 0 || u.fear > 0 || u.forced || u.silence > 0 || (u.slows && u.slows.length)) { Rest.stop(u, '방해 효과'); return; }
+    const C = CONFIG.rest, S = C.stages[Rest.stageOf(u)];
+    R.t += dt;
+    let hp = u.maxHp * S.hp / S.dur * dt, sp = (u.maxSt || 0) * S.sp / S.dur * dt;
+    if (!Rest.inCombat(u) && (R.tick += dt) >= C.bonusEvery) { R.tick -= C.bonusEvery; hp += u.maxHp * C.bonus; sp += (u.maxSt || 0) * C.bonus; }   // 비전투 추가 회복
+    R.acc += u.heal(hp, true);
+    if (u.maxSt) u.st = Math.min(u.maxSt, u.st + sp);
+    if ((R.accT -= dt) <= 0) { R.accT = 0.5; if (R.acc > 1 && (u === Game.player || Vision.visible(Game.player, u))) FX.text(u.pos, '+' + Math.round(R.acc), '#5dff9a', 11); R.acc = 0; }
+    if (R.t >= S.dur) { R.t -= S.dur; if (R.stage < C.stages.length - 1) { R.stage++; if (u === Game.player) FX.text(u.pos, `휴식 ${R.stage + 1}단계`, '#9fe0ff', 11, { bold: true }); } }
+  },
+  // 머리 위 표시: 단계 + 진행 고리
+  draw(ctx, u) {
+    const R = u.rest; if (!R) return;
+    const S = CONFIG.rest.stages[Rest.stageOf(u)], k = clamp(R.t / S.dur, 0, 1), y = u.pos.y - u.r - 0.25;
+    ctx.save(); ctx.strokeStyle = 'rgba(159,224,255,.25)'; ctx.lineWidth = 0.07; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.22); ctx.stroke();
+    ctx.strokeStyle = '#9fe0ff'; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+    ctx.fillStyle = '#9fe0ff'; ctx.font = 'bold 0.36px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`Zz ${Rest.stageOf(u) + 1}`, u.pos.x, y - 0.1);
+    ctx.restore();
+  },
+};
+
 // ============================== 시야 아이템: 망원 카메라 · 정찰 드론 ==============================
 // 나무위키: 망원 카메라 = 반경 13m 시야(벽에 가려짐), 60초, 최대 2개 설치(초과 시 가장 먼저 설치한 것 파괴), 재사용 3초, 은신 감지,
 //          상대가 기본 공격 한 번으로 파괴 / 정찰 드론 = 목표 지점 5초 시야(벽 무시), 상대는 드론이 자기 시야 안에 있어야 범위가 보임
@@ -1670,11 +1734,17 @@ class RangedDuelist extends Duelist {
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
+    if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남
+      const before = this.lastHeard; this.listen();
+      if (this.seesP || this.lastHeard !== before) Rest.stop(this); else { this.vel = { x: 0, y: 0 }; return; }
+    }
     if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
     if (!this.seesP) {   // 안 보이는 캐시(부쉬·암시야): 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬·시야 아이템으로 확인
       this.unseenT = (this.unseenT || 0) + dt;
       if (!this.belief) this.initBelief(p0);
       this.listen();
+      const RA = CONFIG.rest.ai;   // 안전해 보이면 휴식(X)으로 회복
+      if (this.hp / this.maxHp < RA.hp && this.unseenT > RA.unseen && Game.time - (this.lastHeard || -99) > RA.quiet && !Rest.inCombat(this) && Rest.start(this, true)) return;
       if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }
@@ -3194,6 +3264,7 @@ const Input = {
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
     if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
+    if (act === 'X') { this.aiming = null; this.amove = false; if (p.rest) Rest.stop(p); else Rest.start(p); return; }   // 휴식 (다시 누르면 일어남)
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
@@ -3290,6 +3361,7 @@ const Render = {
     for (const t of FX.trails) { ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
     for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
+    for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     this.drawBushes(ctx);
     for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
     for (const s of FX.slashes) {
@@ -3587,6 +3659,8 @@ const HUD = {
     if (p.daggerReady > 0) buffs.push([`단검 ${fmt(p.daggerReady, 1)}`, '#b18cff']);
     if (p.dualRecast > 0) buffs.push([`2식 ${fmt(p.dualRecast, 1)}`, '#ff8fa3']);
     if (p.unstoppable > 0) buffs.push(['저지 불가', T.gold]);
+    if (p.rest) buffs.push([`휴식 ${Rest.stageOf(p) + 1}단계${Rest.inCombat(p) ? '' : ' +비전투'}`, '#9fe0ff']);
+    else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;
     for (const [t, c] of buffs) { ctx.font = `700 10px ${FONT}`; const w = ctx.measureText(t).width + 12; Draw.rr(ctx, bxx, by + 50, w, 16, 8); ctx.fillStyle = c + '33'; ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke(); Draw.text(ctx, t, bxx + w / 2, by + 58, { size: 10, bold: true, align: 'center', color: c }); bxx += w + 4; if (bxx > bx + bw - 30) break; }
     Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 74, { size: 10, color: '#8a93a6' });
@@ -3835,7 +3909,7 @@ const UI = {
 
   showSettings(back) {
     this.settingsBack = back;
-    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 점멸', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)' };
+    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 점멸', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식</h3>
@@ -3886,6 +3960,7 @@ const UI = {
       · <b>선입력</b>: 시전 중 누른 스킬은 ${CONFIG.input.bufferMs}ms 안에 시전이 끝나면 이어서 나갑니다. 너무 일찍 누르면 씹힙니다.<br>
       · <b>외과 전문의</b>: 스킬 피해마다 외상 1중첩(스킬당 1회, 4초간 스킬 증폭 25% 출혈) → 3중첩 시 치명적 외상(4초간 최대 체력 6%+스킬 증폭 25% 출혈, 치유 감소, 보호막, Q 쿨 감소). W 안쪽 범위와 E 충돌은 외상을 주지 않습니다.<br>
       · <b>강화 평타</b>: Q/W/E/R 사용 후 다음 평타가 추가 스킬 피해(외상 부여).<br>
+      · <b>X 휴식</b>: 앉아서 회복 — 1단계 3초 체력 10%·기력 20% → 2단계 3초 15%·25% → 3단계 4초 30%·30%(반복). 비전투(5초간 직접 피해 없음)면 0.5초마다 2% 추가. 시야가 1m 줄고(밤 0.4m), 피격·방해 효과·이동/공격/스킬 시 취소, 끝난 뒤 1초 대기. AI도 안전하다고 판단하면 쉽니다.<br>
       · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
       <div class="row"><button class="btn" data-a="back">← 뒤로</button></div>`, { back: () => this.showMenu() });

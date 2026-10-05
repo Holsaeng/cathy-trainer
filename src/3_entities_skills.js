@@ -46,6 +46,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.slows = this.slows.filter(s => (s.t -= dt) > 0);
@@ -105,7 +106,7 @@ class Cathy extends Unit {
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
-    Stats.input(); FX.mark(pt, '#5dff9a');
+    Stats.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this);
     this.attackTarget = null; this.attackMove = null;
     const dest = Geo.pushOut(V.copy(pt), this.r);
     if (this.cast) {
@@ -124,13 +125,13 @@ class Cathy extends Unit {
     this.moveTarget = dest;
   }
   cmdAttack(t) {
-    Stats.input(); FX.mark(t.pos, '#ff5d5d');
+    Stats.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     if (this.attackTarget !== t && this.aa.phase === 'windup') this.aa.phase = 'none';
     this.attackTarget = t; this.attackMove = null; this.moveTarget = null;
   }
   cmdAttackMove(pt) {
-    Stats.input(); FX.mark(pt, '#ffb347');
+    Stats.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     this.breakAA(false);
     this.attackTarget = null; this.attackMove = Geo.pushOut(V.copy(pt), this.r); this.moveTarget = V.copy(this.attackMove);
@@ -144,6 +145,7 @@ class Cathy extends Unit {
   cmdSkill(k, aim) {
     Stats.input();
     if (this.dead) return;
+    if (this.rest) Rest.stop(this);
     const busy = (this.cast && this.cast.phase !== 'recovery') || this.forced || this.stun > 0;
     if (busy) { this.buffer = { k, aim: V.copy(aim), time: performance.now() }; return; }
     this.tryCast(k, aim);

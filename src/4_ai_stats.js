@@ -227,11 +227,17 @@ class RangedDuelist extends Duelist {
     if (this.act) { this.updateAct(dt); return; }
     const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
+    if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남
+      const before = this.lastHeard; this.listen();
+      if (this.seesP || this.lastHeard !== before) Rest.stop(this); else { this.vel = { x: 0, y: 0 }; return; }
+    }
     if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
     if (!this.seesP) {   // 안 보이는 캐시(부쉬·암시야): 위치를 추론해서 계속 움직이고, 일정 시간 뒤 스킬·시야 아이템으로 확인
       this.unseenT = (this.unseenT || 0) + dt;
       if (!this.belief) this.initBelief(p0);
       this.listen();
+      const RA = CONFIG.rest.ai;   // 안전해 보이면 휴식(X)으로 회복
+      if (this.hp / this.maxHp < RA.hp && this.unseenT > RA.unseen && Game.time - (this.lastHeard || -99) > RA.quiet && !Rest.inCombat(this) && Rest.start(this, true)) return;
       if ((this.thinkT -= dt) <= 0) { this.thinkT = CONFIG.rangedAI.hunt.think; this.hunt(); if (this.act) return; }
       this.moveStep(dt); return;
     }

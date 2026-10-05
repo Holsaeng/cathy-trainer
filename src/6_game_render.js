@@ -175,6 +175,7 @@ const Input = {
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
     if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
+    if (act === 'X') { this.aiming = null; this.amove = false; if (p.rest) Rest.stop(p); else Rest.start(p); return; }   // 휴식 (다시 누르면 일어남)
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
@@ -271,6 +272,7 @@ const Render = {
     for (const t of FX.trails) { ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
     for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
+    for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     this.drawBushes(ctx);
     for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
     for (const s of FX.slashes) {
@@ -568,6 +570,8 @@ const HUD = {
     if (p.daggerReady > 0) buffs.push([`단검 ${fmt(p.daggerReady, 1)}`, '#b18cff']);
     if (p.dualRecast > 0) buffs.push([`2식 ${fmt(p.dualRecast, 1)}`, '#ff8fa3']);
     if (p.unstoppable > 0) buffs.push(['저지 불가', T.gold]);
+    if (p.rest) buffs.push([`휴식 ${Rest.stageOf(p) + 1}단계${Rest.inCombat(p) ? '' : ' +비전투'}`, '#9fe0ff']);
+    else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;
     for (const [t, c] of buffs) { ctx.font = `700 10px ${FONT}`; const w = ctx.measureText(t).width + 12; Draw.rr(ctx, bxx, by + 50, w, 16, 8); ctx.fillStyle = c + '33'; ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke(); Draw.text(ctx, t, bxx + w / 2, by + 58, { size: 10, bold: true, align: 'center', color: c }); bxx += w + 4; if (bxx > bx + bw - 30) break; }
     Draw.text(ctx, `AD ${p.ad} · SP ${p.sp} · AS ${p.as} · CDR ${Math.round(p.cdr * 100)}%`, bx, by + 74, { size: 10, color: '#8a93a6' });
