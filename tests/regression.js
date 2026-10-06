@@ -63,6 +63,16 @@
       p.skills.F.cd = 0; const x0 = p.pos.x; p.cmdSkill('F', { x: p.pos.x - 5, y: p.pos.y }); run(3); T.ok(tag + ' 블링크', Math.abs(p.pos.x - x0) > 2.5);
       run(120 * 5); Renderer.frame();
     }
+    // R 이머전시 OP: 사용 순간(정신집중)부터 돌진 끝까지 저지 불가 — 공포·기절·넉백 무시
+    reset(); Settings.build = 'late'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(10);
+    { const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 10, y: 9 }; d.pos = { x: 14, y: 9 }; p.cmdStop(); p.skills.R.cd = 0;
+      p.cmdSkill('R', d.pos); Input.aiming = null; step();
+      T.ok('R 정신집중 중 저지 불가', p.cast && p.cast.k === 'R' && p.cast.phase === 'windup' && p.unstoppable > 0);
+      const x0 = p.pos.x; T.ok('R 중 기절 무시', p.applyCC('stun', 1) === false && p.stun === 0);
+      T.ok('R 중 공포 무시', p.applyFear(1, { x: 20, y: 9 }) === false && p.fear === 0);
+      KU.knock(p, { x: -1, y: 0 }, 3, 0.2); T.ok('R 중 넉백 무시', !p.forced && p.pos.x === x0);
+      run(80); T.ok('R 끊기지 않고 돌진', (Stats.casts.R || 0) >= 1 && p.pos.x > x0 + 1);
+      run(120); T.ok('R 끝나면 저지 불가 해제', p.unstoppable === 0 && p.applyCC('stun', 0.1) === true); }
   });
 
   // ---------------- 다니엘 ----------------
@@ -190,7 +200,28 @@
     if (Models.state === 'ready') {
       const r = rigOf(Game.player); T.ok('캐시 CC0 모델', !!r && !!r.actions.run && !!r.actions.slash && !!r.actions.idle);
       T.ok('무기 손에 부착', !!r && !!r.obj.getObjectByName('WristR').children.find(c => c.type === 'Group'));
+      T.ok('캐시 평타 동작(베기·좌우 찌르기·전투 자세)', !!r && r.melee && ['slash', 'stabR', 'stabL', 'idleSword'].every(k => r.actions[k] && r.actions[k].getClip().duration > Models.MELEE.slash.hit) && ['slash', 'stabR'].every(k => r.actions[k].clampWhenFinished));
+      T.ok('쌍검 직접 만든 동작(대각 2연타·X자·대기)', ['dualAA', 'dualX', 'dualIdle'].every(k => r.actions[k] && r.actions[k].getClip().tracks.length > 20) && Math.abs(Models.MELEE.dualAA.hit2 - Models.MELEE.dualAA.hit - 0.12) < 1e-6 && Models.MELEE.dualAA.hit === Motions.HITS.DualAA.hit);
+      T.ok('캐시 스킬 동작 표(Q W E R D)', ['Q', 'W', 'E', 'R', 'D', 'Ddual', 'D2'].every(k => { const A = Models.SKILL_ANIM[k]; return A && (A.flurry || r.actions[A.clip]); }) && r.root && r.root.children[0] === r.obj);
+      T.ok('역할 소품 부착(가운·후드 등)', !!r && r.obj.getObjectByName('Chest').children.some(c => c.type === 'Group' && c.children.length >= 2));
       const re = rigOf(Modes.duel.enemy); T.ok('아야 모델(원딜 동작)', !!re && re.ranged && !!re.actions.shoot);
+      // 직접 만든 캐시 모델(6_y_procgen.js): 같은 뼈대·동작으로 교체
+      T.ok('직접 만든 캐시 모델 생성', !!Models.src.cathyProc && Models.src.cathyProc.proc);
+      Settings.models3dBy = { cathy: 'proc' }; Models.ver++; Renderer.frame(); { const rp = rigOf(Game.player); let n = 0; rp && rp.obj.traverse(m => { if (m.isSkinnedMesh && m.material.name === 'proc' && m.material.skinning) n++; });
+        T.ok('직접 만든 모델로 교체(스키닝·동작)', !!rp && n >= 5 && !!rp.actions.dualAA && !!rp.obj.getObjectByName('WristR').children.find(c => c.type === 'Group')); }
+      if (Models.src.cathyBlend) {   // Blender 모델(models/cathy_custom.glb)이 있을 때만
+        Settings.models3dBy = { cathy: 'blend' }; Models.ver++; Renderer.frame(); const rb = rigOf(Game.player);
+        T.ok('Blender 모델로 교체(쌍검 동작·무기)', !!rb && !!rb.actions.dualAA && !!rb.actions.run && !!rb.obj.getObjectByName('WristR').children.find(c => c.type === 'Group') && Math.abs(Models.src.cathyBlend.scale - Models.src.cathy.scale) < 1e-9);
+      }
+      Settings.models3dBy = {}; Models.ver++; Renderer.frame();
+      // 다니엘: 직접 만든 모델(공용 설계 6_y_designs.js) — 같은 뼈대·동작, 무기는 단검
+      { reset(); Settings.character = 'daniel'; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
+        T.ok('직접 만든 다니엘 모델 생성', !!Models.src.danielProc && Models.src.danielProc.design === DESIGNS.daniel);
+        Settings.models3dBy = { daniel: 'proc' }; Models.ver++; Renderer.frame(); const rd = rigOf(Game.player); let n = 0; rd && rd.obj.traverse(m => { if (m.isSkinnedMesh && m.material.name === 'proc') n++; });
+        T.ok('다니엘 직접 만든 모델(스키닝·평타 동작)', !!rd && n >= 8 && rd.melee && rd.dan && !!rd.actions.slash && Models.weaponKind(Game.player, Models.src.danielProc) === 'dagger');
+        T.ok('다니엘 스킬 동작 표(E·R·D·Q·W 손짓)', ['dE', 'dR', 'dD'].every(k => Models.SKILL_ANIM[k]) && Models.DAN_GESTURE.Q && Models.DAN_GESTURE.W);
+        if (Models.src.danielBlend) { Settings.models3dBy = { daniel: 'blend' }; Models.ver++; Renderer.frame(); const rb2 = rigOf(Game.player); T.ok('다니엘 Blender 모델로 교체', !!rb2 && !!rb2.actions.run && Math.abs(Models.src.danielBlend.scale - Models.src.male.scale) < 1e-9); }
+        Settings.models3dBy = {}; Models.ver++; Renderer.frame(); Settings.character = 'cathy'; }
       Settings.models3d = false; Render3D.refreshModels(); Renderer.frame(); T.ok('모델 끄기 → 인형', !rigOf(Game.player));
       Settings.models3d = true; Render3D.refreshModels();
     } else T.ok('모델 ' + Models.state + ' → 인형 대체', !rigOf(Game.player) && Render3D.unitMeshes.get(Game.player.id).userData.body.children.length > 5);

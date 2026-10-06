@@ -629,7 +629,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -1316,12 +1316,15 @@ const Impl = {
   },
   R: {
     windup: () => S.R.windup, recovery: () => S.R.recovery,
-    start(p, c) { c.data.len = clamp(V.dist(p.pos, c.aim), S.R.minDist, S.R.maxDist); },
+    start(p, c) {
+      c.data.len = clamp(V.dist(p.pos, c.aim), S.R.minDist, S.R.maxDist);
+      p.unstoppable = S.R.windup + S.R.dashTime + 0.1; p.slows = []; p.root = 0; p.fear = 0;   // 사용 순간부터 저지 불가: 공포·기절·넉백(끌어오기 포함)·둔화·속박 무시
+    },
     fire(p, c) {
       p.startCd('R'); Sfx.play('ult'); FX.addShake(6);
       const len = Geo.passDash(p.pos, c.dir, c.data.len, p.r, S.R.wallPass);   // 벽 넘기: 벽 두께의 80% 이상 지나서 끝나야 넘음
       Object.assign(c.data, { from: V.copy(p.pos), to: V.add(p.pos, V.mul(c.dir, len)), len, dur: Math.max(0.08, S.R.dashTime * len / S.R.maxDist), t: 0, hit: new Set() });
-      p.unstoppable = c.data.dur + 0.1; p.slows = []; p.root = 0;   // 이동 중 저지 불가
+      p.unstoppable = Math.max(p.unstoppable, c.data.dur + 0.1); p.slows = []; p.root = 0;   // 돌진 끝까지 저지 불가 유지
     },
     tick(p, c, dt) {
       const d = c.data; d.t += dt; const k = Math.min(1, d.t / d.dur), prev = V.copy(p.pos);
@@ -4170,6 +4173,106 @@ const HUD = {
   },
 };
 
+// ============================== 직접 만든 캐릭터 설계 (게임 · Blender 공용) ==============================
+// 이 파일 하나를 게임(src/6_y_procgen.js)과 Blender(tools/blender/make_model.py)가 함께 읽음 → 한 번 고치면 두 모델이 같이 바뀜
+// 아래는 순수 JSON (Blender가 그대로 읽으므로 주석·작은따옴표 금지). 형식 설명은 "_doc" 참고
+// IP 기준선: 직업·체형·머리 길이·피부톤 같은 일반 요소만 사용, 원본 고유 디자인 요소는 넣지 않음 (README 「IP 기준선」)
+const DESIGNS = {
+  "_doc": "좌표: 모델 기준 m (위 +Y, 정면 +Z, 왼손 쪽 +X), 바인드 T자세. 점 = [x,y,z] 또는 {b: 뼈, o: [dx,dy,dz], set: {y: 절대값}}. rel: 뼈 이름이면 배열 좌표·lathe 높이가 그 뼈 기준. sym: 왼쪽(+X)으로 적고 오른쪽은 x 반전, 뼈 이름의 % = L/R. w: 따라갈 뼈 후보(가까운 2개). ang: 구의 [phi시작, phi길이, theta시작, theta길이] (π 단위, phi 0 = -X, 0.5 = +Z 정면). p: lathe 각도 [시작, 길이] (π 단위, 0 = 정면). rot: 오일러 XYZ(rad).",
+  "cathy": {
+    "rig": "cathy",
+    "colors": { "skin": "#e2b48e", "hair": "#2a1c17", "scrub": "#2a9d8f", "pants": "#21786d", "coat": "#f3f5f7", "shoe": "#2b2f36", "eye": "#1d1a1a", "tie": "#2fd1bd", "band": "#4a4f58", "badge": "#dfe9f0", "lip": "#b5655b", "blush": "#f2a7a0", "white": "#ffffff" },
+    "skirt": { "top": 0.9, "span": 0.45, "max": 0.5 },
+    "parts": [
+      { "t": "sphere", "rel": "Head", "at": [0, 0.093, 0.01], "s": [0.116, 0.126, 0.12], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.042, 0.088, 0.123], "s": [0.017, 0.023, 0.008], "seg": [6, 5], "c": "eye", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0.048, 0.097, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [-0.036, 0.097, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "sym": true, "at": [0.044, 0.128, 0.122], "s": [0.03, 0.006, 0.006], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.068, 0.058, 0.112], "s": [0.019, 0.009, 0.005], "seg": [6, 3], "c": "blush", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.063, 0.13], "s": [0.009, 0.013, 0.01], "seg": [5, 4], "c": "skin", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "at": [0, 0.033, 0.123], "s": [0.026, 0.005, 0.004], "c": "lip", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.113, -0.005], "s": [0.13, 0.13, 0.13], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.093, -0.002], "s": [0.133, 0.132, 0.13], "seg": [16, 8], "ang": [1.1, 0.8, 0, 0.8], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.045, 0.176, 0.085], "s": [0.072, 0.035, 0.05], "seg": [10, 5], "c": "hair", "w": ["Head"] },
+      { "t": "tube", "rel": "Head", "sym": true, "a": [0.112, 0.153, 0.04], "b": [0.105, 0.013, 0.06], "r": [0.03, 0.014], "seg": 6, "c": "hair", "w": ["Head"] },
+      { "t": "tube", "rel": "Head", "a": [0, 0.048, -0.145], "b": [0, -0.267, -0.19], "r": [0.042, 0.016], "seg": 8, "rings": 6, "c": "hair", "w": ["Head", "Neck", "Chest"] },
+      { "t": "tube", "rel": "Head", "a": [0, 0.053, -0.144], "b": [0, 0.023, -0.15], "r": [0.038, 0.038], "seg": 8, "c": "band", "w": ["Head", "Neck"] },
+      { "t": "tube", "a": [0, 1.36, 0.045], "b": [0, 1.46, 0.045], "r": [0.043, 0.04], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"] },
+      { "t": "lathe", "prof": [[0.112, 0.89], [0.116, 0.96], [0.102, 1.04], [0.11, 1.13], [0.124, 1.22], [0.12, 1.3], [0.075, 1.355], [0.042, 1.37]], "cz": 0.05, "zs": 0.82, "n": 14, "c": "scrub", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"] },
+      { "t": "lathe", "prof": [[0.113, 0.86], [0.12, 0.92], [0.114, 0.97]], "cz": 0.05, "zs": 0.85, "n": 14, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"] },
+      { "t": "tube", "sym": true, "a": { "b": "UpperLeg%", "o": [0, 0.02, 0] }, "b": { "b": "LowerLeg%" }, "r": [0.058, 0.048], "seg": 9, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%" }, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%" }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.075 } }, "r": [0.047, 0.036], "seg": 9, "rings": 5, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.095 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.03 } }, "r": [0.03, 0.03], "seg": 8, "c": "skin", "w": ["LowerLeg%", "Foot%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%", "set": { "y": 0.035, "z": 0.1 } }, "s": [0.048, 0.037, 0.105], "seg": [10, 6], "c": "shoe", "w": ["Foot%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "UpperArm%" }, "s": [0.058, 0.058, 0.058], "seg": [8, 6], "c": "coat", "w": ["UpperArm%", "Shoulder%", "Chest"] },
+      { "t": "tube", "sym": true, "a": { "b": "UpperArm%" }, "b": { "b": "LowerArm%" }, "r": [0.052, 0.046], "seg": 9, "rings": 4, "c": "coat", "w": ["UpperArm%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerArm%" }, "s": [0.046, 0.046, 0.046], "seg": [8, 6], "c": "coat", "w": ["LowerArm%", "UpperArm%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerArm%" }, "b": { "b": "Wrist%", "o": [-0.005, 0, 0] }, "r": [0.046, 0.042], "seg": 9, "rings": 4, "c": "coat", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": { "b": "Wrist%", "o": [-0.01, 0, 0] }, "b": { "b": "Wrist%", "o": [0.005, 0, 0] }, "r": [0.043, 0.043], "seg": 9, "c": "scrub", "w": ["Wrist%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.045, -0.003, 0.004] }, "s": [0.045, 0.022, 0.036], "seg": [8, 6], "c": "skin", "w": ["Wrist%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.02, 0, 0.03] }, "s": [0.018, 0.014, 0.02], "seg": [6, 4], "c": "skin", "w": ["Wrist%"] },
+      { "t": "lathe", "prof": [[0.178, 0.34], [0.172, 0.5], [0.164, 0.7], [0.156, 0.9], [0.135, 1.0], [0.13, 1.12], [0.142, 1.22], [0.138, 1.3], [0.092, 1.36]], "cz": 0.05, "zs": 0.86, "n": 16, "p": [0.11, 1.78], "c": "coat", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true },
+      { "t": "torus", "at": [0, 1.345, 0.05], "R": 0.085, "r": 0.022, "zs": 0.85, "c": "coat", "w": ["Neck", "Chest"] },
+      { "t": "box", "at": [0.075, 1.2, 0.163], "s": [0.05, 0.03, 0.006], "c": "badge", "w": ["Chest"] },
+      { "t": "box", "at": [-0.07, 1.19, 0.163], "s": [0.045, 0.05, 0.006], "c": "coat", "w": ["Chest"] },
+      { "t": "box", "at": [-0.062, 1.215, 0.166], "s": [0.006, 0.04, 0.006], "c": "tie", "w": ["Chest"] }
+    ]
+  },
+  "daniel": {
+    "rig": "male",
+    "weapon": "dagger",
+    "colors": { "skin": "#ead0b8", "hair": "#1d1b20", "jacket": "#3b3e48", "trim": "#22232a", "shirt": "#5e2b38", "pants": "#2b2d34", "boot": "#17171b", "apron": "#6a5646", "strap": "#8a6f55", "steel": "#c9ced6", "eye": "#262028", "lip": "#a9796f", "white": "#ffffff" },
+    "skirt": { "top": 0.8, "span": 0.4, "max": 0.45 },
+    "parts": [
+      { "t": "sphere", "rel": "Head", "at": [0, 0.09, 0.012], "s": [0.108, 0.13, 0.116], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.04, 0.085, 0.124], "s": [0.017, 0.011, 0.007], "seg": [6, 4], "c": "eye", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0.045, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [-0.035, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "sym": true, "at": [0.043, 0.106, 0.121], "s": [0.036, 0.007, 0.006], "rot": [0, 0, 0.2], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.058, 0.13], "s": [0.01, 0.017, 0.012], "seg": [5, 4], "c": "skin", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "at": [0, 0.028, 0.121], "s": [0.022, 0.004, 0.004], "c": "lip", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.11, -0.004], "s": [0.124, 0.124, 0.124], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.09, -0.003], "s": [0.128, 0.13, 0.126], "seg": [16, 8], "ang": [1.05, 0.9, 0, 0.82], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.05, 0.168, 0.08], "s": [0.075, 0.032, 0.05], "rot": [0, 0, -0.35], "seg": [10, 5], "c": "hair", "w": ["Head"] },
+      { "t": "tube", "rel": "Head", "sym": true, "a": [0.088, 0.15, 0.035], "b": [0.11, -0.12, -0.005], "r": [0.042, 0.026], "seg": 7, "rings": 4, "c": "hair", "w": ["Head", "Neck"] },
+      { "t": "tube", "rel": "Head", "a": [0, 0.06, -0.1], "b": [0, -0.25, -0.135], "r": [0.07, 0.025], "seg": 9, "rings": 5, "c": "hair", "w": ["Head", "Neck", "Chest"] },
+      { "t": "tube", "rel": "Head", "sym": true, "a": [0.06, 0.06, -0.09], "b": [0.075, -0.2, -0.105], "r": [0.05, 0.018], "seg": 8, "rings": 4, "c": "hair", "w": ["Head", "Neck", "Chest"] },
+      { "t": "tube", "a": [0, 1.355, 0.04], "b": [0, 1.46, 0.04], "r": [0.046, 0.043], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"] },
+      { "t": "tube", "a": [0, 1.35, 0.04], "b": [0, 1.425, 0.04], "r": [0.056, 0.052], "seg": 10, "c": "shirt", "w": ["Neck", "Chest"] },
+      { "t": "lathe", "prof": [[0.12, 0.8], [0.125, 0.88], [0.118, 0.96], [0.128, 1.06], [0.142, 1.17], [0.146, 1.26], [0.13, 1.31], [0.075, 1.355], [0.05, 1.375]], "cz": 0.045, "zs": 0.8, "n": 14, "c": "shirt", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"] },
+      { "t": "lathe", "prof": [[0.152, 0.74], [0.147, 0.84], [0.137, 0.96], [0.144, 1.06], [0.158, 1.17], [0.162, 1.26], [0.147, 1.32], [0.092, 1.37]], "cz": 0.045, "zs": 0.84, "n": 18, "p": [0.15, 1.7], "c": "jacket", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true },
+      { "t": "lathe", "prof": [[0.08, 1.35], [0.074, 1.44]], "cz": 0.042, "zs": 0.92, "n": 14, "p": [0.22, 1.56], "c": "trim", "w": ["Neck", "Chest"] },
+      { "t": "sphere", "sym": true, "at": [0.062, 1.2, 0.166], "s": [0.008, 0.008, 0.005], "seg": [6, 4], "c": "steel", "w": ["Chest"] },
+      { "t": "sphere", "sym": true, "at": [0.058, 1.08, 0.163], "s": [0.008, 0.008, 0.005], "seg": [6, 4], "c": "steel", "w": ["Torso"] },
+      { "t": "lathe", "prof": [[0.12, 0.76], [0.126, 0.84], [0.12, 0.9]], "cz": 0.045, "zs": 0.85, "n": 14, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"] },
+      { "t": "tube", "sym": true, "a": { "b": "UpperLeg%", "o": [0, 0.02, 0] }, "b": { "b": "LowerLeg%" }, "r": [0.066, 0.054], "seg": 9, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%" }, "s": [0.055, 0.055, 0.055], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%" }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.2 } }, "r": [0.05, 0.045], "seg": 9, "rings": 4, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.24 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.04 } }, "r": [0.054, 0.05], "seg": 10, "c": "boot", "w": ["LowerLeg%", "Foot%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%", "set": { "y": 0.04, "z": 0.1 } }, "s": [0.056, 0.045, 0.118], "seg": [10, 6], "c": "boot", "w": ["Foot%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.235 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.215 } }, "r": [0.057, 0.057], "seg": 10, "c": "strap", "w": ["LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "UpperArm%" }, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "jacket", "w": ["UpperArm%", "Shoulder%", "Chest"] },
+      { "t": "tube", "sym": true, "a": { "b": "UpperArm%" }, "b": { "b": "LowerArm%" }, "r": [0.058, 0.05], "seg": 9, "rings": 4, "c": "jacket", "w": ["UpperArm%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "LowerArm%" }, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "jacket", "w": ["LowerArm%", "UpperArm%"] },
+      { "t": "tube", "sym": true, "a": { "b": "LowerArm%" }, "b": { "b": "Wrist%", "o": [-0.012, 0, 0] }, "r": [0.05, 0.044], "seg": 9, "rings": 4, "c": "jacket", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": { "b": "Wrist%", "o": [-0.025, 0, 0] }, "b": { "b": "Wrist%", "o": [0.0, 0, 0] }, "r": [0.048, 0.048], "seg": 9, "c": "trim", "w": ["Wrist%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.046, -0.003, 0.004] }, "s": [0.049, 0.024, 0.038], "seg": [8, 6], "c": "skin", "w": ["Wrist%"] },
+      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.02, 0, 0.032] }, "s": [0.02, 0.015, 0.022], "seg": [6, 4], "c": "skin", "w": ["Wrist%"] },
+      { "t": "torus", "at": [0, 0.865, 0.045], "R": 0.133, "r": 0.013, "zs": 0.84, "c": "strap", "w": ["Hips", "Abdomen"] },
+      { "t": "lathe", "prof": [[0.158, 0.45], [0.152, 0.6], [0.144, 0.74], [0.137, 0.86]], "cz": 0.045, "zs": 0.9, "n": 10, "p": [1.68, 0.64], "c": "apron", "w": ["Hips"], "skirt": true },
+      { "t": "box", "at": [0.05, 0.72, 0.178], "s": [0.075, 0.08, 0.008], "c": "strap", "w": ["Hips"], "skirt": true },
+      { "t": "box", "at": [0.04, 0.78, 0.184], "s": [0.006, 0.075, 0.004], "rot": [0, 0, 0.16], "c": "steel", "w": ["Hips"], "skirt": true },
+      { "t": "box", "at": [0.056, 0.78, 0.184], "s": [0.006, 0.075, 0.004], "rot": [0, 0, -0.16], "c": "steel", "w": ["Hips"], "skirt": true },
+      { "t": "torus", "at": [0.036, 0.825, 0.184], "R": 0.012, "r": 0.003, "zs": 1, "rot": [1.5708, 0, 0], "c": "steel", "w": ["Hips"] },
+      { "t": "torus", "at": [0.06, 0.825, 0.184], "R": 0.012, "r": 0.003, "zs": 1, "rot": [1.5708, 0, 0], "c": "steel", "w": ["Hips"] },
+      { "t": "box", "at": [-0.055, 0.76, 0.18], "s": [0.055, 0.014, 0.004], "c": "steel", "w": ["Hips"], "skirt": true },
+      { "t": "box", "at": [-0.055, 0.748, 0.18], "s": [0.05, 0.012, 0.003], "c": "trim", "w": ["Hips"], "skirt": true }
+    ]
+  }
+};
+
 // ============================== 3D 캐릭터 모델 (CC0) ==============================
 // 출처: Quaternius 「Ultimate Modular Women / Men Pack」 (CC0, poly.pizza 배포본) — models/LICENSE.txt
 // 님블뉴런 IP 정책상 게임 모델은 쓰지 않음. 범용 인물 모델에 실험체 느낌의 색·무기만 입힘
@@ -4184,14 +4287,17 @@ const Models = {
   // 실험체별 모습: 모델 + 재질 이름별 색 (null = 원래 색) + 무기
   LOOKS: {
     cathy:  { file: 'cathy',  colors: { Red: '#2b1b16', Brown: '#1e1612', LimeGreen: '#eef1f5', Gold: '#2fb9a8' } },   // 흰 가운·청록 포인트·검은 머리 (외과의)
-    daniel: { file: 'male',   colors: { White: '#26232e', Purple: '#3b2a4f', LightBlue: '#7a5cff', Hair: '#2d2140', Eyebrows: '#2d2140' } },   // 검보라 후드 (암살자)
+    daniel: { file: 'male',   colors: { White: '#26232e', Purple: '#3b2a4f', LightBlue: '#34304a', Hair: '#2d2140', Eyebrows: '#2d2140' } },   // 검보라 후드 (암살자)
     aya:    { file: 'ranged', tint: true },
     rio:    { file: 'ranged', tint: true },
     katja:  { file: 'ranged', tint: true },
     nadine: { file: 'male',   colors: { White: '#5b6640', Purple: '#7a5534', LightBlue: '#e0a35a', Hair: '#5a4632', Eyebrows: '#5a4632' } },   // 사냥꾼: 올리브 셔츠·갈색 후드
   },
   TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
-  ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', run: 'Run', slash: 'Sword_Slash', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
+  ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
+  // 근접 평타 구간(초) — 클립에서 손목 위치를 측정: s = 휘두르기 시작, hit = 손이 가장 앞으로 나온 순간(타격), end = 자세 회수
+  MELEE: { slash: { s: 0.08, hit: 0.45, end: 0.95 }, stabR: { s: 0.40, hit: 0.70, end: 1.0 }, stabL: { s: 0.44, hit: 0.72, end: 1.0 },
+           dualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, dualX: { s: 0.04, hit: 0.38, end: 0.70 } },   // dual*: 직접 만든 쌍검 동작(Motions.HITS와 같음)
 
   supported() { return /^https?:$/.test(location.protocol) && !!(window.THREE && THREE.GLTFLoader && THREE.SkeletonUtils); },
   load() {
@@ -4200,15 +4306,36 @@ const Models = {
     this.state = 'loading';
     const loader = new THREE.GLTFLoader(), keys = Object.keys(this.FILES);
     Promise.all(keys.map(k => new Promise((ok, no) => loader.load(this.DIR + this.FILES[k], ok, undefined, no))))
-      .then(list => { list.forEach((g, i) => { this.src[keys[i]] = this.prepare(g); }); this.state = 'ready'; this.ver++; })
+      .then(list => { list.forEach((g, i) => { this.src[keys[i]] = this.prepare(g); });
+        try { Motions.bake(this.src.cathy); } catch (e) { console.warn('쌍검 동작 생성 실패 — 기본 동작 사용:', e); }   // 6_y_motions.js
+        for (const k of this.CUSTOM) try { this.src[k + 'Proc'] = Procgen.build(this.src[DESIGNS[k].rig], DESIGNS[k]); } catch (e) { console.warn('직접 만든 모델 생성 실패:', k, e); }   // 6_y_procgen.js · 6_y_designs.js
+        this.state = 'ready'; this.ver++; this.loadOptional(loader); })
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
+  },
+  // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
+  CUSTOM: ['cathy', 'daniel'],
+  choice(key) { const m = Settings.models3dBy || {}; return m[key] || 'cc0'; },
+  // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb). 없으면 조용히 넘어감
+  loadOptional(loader) {
+    for (const k of this.CUSTOM) {
+      const file = this.DIR + k + '_custom.glb';
+      fetch(file, { method: 'HEAD' }).then(r => {
+        if (!r.ok) return;
+        loader.load(file, g => {
+          // Blender로 내보내면 뼈의 기본 방향이 원본과 달라짐 → 크기는 원본 뼈대 축척, 무기·소품 기준은 대기 동작 첫 프레임, 쌍검 동작은 이 파일 기준으로 다시 굽기
+          const S = this.prepare(g); S.proc = true; S.scale = this.src[DESIGNS[k].rig].scale; S.refPose = 'Idle'; S.design = DESIGNS[k];
+          if (k === 'cathy') try { Motions.bake(S); } catch (e) { console.warn('Blender 모델 쌍검 동작 생성 실패:', e); }
+          this.src[k + 'Blend'] = S; if (this.choice(k) === 'blend') this.ver++;
+        }, undefined, e => console.warn('Blender 모델을 읽지 못했습니다:', k, e));
+      }).catch(() => {});
+    }
   },
   // 원본 1회 처리: 그림자, 키 측정(뼈 기준 — 스키닝 메시 bbox는 부정확)
   prepare(g) {
     g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     g.scene.updateMatrixWorld(true);
-    const head = g.scene.getObjectByName('Head_end') || g.scene.getObjectByName('Head'), v = new THREE.Vector3();
-    const h = head ? head.getWorldPosition(v).y : 1.8;
+    const ys = ['Head_end', 'Head'].map(n => g.scene.getObjectByName(n)).filter(Boolean).map(o => o.getWorldPosition(new THREE.Vector3()).y);
+    const h = ys.length ? Math.max(...ys) : 1.8;
     const clips = {}; for (const c of g.animations) clips[c.name.split('|').pop()] = c;
     return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
   },
@@ -4220,7 +4347,13 @@ const Models = {
   available(u) { return this.state === 'ready' && !!this.keyFor(u); },
   // 유닛 하나 만들기: 뼈대 복제 + 재질 복제(유닛별 투명도) + 손에 무기 + 애니메이션
   create(u, weapon, mats) {
-    const key = this.keyFor(u), look = key && this.LOOKS[key], S = look && this.src[look.file];
+    const key = this.keyFor(u), look = key && this.LOOKS[key];
+    let S = look && this.src[look.file];
+    if (this.CUSTOM.includes(key)) {   // 직접 만든 모델 · Blender 모델 — 뼈대·동작은 같음
+      const ch = this.choice(key);
+      if (ch === 'proc' && this.src[key + 'Proc']) S = this.src[key + 'Proc'];
+      if (ch === 'blend' && this.src[key + 'Blend']) S = this.src[key + 'Blend'];
+    }
     if (!S) return null;
     const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
     obj.scale.setScalar(S.scale); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X)
@@ -4239,23 +4372,127 @@ const Models = {
       };
       o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
     });
-    // 무기: 오른손 손목 뼈에 부착 (뼈 축척 100배를 상쇄)
-    const hand = obj.getObjectByName('WristR') || obj.getObjectByName('Wrist.R');   // GLTFLoader가 이름의 '.'을 지움
-    if (hand && weapon) {
-      const holder = new T3.Group(); holder.add(weapon);
-      holder.scale.setScalar(1 / (S.scale * 100) * 1.0);
-      holder.rotation.set(0, 0, Math.PI / 2); holder.position.set(0, 0.0009, 0);   // 뼈의 +Y(손가락 방향) = 무기의 +X(날 방향)
-      weapon.position.set(-0.14, 0, 0);
-      hand.add(holder);
-    }
+    if (S.refPose && S.clips[S.refPose]) { const mx = new T3.AnimationMixer(obj); mx.clipAction(S.clips[S.refPose]).play(); mx.setTime(0); obj.updateMatrixWorld(true); }   // 무기·소품 붙이는 기준 자세
+    this.addProps(obj, S, S.proc ? key + 'Proc' : key, u, mats);
     const mixer = new T3.AnimationMixer(obj), actions = {};
     for (const [k, n] of Object.entries(this.ANIM)) if (S.clips[n]) actions[k] = mixer.clipAction(S.clips[n]);
-    for (const k of ['slash', 'shoot', 'hit', 'roll']) if (actions[k]) actions[k].setLoop(T3.LoopOnce);
+    for (const k of ['slash', 'stabR', 'stabL', 'dualAA', 'dualX', 'shoot', 'hit', 'roll']) if (actions[k]) { actions[k].setLoop(T3.LoopOnce); actions[k].clampWhenFinished = true; }   // 끝 프레임 유지 — 끝나자마자 기본 자세(A자세)로 튀지 않고 다음 동작과 섞임
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
-    const rig = { obj, mixer, actions, cur: null, ranged, oneShot: 0 };
+    const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
+    const rig = { obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
+  },
+  // ---------- 소품: 역할 느낌만 내는 일반 소품 (특정 캐릭터 디자인 재현 아님) ----------
+  // 뼈에 붙이되, 붙이는 틀(holder)을 모델 기준 좌표(위 +Y · 정면 +Z · 오른손 -X, 단위 m)로 맞춰서 소품을 쉽게 배치
+  addProps(obj, S, key, u, mats) {
+    const build = this.PROPS[key];
+    const T3 = THREE; obj.updateMatrixWorld(true);
+    const objW = obj.matrixWorld.clone().multiply(new T3.Matrix4().makeScale(1 / S.scale, 1 / S.scale, 1 / S.scale));
+    const holders = {};
+    const at = name => {
+      if (holders[name]) return holders[name];
+      const bone = obj.getObjectByName(name); if (!bone) return null;
+      const want = objW.clone().setPosition(new T3.Vector3().setFromMatrixPosition(bone.matrixWorld));   // 원점 = 뼈 위치, 축 = 모델 기준
+      const h = new T3.Group(), m = new T3.Matrix4().copy(bone.matrixWorld).invert().multiply(want);
+      m.decompose(h.position, h.quaternion, h.scale); bone.add(h); return (holders[name] = h);
+    };
+    const M = (c, o = {}) => { const m = Render3D.std(c, Object.assign({ flatShading: true }, o)); mats.push(m); return m; };
+    const add = (bone, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+      const h = at(bone); if (!h) return null;
+      const o = new T3.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; h.add(o); return o;
+    };
+    const P = { T3, add, M, u, col: u.color || '#888', S };
+    if (build) build.call(this, P);
+    this.addWeapon(P);
+  },
+  weaponKind(u, S) {
+    if (S && S.design && S.design.weapon && (u.kind === 'player' || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
+    return u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+  },
+  // 무기: 손목 뼈에 붙임. 틀 기준 손가락 방향 = -Y(날·총구), 엄지 쪽 = +Z(윗면). 바인드 자세가 팔을 내린 A자세라 공격·사격 동작에서 앞을 향함
+  addWeapon({ T3, add, M }) {
+    const w = this.weaponKind(arguments[0].u, arguments[0].S), steel = M('#dfe4ea', { metalness: 0.75, roughness: 0.25 }), grip = M('#2a2f38'), wood = M('#7a5534');
+    const G = 0.075;   // 손목 → 손바닥 중심
+    const blade = (bone, len, wid, col = steel) => {   // 손잡이 + 날 (끝으로 갈수록 가는 판)
+      add(bone, new T3.CylinderGeometry(0.016, 0.018, 0.1, 6), grip, 0, -G, 0);
+      add(bone, new T3.BoxGeometry(0.006, len, wid), col, 0, -G - 0.05 - len / 2, wid * 0.2);
+      add(bone, new T3.ConeGeometry(wid * 0.55, wid * 1.6, 4), col, 0, -G - 0.05 - len - wid * 0.7, wid * 0.2, Math.PI, 0, 0).scale.set(0.12, 1, 1);
+    };
+    if (w === 'dagger') blade('WristR', 0.2, 0.04);
+    else if (w === 'dual') { blade('WristR', 0.26, 0.035); blade('WristL', 0.26, 0.035); }
+    else if (w === '단검') blade('WristR', 0.22, 0.04, M('#b9b2c9', { metalness: 0.7, roughness: 0.3 }));
+    else if (w === 'scissor') {   // 큰 가위: 두 날 + 고리 손잡이
+      for (const sgn of [1, -1]) {
+        add('WristR', new T3.BoxGeometry(0.008, 0.42, 0.035), steel, 0, -G - 0.23, sgn * 0.018, sgn * 0.06, 0, 0);
+        add('WristR', new T3.TorusGeometry(0.03, 0.009, 4, 10), grip, 0, -G + 0.02, sgn * 0.035, 0, Math.PI / 2, 0);
+      }
+    } else if (w === '권총') {
+      add('WristR', new T3.BoxGeometry(0.035, 0.07, 0.025), grip, 0, -G, -0.01);
+      add('WristR', new T3.BoxGeometry(0.035, 0.2, 0.05), M('#3a404b'), 0, -G - 0.09, 0.035);
+    } else if (w === '저격총') {
+      add('WristR', new T3.BoxGeometry(0.04, 0.08, 0.03), grip, 0, -G, -0.01);
+      add('WristR', new T3.BoxGeometry(0.045, 0.45, 0.07), M('#3a404b'), 0, -G - 0.12, 0.04);
+      add('WristR', new T3.CylinderGeometry(0.012, 0.012, 0.45, 6), grip, 0, -G - 0.55, 0.05);
+      add('WristR', new T3.CylinderGeometry(0.022, 0.022, 0.14, 8), grip, 0, -G - 0.12, 0.1);   // 조준경
+      add('WristR', new T3.BoxGeometry(0.04, 0.2, 0.09), wood, 0, -G + 0.13, 0.03);              // 개머리판
+    } else if (w === '석궁') {
+      add('WristR', new T3.BoxGeometry(0.035, 0.07, 0.025), grip, 0, -G, -0.01);
+      add('WristR', new T3.BoxGeometry(0.04, 0.36, 0.05), wood, 0, -G - 0.12, 0.035);
+      add('WristR', new T3.TorusGeometry(0.2, 0.013, 4, 12, Math.PI * 0.8), grip, 0, -G - 0.18, 0.035, Math.PI / 2, 0, Math.PI * 1.1);   // 활대(가로)
+    } else if (w === '활') {
+      add('WristR', new T3.TorusGeometry(0.42, 0.016, 4, 16, Math.PI * 0.75), wood, 0, -G + 0.3, 0, 0, Math.PI / 2, -Math.PI * 0.875);   // 세로 활대
+    }
+  },
+  PROPS: {
+    // 캐시 → 외과의: 앞이 트인 흰 가운(상의·자락) · 청록 깃 · 청진기
+    cathy({ T3, add, M }) {
+      const coat = M('#f4f6f8', { side: T3.DoubleSide }), teal = M('#2fb9a8'), steel = M('#c9d1d9', { metalness: 0.6, roughness: 0.35 });
+      add('Chest', new T3.CylinderGeometry(0.155, 0.17, 0.36, 10, 1, true, Math.PI * 0.16, Math.PI * 1.68), coat, 0, -0.1, 0);
+      add('Hips', new T3.CylinderGeometry(0.175, 0.25, 0.5, 10, 1, true, Math.PI * 0.2, Math.PI * 1.6), coat, 0, -0.2, -0.005);
+      add('Neck', new T3.TorusGeometry(0.085, 0.022, 5, 12), teal, 0, -0.04, 0, Math.PI / 2 + 0.25, 0, 0);
+      // 청진기: 목에 건 U자 관 + 앞으로 늘어진 두 줄 + 가슴 쪽 청진판
+      add('Neck', new T3.TorusGeometry(0.1, 0.008, 4, 16, Math.PI * 1.3), steel, 0, -0.06, 0, Math.PI / 2, 0, -Math.PI * 1.15);
+      for (const sx of [1, -1]) add('Chest', new T3.CylinderGeometry(0.007, 0.007, 0.16, 4), steel, sx * 0.075, 0.03, 0.06, 0.35, 0, sx * -0.25);
+      add('Chest', new T3.CylinderGeometry(0.028, 0.028, 0.014, 10), steel, 0.03, -0.07, 0.15, Math.PI / 2 - 0.2, 0, 0);
+    },
+    // 직접 만든 캐시: 가운은 모델에 포함 → 청진기만
+    cathyProc({ T3, add, M }) {
+      const steel = M('#c9d1d9', { metalness: 0.6, roughness: 0.35 });
+      add('Neck', new T3.TorusGeometry(0.1, 0.008, 4, 16, Math.PI * 1.3), steel, 0, -0.06, 0, Math.PI / 2, 0, -Math.PI * 1.15);
+      for (const sx of [1, -1]) add('Chest', new T3.CylinderGeometry(0.007, 0.007, 0.16, 4), steel, sx * 0.075, 0.03, 0.06, 0.35, 0, sx * -0.25);
+      add('Chest', new T3.CylinderGeometry(0.028, 0.028, 0.014, 10), steel, 0.03, -0.07, 0.15, Math.PI / 2 - 0.2, 0, 0);
+    },
+    // 다니엘 → 암살자: 머리를 덮는 후드 · 입을 가리는 검은 마스크
+    daniel({ T3, add, M }) {
+      const hood = M('#2d2140', { side: T3.DoubleSide }), mask = M('#141218');
+      add('Head', new T3.SphereGeometry(0.175, 12, 8, Math.PI * 0.82, Math.PI * 1.36, 0, Math.PI * 0.72), hood, 0, 0.1, -0.025);   // 앞(+Z)이 트인 반구 (구의 phi=π/2가 +Z)
+      add('Neck', new T3.CylinderGeometry(0.12, 0.15, 0.1, 10, 1, true), hood, 0, 0.0, 0);
+      add('Head', new T3.BoxGeometry(0.19, 0.07, 0.05), mask, 0, -0.005, 0.155);   // 코 아래를 가림
+    },
+    // 원딜 AI: 무기 성격에 맞는 일반 소품 (색은 실험체 색)
+    aya({ T3, add, M, col }) {   // 권총 → 야구모자
+      const c = M(col), d = M(new T3.Color(col).multiplyScalar(0.6).getStyle());
+      add('Head', new T3.SphereGeometry(0.155, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.45), c, 0, 0.1, -0.005);
+      add('Head', new T3.BoxGeometry(0.17, 0.016, 0.11), d, 0, 0.12, 0.14, -0.2, 0, 0);
+    },
+    rio({ T3, add, M, col }) {   // 활 → 등 화살통
+      const lea = M('#7a5534'), fl = M(col);
+      add('Chest', new T3.CylinderGeometry(0.055, 0.045, 0.42, 8), lea, -0.06, 0.02, -0.17, 0.25, 0, -0.45);
+      for (let i = 0; i < 3; i++) add('Chest', new T3.ConeGeometry(0.025, 0.07, 4), fl, -0.15 + i * 0.03, 0.24 - i * 0.012, -0.22, 0.25, 0, -0.45);
+    },
+    nadine({ T3, add, M }) {     // 석궁 → 챙 넓은 사냥 모자
+      const hat = M('#6b4a2e'), band = M('#e0a35a');
+      add('Head', new T3.CylinderGeometry(0.3, 0.3, 0.025, 14), hat, 0, 0.2, 0, -0.08, 0, 0);
+      add('Head', new T3.CylinderGeometry(0.15, 0.17, 0.14, 12), hat, 0, 0.27, -0.01, -0.08, 0, 0);
+      add('Head', new T3.CylinderGeometry(0.172, 0.172, 0.03, 12), band, 0, 0.215, -0.005, -0.08, 0, 0);
+    },
+    katja({ T3, add, M, col }) { // 저격총 → 베레모 · 목도리
+      const c = M(new T3.Color(col).multiplyScalar(0.7).getStyle());
+      add('Head', new T3.SphereGeometry(0.16, 12, 6), c, 0.03, 0.18, -0.02, 0, 0, 0.25).scale.set(1.05, 0.33, 1.05);
+      add('Neck', new T3.TorusGeometry(0.09, 0.035, 6, 12), M(col), 0, -0.02, 0, Math.PI / 2, 0, 0);
+    },
   },
   play(rig, name, fade = 0.15, speed = 1) {
     const a = rig.actions[name] || rig.actions.idle; if (!a) return;
@@ -4264,19 +4501,372 @@ const Models = {
     a.reset().play(); if (rig.cur) a.crossFadeFrom(rig.cur, fade, false);
     rig.cur = a;
   },
+  // 캐시 스킬 동작: 시전 단계(선딜 w · 발동 a · 후딜 r)마다 클립 구간 [시작, 끝]을 그 단계 시간에 맞춰 재생, 끝 프레임에서 멈춤
+  //   Q 동맥절제술: 칼을 앞으로 내밀어 찌르는 자세로 고속 돌진 · W 앰퓨테이션: 크게 휘두르는 부채꼴 베기
+  //   E 수쳐: 바늘을 앞으로 던지기 · R 이머전시 OP: 칼을 들어 올린 채 정신집중 → 낮게 숙여 돌진하며 베기
+  //   D 단검: 대상 뒤로 이동하며 찌르기 · D 쌍검 1식: 파고들며 좌우 연속 찌르기 · 2식: 숙여 돌진 베기
+  SKILL_ANIM: {
+    Q:     { clip: 'stabR', w: [0.50, 0.66], a: [0.66, 0.72], r: [0.72, 0.95], lean: 0.32 },
+    W:     { clip: 'slash', w: [0.24, 0.45], r: [0.45, 0.95] },
+    E:     { clip: 'stabR', w: [0.36, 0.70], r: [0.70, 1.00] },
+    R:     { clip: 'slash', w: [0.06, 0.30], a: [0.30, 0.50], r: [0.50, 0.95], lean: 0.42, crouch: 0.12 },
+    D:     { clip: 'stabR', w: [0.50, 0.70], r: [0.70, 1.00] },
+    Ddual: { flurry: 6, r: [0.74, 1.00], lean: 0.15 },
+    D2:    { clip: 'slash', a: [0.28, 0.50], r: [0.50, 0.95], lean: 0.4 },
+    // 다니엘 — E 그림자 이동: 몸을 숙여 찌르는 자세로 은신 돌진 · R 걸작: 그림자 속(모델 숨김)에선 칼을 들어 올린 채, 빠져나올 때 숙여 돌진하며 베기
+    dE:    { clip: 'stabR', a: [0.58, 0.70], r: [0.70, 0.95], lean: 0.42 },
+    dR:    { clip: 'slash', a: [0.06, 0.30], out: [0.30, 0.52], lean: 0.45 },
+    dD:    { clip: 'stabR', w: [0.50, 0.70], r: [0.70, 1.00] },
+  },
+  // 다니엘 즉시 시전 스킬(시전 시간 없음)의 손짓: Q 그림자 가위 = 크게 휘두르기 · W 영감 = 대상을 가리키는 찌르기 (이동 중이면 다리를 살리려고 생략)
+  DAN_GESTURE: { Q: { clip: 'slash', s: 0.22, e: 0.52, dur: 0.3 }, W: { clip: 'stabR', s: 0.56, e: 0.70, dur: 0.16 } },
+  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
+  // 구간 재생: 같은 클립이 이어지면 끊지 않고 속도만 바꿈
+  seg(rig, clip, from, to, dur, fade = 0.06) {
+    const a = rig.actions[clip]; if (!a) return;
+    const sc = clamp((to - from) / Math.max(0.02, dur), 0.2, 16);
+    if (rig.cur === a && Math.abs(a.time - from) < 0.1) { a.paused = false; a.timeScale = sc; }
+    else this.playSeg(rig, clip, from, sc, fade);
+    rig.segEnd = to;
+  },
+  skillAnim(rig, u) {
+    const c = u.cast, key = this.skillKey(c, u), A = this.SKILL_ANIM[key]; if (!A) return false;
+    if (A.out) {   // 다니엘 R: 그림자 속 → 빠져나오기
+      const out = u.shadow && u.shadow.phase === 'out', ph = out ? 'out' : 'in';
+      if (rig.castId !== c.id || rig.castPh !== ph) {
+        rig.castId = c.id; rig.castPh = ph; rig.combat = 2.5;
+        if (out) { this.seg(rig, A.clip, A.out[0], A.out[1], u.K ? u.K.R.exitTime : 0.2); rig.leanTo = A.lean; } else { this.seg(rig, A.clip, A.a[0], A.a[1], 0.3); rig.leanTo = 0.1; }
+      }
+      return true;
+    }
+    const ph = c.phase, fresh = rig.castId !== c.id || rig.castPh !== ph;
+    if (fresh) {
+      rig.castId = c.id; rig.castPh = ph; rig.combat = 2.5; rig.flurryN = -1;
+      const dur = ph === 'windup' ? c.windup : ph === 'active' ? (c.data.dur || 0.1) : c.recovery;
+      const sg = A[ph === 'windup' ? 'w' : ph === 'active' ? 'a' : 'r'];
+      if (sg && A.clip) this.seg(rig, A.clip, sg[0], sg[1], dur);
+      else if (sg && ph === 'recovery' && A.flurry) this.seg(rig, rig.flurryClip || 'stabR', sg[0], sg[1], dur);
+      rig.leanTo = ph === 'active' ? (A.lean || 0) : ph === 'windup' ? (A.crouch || 0) : 0;
+    }
+    if (A.flurry && ph === 'active') {   // 연속 찌르기: 타격 수만큼 오른손·왼손 번갈아
+      const dur = c.data.dur || 0.66, n = Math.min(A.flurry - 1, Math.floor(c.t / dur * A.flurry));
+      if (n !== rig.flurryN) { rig.flurryN = n; const clip = n % 2 ? 'stabL' : 'stabR', M = this.MELEE[clip]; rig.flurryClip = clip; this.seg(rig, clip, M.hit - 0.16, M.hit + 0.04, dur / A.flurry, 0.04); }
+    }
+    return true;
+  },
+  // 한 프레임 진행 + 구간 끝 프레임에서 정확히 멈춤 (넘어간 만큼 되돌려 떨림 없음)
+  step(rig, dt) {
+    rig.mixer.update(dt);
+    if (rig.segEnd !== null && rig.cur && rig.cur.time > rig.segEnd) { rig.cur.time = rig.segEnd; rig.cur.timeScale = 0; rig.mixer.update(0); }
+  },
+  // 클립의 한 구간을 원하는 속도로 재생 (판정 시간에 맞추기)
+  playSeg(rig, name, from, scale, fade) {
+    const a = rig.actions[name]; if (!a) return;
+    a.reset(); a.time = from; a.timeScale = scale; a.setEffectiveWeight(1); a.play(); rig.segEnd = null;
+    if (rig.cur && rig.cur !== a) a.crossFadeFrom(rig.cur, fade, false);
+    rig.cur = a;
+  },
+  // 캐시 평타: 선딜(windup) 동안 「휘두르기 시작 → 타격 프레임」을 정확히 재생해 피해가 들어가는 순간 칼끝이 닿게 함
+  //   단검: 베기 ↔ 찌르기 번갈아 · 쌍검: 오른손 찌르기(1타) → 0.12초 뒤 왼손 찌르기(2타) · 강화 평타: 크게 베기
+  //   타격 후(back)는 남은 동작을 후딜에 맞춰 빠르게 회수, 다음 평타가 오면 바로 이어 붙임
+  meleeAA(rig, u) {
+    const a = u.aa, ph = a.phase;
+    if (ph === 'windup' && (rig.aaPh !== 'windup' || a.t < rig.aaT)) {
+      const enh = u.enhanced > 0, dual = u.weapon === 'dual';
+      const W = Math.max(0.02, a.dur - a.t);
+      const hasDual = dual && rig.actions.dualAA;   // 쌍검: 오른손 대각 베기 → 왼손 반대 대각 베기 / 강화 평타 = X자 교차 베기
+      let name = enh ? (hasDual ? 'dualX' : 'slash') : dual ? (hasDual ? 'dualAA' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
+      if (W < 0.08) {   // 즉시 평타(R 직후 등): 처음부터 다시 들어 올리면 튀므로, 지금 동작과 다른 클립을 타격 직전부터 이어 붙임
+        name = hasDual ? (enh ? 'dualX' : 'dualAA') : rig.cur === rig.actions.slash ? 'stabR' : 'slash'; const M = this.MELEE[name], lead = Math.max(0.05, W * 2);
+        this.playSeg(rig, name, M.hit - lead, lead / W, 0.05);
+      } else { const M = this.MELEE[name]; this.playSeg(rig, name, M.s, clamp((M.hit - M.s) / W, 0.3, 14), 0.06); }
+      rig.swingName = name; rig.dual = dual && !enh; rig.combat = 2.5; rig.recov = 9;
+    }
+    if (ph !== 'windup' && rig.aaPh === 'windup' && rig.swingName) {   // 타격 순간
+      if (rig.swingName === 'dualAA') {
+        const M = this.MELEE.dualAA, gap = CONFIG.basicAttack.dual.hitGap, sc = (M.hit2 - M.hit) / gap;   // 2타가 정확히 0.12초 뒤 왼손 타격 프레임
+        rig.cur.timeScale = sc; rig.recov = (M.end - M.hit) / sc;
+      } else if (rig.dual) {
+        const L = this.MELEE.stabL, gap = CONFIG.basicAttack.dual.hitGap, sc = 2.2;
+        this.playSeg(rig, 'stabL', Math.max(L.s, L.hit - gap * sc), sc, 0.05); rig.recov = gap + (L.end - L.hit) / sc;
+      } else {
+        const M = this.MELEE[rig.swingName], B = ph === 'back' ? a.dur : 0.2, sc = clamp((M.end - M.hit) / (B + 0.12), 0.8, 5);
+        rig.cur.timeScale = sc; rig.recov = (M.end - M.hit) / sc;
+      }
+    }
+    rig.aaPh = ph; rig.aaT = a.t;
+    return ph === 'windup' || ph === 'back' || rig.recov > 0;
+  },
   // 상태 → 동작. 공격·피격은 한 번 재생 후 원래 동작으로
   animate(rig, u, dt, moving) {
-    rig.oneShot = Math.max(0, rig.oneShot - dt);
-    const attacking = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
+    dt *= Game.state === 'play' ? (Settings.gameSpeed || 1) : 0;   // 게임 속도·일시정지 반영 (판정 시간과 맞춤)
+    rig.oneShot = Math.max(0, rig.oneShot - dt); rig.recov = Math.max(0, rig.recov - dt); rig.combat = Math.max(0, rig.combat - dt);
+    rig.lean += (rig.leanTo - rig.lean) * Math.min(1, dt * 30); rig.root.rotation.z = -rig.lean;
+    if (rig.dan) {   // 다니엘 Q·W 손짓 (시전 시간이 없는 스킬)
+      const fresh = k => { const G = this.DAN_GESTURE[k]; if (!moving) { this.seg(rig, G.clip, G.s, G.e, G.dur, 0.05); rig.recov = G.dur + 0.15; rig.combat = 2.5; } };
+      if (u.qSeq !== rig.qSeq) { if (rig.qSeq !== undefined) fresh('Q'); rig.qSeq = u.qSeq; }
+      if (u.mark !== rig.mark) { if (u.mark && rig.mark !== undefined) fresh('W'); rig.mark = u.mark; }
+    }
+    if (rig.melee && u.cast && this.skillAnim(rig, u)) { rig.wasAtk = false; this.step(rig, dt); return; }
+    if (rig.melee && u.cast === null && rig.castId !== undefined && rig.castPh !== 'done') { rig.castPh = 'done'; rig.leanTo = 0; rig.recov = 0.12; }   // 스킬 끝 → 잠깐 자세 유지 후 전투 자세
+    if (rig.melee && u.aa && !(u.cast && u.cast.phase !== 'recovery')) {
+      // 타격 후 이동하면 회수 동작을 끊고 바로 달리기(무빙)
+      if (this.meleeAA(rig, u) && !(moving && u.aa.phase === 'none' && (rig.recov = 0, true))) { rig.wasAtk = false; this.step(rig, dt); return; }
+    }
+    const attacking = (!rig.melee && u.aa && u.aa.phase === 'windup') || (u.act && u.act.type === 'cast') || (!rig.melee && u.act && u.act.type === 'aa') || (u.cast && u.cast.phase !== 'recovery');
     if (attacking && !rig.wasAtk && rig.oneShot <= 0) { const n = rig.ranged ? 'shoot' : 'slash'; this.play(rig, n, 0.08, rig.ranged ? 1.4 : 1.7); rig.oneShot = rig.ranged ? 0.45 : 0.4; }
     else if (u.flash > 0.1 && !rig.wasHit && rig.oneShot <= 0 && !moving) { this.play(rig, 'hit', 0.08, 1.5); rig.oneShot = 0.3; }
     else if (rig.oneShot <= 0) {
       if (u.stun > 0) this.play(rig, 'hit', 0.1, 0.4);
       else if (moving) this.play(rig, 'run', 0.15, clamp((u.speed ? u.speed() : 3.5) / 3.8, 0.75, 1.5));
-      else this.play(rig, rig.ranged ? 'idleGun' : 'idle', 0.2);
+      else this.play(rig, rig.ranged ? 'idleGun' : rig.combat > 0 && rig.actions.idleSword ? (u.weapon === 'dual' && rig.actions.dualIdle ? 'dualIdle' : 'idleSword') : 'idle', 0.25);   // 공격 직후엔 전투 자세
     }
     rig.wasAtk = attacking; rig.wasHit = u.flash > 0.1;
-    rig.mixer.update(dt);
+    this.step(rig, dt);
+  },
+};
+
+// ============================== 직접 만든 동작 (쌍검) ==============================
+// CC0 모델에는 쌍검 동작이 없어(복싱 펀치뿐) 코드로 만든다:
+//   핵심 순간(키프레임)마다 「손 위치 · 칼날 방향 · 상체 비틀기」를 정하고, 두 관절 IK로 어깨·팔꿈치·손목 각도를 계산해 클립으로 굽는다(bake)
+//   다리·몸통 흔들림은 원래의 전투 대기 동작(Idle_Sword)을 그대로 쓰고 팔·가슴만 덮어씀
+// 키: [시간, 자세 이름들(뒤가 덮어씀), 상체 비틀기 yaw(+ 왼쪽으로 돎), 상체 숙이기 pitch(+ 앞으로)]
+// 좌표: 모델 기준(m) — 위 +Y · 정면 +Z · 오른손 쪽 -X. 어깨 높이 ≈1.29m, 팔 길이 ≈0.41m
+const Motions = {
+  FPS: 60,
+  // 쌍검 동작 정의. R/L = [손 위치, 칼날 방향], yaw = 상체 비틀기(+ 왼쪽으로 돎)
+  POSE: {
+    ready:  { R: [[-0.20, 1.02, 0.30], [0.15, -0.2, 1]],   L: [[0.20, 1.02, 0.30], [-0.15, -0.2, 1]] },     // 양손 칼을 앞쪽 낮게 겨눔
+    windR:  { R: [[-0.32, 1.52, -0.04], [-0.35, 0.7, -0.55]] },                                             // 오른손 높이 뒤로
+    hitR:   { R: [[0.10, 1.00, 0.36], [0.75, -0.5, 0.45]] },                                               // 오른손 대각선 내려 베기 끝
+    backR:  { R: [[-0.25, 1.02, 0.22], [-0.1, -0.3, 1]] },
+    windL:  { L: [[0.32, 1.50, -0.02], [0.35, 0.7, -0.55]] },
+    hitL:   { L: [[-0.10, 1.00, 0.36], [-0.75, -0.5, 0.45]] },
+    lowL:   { L: [[0.22, 0.98, 0.22], [-0.1, -0.3, 1]] },
+    windX:  { R: [[-0.32, 1.48, -0.02], [-0.4, 0.7, -0.4]], L: [[0.32, 1.48, -0.02], [0.4, 0.7, -0.4]] },   // 양손 바깥 위로
+    hitX:   { R: [[0.06, 1.08, 0.40], [0.65, -0.4, 0.6]],  L: [[-0.06, 1.12, 0.40], [-0.65, -0.35, 0.6]] },  // 앞에서 X자 교차
+  },
+  // 클립: [시간, 자세 이름들(뒤가 덮어씀), 상체 비틀기]
+  CLIPS: {
+    DualAA:   { dur: 0.75, keys: [[0, ['ready'], 0, 0.04], [0.18, ['ready', 'windR', 'lowL'], -0.42, -0.06], [0.32, ['ready', 'hitR', 'windL'], 0.28, 0.2], [0.44, ['ready', 'backR', 'hitL'], -0.28, 0.22], [0.75, ['ready'], 0, 0.04]] },
+    DualX:    { dur: 0.70, keys: [[0, ['ready'], 0, 0.04], [0.22, ['windX'], 0, -0.1], [0.38, ['hitX'], 0, 0.28], [0.70, ['ready'], 0, 0.04]] },
+    DualIdle: { dur: null, loop: true, keys: [[0, ['ready'], 0, 0.06]] },   // 살짝 숙인 전투 자세
+  },
+  // 타격 순간(클립 시간) — Models.MELEE 형식
+  HITS: { DualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, DualX: { s: 0.04, hit: 0.38, end: 0.70 } },
+
+  bake(S) {
+    const T3 = THREE, base = S.clips.Idle_Sword || S.clips.Idle; if (!base) return;
+    const o = THREE.SkeletonUtils.clone(S.scene); o.scale.setScalar(S.scale); o.updateMatrixWorld(true);
+    const B = n => o.getObjectByName(n), bones = []; o.traverse(b => { if (b.isBone) bones.push(b); });
+    if (S.refPose && S.clips[S.refPose]) { const mx = new T3.AnimationMixer(o); mx.clipAction(S.clips[S.refPose]).play(); mx.setTime(0); o.updateMatrixWorld(true); mx.stopAllAction(); }   // 칼날 기준 = 무기 부착 기준 자세
+    const arms = { R: ['UpperArmR', 'LowerArmR', 'WristR'].map(B), L: ['UpperArmL', 'LowerArmL', 'WristL'].map(B) }, chest = B('Chest');
+    if (!arms.R[0] || !arms.L[0] || !chest) return;
+    // 칼날 방향(손목 기준): 무기 틀은 바인드 자세에서 모델 축에 맞춰 붙으므로 칼날 = 모델 -Y
+    const blade = {}; for (const s of ['R', 'L']) blade[s] = new T3.Vector3(0, -1, 0).applyQuaternion(arms[s][2].getWorldQuaternion(new T3.Quaternion()).invert());
+    const mixer = new T3.AnimationMixer(o), act = mixer.clipAction(base); act.play();
+    for (const [name, def] of Object.entries(this.CLIPS)) {
+      const dur = def.dur || base.duration, n = Math.max(2, Math.round(dur * this.FPS) + 1), times = [], q = new Map(), pos = new Map();
+      for (let i = 0; i < n; i++) {
+        const t = dur * i / (n - 1); times.push(t);
+        mixer.setTime(t % base.duration); o.updateMatrixWorld(true);
+        const k = this.sample(def.keys, t);
+        this.rotWorld(chest, new T3.Quaternion().setFromAxisAngle(new T3.Vector3(0, 1, 0), k.yaw));
+        if (k.pitch) this.rotWorld(chest, new T3.Quaternion().setFromAxisAngle(new T3.Vector3(1, 0, 0), k.pitch));
+        for (const s of ['R', 'L']) if (k[s]) {
+          const [U, Lo, W] = arms[s], side = s === 'R' ? -1 : 1;
+          const sh = U.getWorldPosition(new T3.Vector3()), pole = sh.clone().add(new T3.Vector3(side * 0.35, -0.3, -0.25));
+          this.ik(U, Lo, W, new T3.Vector3(...k[s][0]), pole);
+          const want = new T3.Vector3(...k[s][1]).normalize(), cur = blade[s].clone().applyQuaternion(W.getWorldQuaternion(new T3.Quaternion()));
+          this.rotWorld(W, new T3.Quaternion().setFromUnitVectors(cur.normalize(), want));
+        }
+        for (const b of bones) {
+          if (!q.has(b.name)) q.set(b.name, []); b.quaternion.toArray(q.get(b.name), q.get(b.name).length);
+          if (b.name === 'Hips' || b.name === 'Root') { if (!pos.has(b.name)) pos.set(b.name, []); b.position.toArray(pos.get(b.name), pos.get(b.name).length); }
+        }
+      }
+      const tracks = [];
+      for (const [bn, v] of q) tracks.push(new T3.QuaternionKeyframeTrack(bn + '.quaternion', times, v));
+      for (const [bn, v] of pos) tracks.push(new T3.VectorKeyframeTrack(bn + '.position', times, v));
+      S.clips[name] = new T3.AnimationClip(name, dur, tracks);
+    }
+    act.stop();
+  },
+  // 키프레임 사이를 부드럽게(가속·감속) 보간한 손 위치·칼날 방향·비틀기
+  sample(keys, t) {
+    let i = 0; while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
+    const a = keys[i], b = keys[Math.min(keys.length - 1, i + 1)], span = Math.max(1e-6, b[0] - a[0]);
+    const u = clamp((t - a[0]) / span, 0, 1), e = u * u * (3 - 2 * u);
+    const pa = this.merge(a[1]), pb = this.merge(b[1]), out = { yaw: lerp(a[2], b[2], e), pitch: lerp(a[3] || 0, b[3] || 0, e) };
+    for (const s of ['R', 'L']) {
+      const A = pa[s], Bv = pb[s] || A; if (!A) continue;
+      out[s] = [A[0].map((x, j) => lerp(x, Bv[0][j], e)), A[1].map((x, j) => lerp(x, Bv[1][j], e))];
+    }
+    return out;
+  },
+  merge(names) { const o = {}; for (const n of names) Object.assign(o, this.POSE[n]); return o; },
+  // 뼈를 월드 기준 회전 dq만큼 돌림
+  rotWorld(bone, dq) {
+    const T3 = THREE, w = bone.getWorldQuaternion(new T3.Quaternion()), pw = bone.parent.getWorldQuaternion(new T3.Quaternion());
+    bone.quaternion.copy(pw.invert().multiply(dq.multiply(w))); bone.updateMatrixWorld(true);
+  },
+  // 두 관절 IK: 어깨→팔꿈치→손목을 목표 손 위치에 맞춤 (팔꿈치는 pole 쪽으로 굽힘)
+  ik(U, Lo, W, target, pole) {
+    const T3 = THREE, s = U.getWorldPosition(new T3.Vector3()), e = Lo.getWorldPosition(new T3.Vector3()), w = W.getWorldPosition(new T3.Vector3());
+    const a = s.distanceTo(e), b = e.distanceTo(w), dv = target.clone().sub(s), d = clamp(dv.length(), 0.05, a + b - 1e-3), dir = dv.normalize();
+    const cosA = clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+    const pv = pole.clone().sub(s), perp = pv.sub(dir.clone().multiplyScalar(pv.dot(dir))).normalize();
+    const e2 = s.clone().add(dir.clone().multiplyScalar(a * cosA)).add(perp.multiplyScalar(a * sinA));
+    this.rotWorld(U, new T3.Quaternion().setFromUnitVectors(e.clone().sub(s).normalize(), e2.clone().sub(s).normalize()));
+    const e3 = Lo.getWorldPosition(new T3.Vector3()), w3 = W.getWorldPosition(new T3.Vector3()), tgt = s.clone().add(dir.clone().multiplyScalar(d));
+    this.rotWorld(Lo, new T3.Quaternion().setFromUnitVectors(w3.sub(e3).normalize(), tgt.sub(e3).normalize()));
+  },
+};
+
+// ============================== 직접 만든 3D 모델 (코드 생성) ==============================
+// 설계(src/6_y_designs.js의 DESIGNS)를 읽어 모양(메시)을 만들고, 뼈대·동작은 CC0 모델의 것을 그대로 빌려 씀
+//   → 평타 동기화·쌍검 동작·스킬 동작이 그대로 돌아감. Blender 스크립트(tools/blender/make_model.py)도 같은 설계·같은 규칙을 씀
+//   1) CC0 뼈대를 복제해 바인드 자세(T자세)로 되돌림  2) 설계의 도형(구·원통·회전체·상자·고리)을 뼈 위치 기준으로 만듦
+//   3) 정점마다 후보 뼈 중 가까운 두 개에 가중치(거리^-4 비율)  4) 원래 메시를 지우고 새 메시로 교체, 기준 자세 되돌림
+// IP 기준선: 직업·체형·머리 길이·피부톤 같은 일반 요소만 사용, 원본 고유 디자인 요소는 넣지 않음 (README 「IP 기준선」)
+const Procgen = {
+  build(S, D) {
+    const T3 = THREE, o = THREE.SkeletonUtils.clone(S.scene); o.scale.setScalar(S.scale); o.updateMatrixWorld(true);
+    let sk = null; const olds = []; o.traverse(m => { if (m.isSkinnedMesh) { olds.push(m); if (!sk) sk = m.skeleton; } });
+    if (!sk) return null;
+    const keep = sk.bones.map(b => [b.position.clone(), b.quaternion.clone(), b.scale.clone()]);   // 원래 노드 자세(무기·소품 부착 기준과 같게 되돌리기 위해)
+    sk.pose(); o.updateMatrixWorld(true);   // 바인드 자세(T자세)에서 모양을 만듦
+    const BP = n => { const b = o.getObjectByName(n); if (!b) throw new Error('뼈 없음: ' + n); const v = b.getWorldPosition(new T3.Vector3()); return [v.x, v.y, v.z]; };
+    const seg = this.segments(sk.bones, BP), parts = this.expand(D, BP);
+    for (const m of olds) m.parent.remove(m);
+    const byColor = new Map(); for (const p of parts) { if (!byColor.has(p.c)) byColor.set(p.c, []); byColor.get(p.c).push(p); }
+    const inv = new T3.Matrix4().copy(o.matrixWorld).invert(), skel = new T3.Skeleton(sk.bones);
+    for (const [c, list] of byColor) {
+      const geo = this.mergeSkinned(list, seg, inv, D.skirt);
+      const mat = new T3.MeshStandardMaterial({ roughness: 0.82, metalness: 0.02, flatShading: true, skinning: true, side: T3.DoubleSide });
+      mat.color.set(D.colors[c] || '#ff00ff').convertSRGBToLinear(); mat.name = 'proc';
+      const mesh = new T3.SkinnedMesh(geo, mat); mesh.castShadow = true; mesh.frustumCulled = false;
+      o.add(mesh); mesh.updateMatrixWorld(true); mesh.bind(skel, mesh.matrixWorld);
+    }
+    sk.bones.forEach((b, i) => { b.position.copy(keep[i][0]); b.quaternion.copy(keep[i][1]); b.scale.copy(keep[i][2]); });   // CC0 모델과 같은 기준 자세 → 손 무기·소품·쌍검 칼날 방향이 그대로 맞음
+    o.scale.setScalar(1);   // Models.prepare와 같은 규약: 원본 축척(게임에서 S.scale 적용)
+    return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D };
+  },
+  // 뼈 구간(뼈 → 끝): 가중치 계산용
+  TIP: { Hips: 'Abdomen', Abdomen: 'Torso', Torso: 'Chest', Chest: 'Neck', Neck: 'Head', UpperArmL: 'LowerArmL', LowerArmL: 'WristL', UpperArmR: 'LowerArmR', LowerArmR: 'WristR', UpperLegL: 'LowerLegL', UpperLegR: 'LowerLegR', ShoulderL: 'UpperArmL', ShoulderR: 'UpperArmR' },
+  segments(bones, BP) {
+    const seg = {};
+    bones.forEach((b, i) => {
+      const n = b.name, a = BP(n); let t;
+      if (this.TIP[n]) t = BP(this.TIP[n]);
+      else if (n === 'Head') t = [a[0], a[1] + 0.24, a[2]];
+      else if (/^Wrist/.test(n)) t = [a[0] + (n.endsWith('L') ? 0.09 : -0.09), a[1], a[2]];
+      else if (/^LowerLeg/.test(n)) t = [a[0], 0.07, a[2] - 0.01];
+      else if (/^Foot/.test(n)) t = [a[0], a[1], a[2] + 0.14];
+      else return;
+      seg[n] = [new THREE.Vector3(...a), new THREE.Vector3(...t), i];
+    });
+    return seg;
+  },
+  // 설계 → 도형 목록 (좌우 대칭 펼치기, 점 위치 풀기)
+  expand(D, BP) {
+    const out = [];
+    for (const p of D.parts) for (const side of p.sym ? [1, -1] : [1]) {
+      const sn = side > 0 ? 'L' : 'R', bn = n => n.replace('%', sn), mx = v => [v[0] * side, v[1], v[2]];
+      const rel = p.rel ? BP(p.rel) : [0, 0, 0];
+      const pt = q => {
+        if (Array.isArray(q)) { const v = mx(q); return [v[0] + rel[0], v[1] + rel[1], v[2] + rel[2]]; }
+        const b = BP(bn(q.b)), oo = mx(q.o || [0, 0, 0]), v = [b[0] + oo[0], b[1] + oo[1], b[2] + oo[2]];
+        if (q.set) for (const [k, val] of Object.entries(q.set)) v['xyz'.indexOf(k)] = k === 'x' ? val * side : val;
+        return v;
+      };
+      const rot = p.rot ? [p.rot[0], p.rot[1] * side, p.rot[2] * side] : null;
+      let g;
+      if (p.t === 'sphere') g = this.gSphere(pt(p.at), p.s, p.seg || [10, 8], p.ang, rot);
+      else if (p.t === 'tube') g = this.gTube(pt(p.a), pt(p.b), p.r[0], p.r[1], p.seg || 8, p.rings || 2, p.over || 0);
+      else if (p.t === 'lathe') g = this.gLathe(p.prof.map(([r, y]) => [r, y + rel[1]]), (p.cz || 0) + rel[2], p.zs || 1, p.n || 12, p.p);
+      else if (p.t === 'box') g = this.gBox(pt(p.at), p.s, rot);
+      else if (p.t === 'torus') g = this.gTorus(pt(p.at), p.R, p.r, p.zs || 1, rot);
+      else continue;
+      out.push({ v: g.v, f: g.f, c: p.c, w: p.w.map(bn), skirt: !!p.skirt });
+    }
+    return out;
+  },
+  // ---------- 도형 생성 (게임 좌표 m) — Blender 스크립트에 같은 식이 있음 ----------
+  rotate(v, rot) {   // 오일러 XYZ (Three.js 'XYZ' 순서)
+    if (!rot) return v; const q = new THREE.Vector3(...v).applyEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'XYZ')); return [q.x, q.y, q.z];
+  },
+  gSphere(c, s, sg, ang, rot) {
+    const [w, h] = sg, [p0, pl, t0, tl] = (ang || [0, 2, 0, 1]).map(x => x * Math.PI), v = [], f = [];
+    for (let iy = 0; iy <= h; iy++) for (let ix = 0; ix <= w; ix++) {
+      const ph = p0 + ix / w * pl, th = t0 + iy / h * tl;
+      const q = this.rotate([-Math.cos(ph) * Math.sin(th) * s[0], Math.cos(th) * s[1], Math.sin(ph) * Math.sin(th) * s[2]], rot);
+      v.push([q[0] + c[0], q[1] + c[1], q[2] + c[2]]);
+    }
+    const id = (ix, iy) => iy * (w + 1) + ix;
+    for (let iy = 0; iy < h; iy++) for (let ix = 0; ix < w; ix++) { const a = id(ix + 1, iy), b = id(ix, iy), cc = id(ix, iy + 1), d = id(ix + 1, iy + 1); f.push([a, b, d], [b, cc, d]); }
+    return { v, f };
+  },
+  gTube(a, b, r0, r1, n, rings, over) {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
+    if (over) { A.addScaledVector(d, -over / 2); B.addScaledVector(d, over / 2); d.subVectors(B, A); }
+    const L = d.length(), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()), v = [], f = [];
+    for (let j = 0; j <= rings; j++) {
+      const t = j / rings, r = r0 + (r1 - r0) * t, y = t * L;
+      for (let i = 0; i < n; i++) { const th = i / n * Math.PI * 2, p = new THREE.Vector3(r * Math.sin(th), y, r * Math.cos(th)).applyQuaternion(q).add(A); v.push([p.x, p.y, p.z]); }
+    }
+    for (let j = 0; j < rings; j++) for (let i = 0; i < n; i++) { const i2 = (i + 1) % n, a0 = j * n + i, a1 = j * n + i2, b0 = (j + 1) * n + i, b1 = (j + 1) * n + i2; f.push([a0, a1, b0], [a1, b1, b0]); }
+    const c0 = v.length; v.push([A.x, A.y, A.z]); const c1 = v.length; v.push([B.x, B.y, B.z]);
+    for (let i = 0; i < n; i++) { const i2 = (i + 1) % n; f.push([c0, i2, i], [c1, rings * n + i, rings * n + i2]); }
+    return { v, f };
+  },
+  gLathe(prof, cz, zs, n, p) {
+    const [p0, pl] = (p || [0, 2]).map(x => x * Math.PI), m = prof.length, v = [], f = [];
+    for (let i = 0; i <= n; i++) { const ph = p0 + i / n * pl; for (const [r, y] of prof) v.push([r * Math.sin(ph), y, r * Math.cos(ph) * zs + cz]); }
+    for (let i = 0; i < n; i++) for (let j = 0; j < m - 1; j++) { const a = i * m + j, b = (i + 1) * m + j, c = b + 1, d = a + 1; f.push([a, b, d], [c, d, b]); }
+    return { v, f };
+  },
+  gBox(c, s, rot) {
+    const v = [], f = [], h = s.map(x => x / 2);
+    const faces = [[[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]], [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1]], [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]], [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [1, -1, 1]], [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]]];
+    for (const fc of faces) { const b = v.length; for (const k of fc) { const q = this.rotate([k[0] * h[0], k[1] * h[1], k[2] * h[2]], rot); v.push([q[0] + c[0], q[1] + c[1], q[2] + c[2]]); } f.push([b, b + 1, b + 2], [b, b + 2, b + 3]); }
+    return { v, f };
+  },
+  gTorus(c, R, r, zs, rot, nu = 14, nv = 5) {
+    const v = [], f = [];
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+      const u = i / nu * Math.PI * 2, w = j / nv * Math.PI * 2, rr = R + r * Math.cos(w);
+      const q = this.rotate([rr * Math.cos(u), r * Math.sin(w), rr * Math.sin(u) * zs], rot); v.push([q[0] + c[0], q[1] + c[1], q[2] + c[2]]);
+    }
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const i2 = (i + 1) % nu, j2 = (j + 1) % nv, a = i * nv + j, b = i2 * nv + j, cc = i2 * nv + j2, d = i * nv + j2; f.push([a, d, b], [b, d, cc]); }
+    return { v, f };
+  },
+  // 정점 가중치: 후보 뼈 구간과의 거리로 가까운 두 개 (거리^-4 비율). 자락(skirt)은 엉덩이 위주 + 아래로 갈수록 같은 쪽 다리 조금(가운데 솔기는 엉덩이 고정)
+  mergeSkinned(list, seg, inv, sk) {
+    const T3 = THREE, pos = [], idx = [], si = [], sw = [], v = new T3.Vector3(), ab = new T3.Vector3(), av = new T3.Vector3();
+    const SK = sk || { top: 0.9, span: 0.45, max: 0.5 };
+    let base = 0;
+    for (const p of list) {
+      const cands = p.w.filter(b => seg[b]);
+      for (const q of p.v) {
+        v.set(q[0], q[1], q[2]);
+        if (p.skirt && v.y < SK.top && seg.Hips && seg.UpperLegL) {
+          const leg = seg[v.x > 0 ? 'UpperLegL' : 'UpperLegR'], k = clamp((SK.top - v.y) / SK.span, 0, 1) * SK.max * clamp(Math.abs(v.x) / 0.06, 0, 1);
+          si.push(seg.Hips[2], leg[2], 0, 0); sw.push(1 - k, k, 0, 0);
+        } else {
+          const ds = cands.map(b => { const [a, t, bi] = seg[b]; ab.subVectors(t, a); av.subVectors(v, a); const k = clamp(av.dot(ab) / Math.max(1e-9, ab.lengthSq()), 0, 1); return [a.clone().addScaledVector(ab, k).distanceTo(v), bi]; }).sort((x, y) => x[0] - y[0]);
+          const w = ds.slice(0, 2).map(([d]) => 1 / Math.pow(d + 0.012, 4)), tot = w.reduce((x, y) => x + y, 0);
+          si.push(ds[0][1], ds[1] ? ds[1][1] : 0, 0, 0); sw.push(w[0] / tot, ds[1] ? w[1] / tot : 0, 0, 0);
+        }
+        v.applyMatrix4(inv); pos.push(v.x, v.y, v.z);
+      }
+      for (const t of p.f) idx.push(t[0] + base, t[1] + base, t[2] + base);
+      base += p.v.length;
+    }
+    const geo = new T3.BufferGeometry();
+    geo.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+    geo.setAttribute('skinIndex', new T3.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new T3.Float32BufferAttribute(sw, 4));
+    geo.computeVertexNormals(); return geo;
   },
 };
 
@@ -4424,8 +5014,8 @@ const Render3D = {
       const leg = M('#3a3f48'); for (let i = 0; i < 3; i++) { const l = add(new T3.CylinderGeometry(0.02, 0.02, 0.6, 4), leg, Math.cos(i * 2.09) * 0.12, 0.28, Math.sin(i * 2.09) * 0.12); l.rotation.set(Math.sin(i * 2.09) * 0.35, 0, -Math.cos(i * 2.09) * 0.35); }
       add(new T3.BoxGeometry(0.28, 0.18, 0.2), M(u.color), 0, 0.62, 0); add(new T3.CylinderGeometry(0.06, 0.06, 0.12, 8), M('#20242c'), 0.18, 0.62, 0).rotation.z = Math.PI / 2;
     } else if (Models.available(u)) {    // CC0 인물 모델 + 무기 (6_y_models.js)
-      const rig = Models.create(u, this.weaponMesh(u), mats);
-      if (rig) { body.add(rig.obj); body.userData.rig = rig; rig.obj.traverse(o => { if (o.material && !mats.includes(o.material)) mats.push(o.material); }); }
+      const rig = Models.create(u, null, mats);
+      if (rig) { body.add(rig.root); body.userData.rig = rig; rig.obj.traverse(o => { if (o.material && !mats.includes(o.material)) mats.push(o.material); }); }
     } else {                            // 실험체 인형: 다리·몸통·팔·머리·머리카락 + 무기
       const r = u.r || 0.5, cloth = M(col.getStyle()), dark = M(col.clone().multiplyScalar(0.55).getStyle()), skin = M('#f2d3bd'), hair = M(u.charKey === 'daniel' || (u.motif && u.motif.name === '다니엘') ? '#3b2a4f' : u.kind === 'player' ? '#2b1b16' : col.clone().multiplyScalar(0.4).getStyle());
       for (const z of [0.13, -0.13]) add(new T3.CylinderGeometry(0.1, 0.09, 0.55, 6), dark, 0, 0.28, z);
@@ -4457,7 +5047,11 @@ const Render3D = {
       const D = m.userData, vis = !u.dead && (u.team === 0 || Vision.visible(p, u)) && !(u.kind === 'player' && u.shadow && u.shadow.phase !== 'out');
       m.visible = vis; if (!vis) continue;
       m.position.set(u.pos.x, 0, u.pos.y);
-      D.body.rotation.y = -(u.facing || 0);
+      // 방향: 인물 모델은 빠르게 돌아봄(초당 26rad ≈ 반 바퀴 0.12초), 단순 인형·순간 이동은 즉시
+      const want = -(u.facing || 0);
+      if (D.body.userData.rig && D.yaw !== undefined && V.dist(u.pos, D.last) < 1) { let df = want - D.yaw; df = Math.atan2(Math.sin(df), Math.cos(df)); D.yaw += Math.sign(df) * Math.min(Math.abs(df), 26 * dt * (Game.state === 'play' ? 1 : 0) || Math.abs(df)); }
+      else D.yaw = want;
+      D.body.rotation.y = D.yaw;
       // 이동 중 흔들림, 평타·스킬 시 앞으로 내밀기
       const moving = V.dist(u.pos, D.last) > 0.002; D.last = V.copy(u.pos);
       if (D.body.userData.rig) Models.animate(D.body.userData.rig, u, dt, moving);
@@ -4818,6 +5412,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델']].filter(([v]) => v !== 'blend' || Models.src[k + 'Blend']).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       <div class="sub" style="margin:4px 0">3D: 캐릭터를 따라가는 쿼터뷰 카메라, 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
@@ -4830,6 +5425,7 @@ const UI = {
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showSettings(back); },
       mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
+      cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },

@@ -143,8 +143,8 @@ const Render3D = {
       const leg = M('#3a3f48'); for (let i = 0; i < 3; i++) { const l = add(new T3.CylinderGeometry(0.02, 0.02, 0.6, 4), leg, Math.cos(i * 2.09) * 0.12, 0.28, Math.sin(i * 2.09) * 0.12); l.rotation.set(Math.sin(i * 2.09) * 0.35, 0, -Math.cos(i * 2.09) * 0.35); }
       add(new T3.BoxGeometry(0.28, 0.18, 0.2), M(u.color), 0, 0.62, 0); add(new T3.CylinderGeometry(0.06, 0.06, 0.12, 8), M('#20242c'), 0.18, 0.62, 0).rotation.z = Math.PI / 2;
     } else if (Models.available(u)) {    // CC0 인물 모델 + 무기 (6_y_models.js)
-      const rig = Models.create(u, this.weaponMesh(u), mats);
-      if (rig) { body.add(rig.obj); body.userData.rig = rig; rig.obj.traverse(o => { if (o.material && !mats.includes(o.material)) mats.push(o.material); }); }
+      const rig = Models.create(u, null, mats);
+      if (rig) { body.add(rig.root); body.userData.rig = rig; rig.obj.traverse(o => { if (o.material && !mats.includes(o.material)) mats.push(o.material); }); }
     } else {                            // 실험체 인형: 다리·몸통·팔·머리·머리카락 + 무기
       const r = u.r || 0.5, cloth = M(col.getStyle()), dark = M(col.clone().multiplyScalar(0.55).getStyle()), skin = M('#f2d3bd'), hair = M(u.charKey === 'daniel' || (u.motif && u.motif.name === '다니엘') ? '#3b2a4f' : u.kind === 'player' ? '#2b1b16' : col.clone().multiplyScalar(0.4).getStyle());
       for (const z of [0.13, -0.13]) add(new T3.CylinderGeometry(0.1, 0.09, 0.55, 6), dark, 0, 0.28, z);
@@ -176,7 +176,11 @@ const Render3D = {
       const D = m.userData, vis = !u.dead && (u.team === 0 || Vision.visible(p, u)) && !(u.kind === 'player' && u.shadow && u.shadow.phase !== 'out');
       m.visible = vis; if (!vis) continue;
       m.position.set(u.pos.x, 0, u.pos.y);
-      D.body.rotation.y = -(u.facing || 0);
+      // 방향: 인물 모델은 빠르게 돌아봄(초당 26rad ≈ 반 바퀴 0.12초), 단순 인형·순간 이동은 즉시
+      const want = -(u.facing || 0);
+      if (D.body.userData.rig && D.yaw !== undefined && V.dist(u.pos, D.last) < 1) { let df = want - D.yaw; df = Math.atan2(Math.sin(df), Math.cos(df)); D.yaw += Math.sign(df) * Math.min(Math.abs(df), 26 * dt * (Game.state === 'play' ? 1 : 0) || Math.abs(df)); }
+      else D.yaw = want;
+      D.body.rotation.y = D.yaw;
       // 이동 중 흔들림, 평타·스킬 시 앞으로 내밀기
       const moving = V.dist(u.pos, D.last) > 0.002; D.last = V.copy(u.pos);
       if (D.body.userData.rig) Models.animate(D.body.userData.rig, u, dt, moving);

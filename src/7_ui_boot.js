@@ -267,6 +267,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델']].filter(([v]) => v !== 'blend' || Models.src[k + 'Blend']).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       <div class="sub" style="margin:4px 0">3D: 캐릭터를 따라가는 쿼터뷰 카메라, 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
@@ -279,6 +280,7 @@ const UI = {
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showSettings(back); },
       mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
+      cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },

@@ -473,12 +473,15 @@ const Impl = {
   },
   R: {
     windup: () => S.R.windup, recovery: () => S.R.recovery,
-    start(p, c) { c.data.len = clamp(V.dist(p.pos, c.aim), S.R.minDist, S.R.maxDist); },
+    start(p, c) {
+      c.data.len = clamp(V.dist(p.pos, c.aim), S.R.minDist, S.R.maxDist);
+      p.unstoppable = S.R.windup + S.R.dashTime + 0.1; p.slows = []; p.root = 0; p.fear = 0;   // 사용 순간부터 저지 불가: 공포·기절·넉백(끌어오기 포함)·둔화·속박 무시
+    },
     fire(p, c) {
       p.startCd('R'); Sfx.play('ult'); FX.addShake(6);
       const len = Geo.passDash(p.pos, c.dir, c.data.len, p.r, S.R.wallPass);   // 벽 넘기: 벽 두께의 80% 이상 지나서 끝나야 넘음
       Object.assign(c.data, { from: V.copy(p.pos), to: V.add(p.pos, V.mul(c.dir, len)), len, dur: Math.max(0.08, S.R.dashTime * len / S.R.maxDist), t: 0, hit: new Set() });
-      p.unstoppable = c.data.dur + 0.1; p.slows = []; p.root = 0;   // 이동 중 저지 불가
+      p.unstoppable = Math.max(p.unstoppable, c.data.dur + 0.1); p.slows = []; p.root = 0;   // 돌진 끝까지 저지 불가 유지
     },
     tick(p, c, dt) {
       const d = c.data; d.t += dt; const k = Math.min(1, d.t / d.dur), prev = V.copy(p.pos);
