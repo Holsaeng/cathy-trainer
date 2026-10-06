@@ -1,0 +1,14 @@
+3D 캐릭터 모델 출처 / Credits
+================================
+모든 모델: Quaternius (https://quaternius.com) — CC0 1.0 Universal (퍼블릭 도메인)
+https://creativecommons.org/publicdomain/zero/1.0/
+배포본: Poly Pizza (https://poly.pizza)
+
+cathy_base.glb   ← Ultimate Modular Women Pack · "Animated Woman" (CC0)
+                   https://poly.pizza/bundle/Ultimate-Modular-Women-Pack-aCBDXDdTNN
+ranged_base.glb  ← Ultimate Modular Women Pack · "Adventurer" (CC0)
+daniel_base.glb  ← Ultimate Modular Men Pack · "Hoodie Character" (CC0)
+                   https://poly.pizza/bundle/Ultimate-Modular-Men-Pack-ZiH8muWqwQ
+
+원본 파일을 수정 없이 넣었고, 게임 안에서 색과 무기만 바꿔 실험체 느낌을 냅니다.
+이터널 리턴(님블뉴런)의 게임 모델이 아닙니다.

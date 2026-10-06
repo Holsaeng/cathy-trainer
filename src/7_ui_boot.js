@@ -139,7 +139,7 @@ const UI = {
       <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
-      <div class="row"><label>빌드</label>${bb}</div>
+      <div class="row"><label>빌드</label>${bb}<label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
@@ -148,10 +148,12 @@ const UI = {
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
       <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
-        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>`, {
+        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
+      ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       char: d => { Settings.character = d.v; saveSettings(); this.showMenu(); },
       'in:tac': el => { Settings.tactical = el.value; saveSettings(); this.showMenu(); },
+      gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
       quick: d => this.start(d.v, this.quickOpts(d.v)),
@@ -262,6 +264,10 @@ const UI = {
       <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
       ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
+      <h3>그래픽</h3>
+      <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
+      ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
+      <div class="sub" style="margin:4px 0">3D: 캐릭터를 따라가는 쿼터뷰 카메라, 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
@@ -273,10 +279,12 @@ const UI = {
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showSettings(back); },
       mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
+      gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
       'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
+      'in:models3d': el => { Settings.models3d = el.checked; saveSettings(); if (Render3D.ready) Render3D.refreshModels(); },
       'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
       'in:volume': el => { Settings.volume = +el.value; saveSettings(); },
@@ -307,6 +315,7 @@ const UI = {
       · <b>F 블링크</b>: 커서 방향 3m 순간 이동(벽 중심을 넘으면 벽 너머로). 쿨 90초, Lv12·18 빌드는 2레벨 — 쿨 45초 + 2.5초 이속 15%.<br>
       · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
+      <h3>안내</h3><div class="sub">${NOTICE.long}</div>
       <div class="row"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, { back: () => this.showMenu() }, { Escape: 'back' });
   },
 
@@ -352,7 +361,7 @@ const UI = {
       <h3>스킬별 기여도</h3><canvas class="chart" id="cv-contrib"></canvas>
       ${r.heatmap ? '<h3>피격 위치 히트맵</h3><canvas class="chart" id="cv-heat"></canvas>' : ''}
       <h3>최근 10판 추이 (${esc(r.scoreLabel || '')})</h3><canvas class="chart" id="cv-trend"></canvas>
-      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`, H, { r: 'retry', Enter: 'retry', m: 'menu', Escape: 'menu' });
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { r: 'retry', Enter: 'retry', m: 'menu', Escape: 'menu' });
     Charts.dps('cv-dps'); Charts.contrib('cv-contrib'); Charts.trend('cv-trend', r.hist); if (r.heatmap) Charts.heat('cv-heat', r.heatmap);
   },
 };
@@ -367,11 +376,11 @@ function loop(now) {
     while (acc >= CONFIG.sim.step && n < CONFIG.sim.maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
     if (n >= CONFIG.sim.maxSteps) acc = 0;
   } else acc = 0;
-  try { Render.frame(); } catch (e) { console.error(e); }
+  try { Renderer.frame(); } catch (e) { console.error(e); }
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);
 }
-Render.init(); Input.init(Render.cv); UI.init(); UI.showMenu();
+Renderer.init(); Input.init(Renderer.inputCanvas()); UI.init(); UI.showMenu();
 requestAnimationFrame(loop);
 </script>
 </body>

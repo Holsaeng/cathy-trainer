@@ -9,6 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Malgun Gothic','Apple SD Gothic Neo',system-ui,sans-serif;user-select:none}
 canvas#game{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+canvas#game3d{position:fixed;inset:0;width:100%;height:100%;display:none}
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,6,10,.78);backdrop-filter:blur(3px);z-index:10;padding:16px}
 .overlay.show{display:flex}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;width:min(940px,100%);max-height:94vh;overflow:auto;box-shadow:0 20px 60px #000a}
@@ -48,8 +49,13 @@ canvas.chart{width:100%;display:block;background:#0f131b;border-radius:8px;margi
 .stars{color:var(--gold);letter-spacing:2px}.lock{color:var(--muted)}
 kbd{background:#222a3b;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12px}
 </style>
+<!-- 3D 그래픽(설정에서 선택): Three.js r128. 불러오지 못하면 2D로만 동작 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="window.__noThree=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 </head>
 <body>
+<canvas id="game3d"></canvas>
 <canvas id="game"></canvas>
 <div id="side"></div>
 <div id="overlay" class="overlay show"><div class="card" id="card"></div></div>
@@ -371,6 +377,15 @@ const CONFIG = {
   ],
 };
 
+// ============================== 비공식 표기 ==============================
+// 님블뉴런 IP 이용 정책(2025-08-07): 공식으로 오인될 수 있는 표현·공식 로고/UI 무단 사용 금지, 2D/3D 모델 배포 금지
+// → 이 시뮬레이터는 공식 리소스(로고·일러스트·게임 모델·UI)를 쓰지 않고, 캐릭터 모델은 자체 제작 또는 CC0 범용 모델을 색·소품으로 꾸며 사용
+const NOTICE = {
+  short: '비공식 팬 제작 연습 도구 · 님블뉴런(Nimble Neuron)과 무관하며 공식 리소스를 사용하지 않습니다',
+  long: '이 시뮬레이터는 팬이 만든 <b>비공식</b> 연습 도구로, 님블뉴런(Nimble Neuron)과 관련이 없고 공식 지원을 받지 않습니다. 이터널 리턴과 등장 캐릭터의 권리는 님블뉴런에 있습니다. 공식 로고·일러스트·게임 모델·UI는 사용하지 않으며, 3D 캐릭터는 직접 만든 로우폴리 모델 또는 CC0(자유 이용) 범용 모델을 색과 소품으로 꾸민 것입니다. 수치는 공개된 패치노트·위키·영상에서 정리했습니다.',
+  html(cls = 'sub') { return `<div class="${cls}" style="margin:10px 0 0;font-size:11px;opacity:.75">ⓘ ${this.short}</div>`; },
+};
+
 // ============================== 유틸 ==============================
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -614,7 +629,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -3605,7 +3620,7 @@ const Input = {
     this.rLast = now; this.rightCmd(true);
   },
   moveBtn() { return Settings.moveButton === 'left' ? 0 : 2; },   // 이동 버튼: 우클릭(기본) / 좌클릭(웨일 등 브라우저 마우스 제스처 회피)
-  setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
+  setPos(x, y) { this.screen = { x, y }; this.world = Renderer.toWorld(x, y); },
   // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
   wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
   lock(cv) { if (this.wantLock() && !this.locked && cv.requestPointerLock) { try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 미지원 */ } } },
@@ -3640,6 +3655,7 @@ const Input = {
       } else if (e.button === 2) { this.aiming = null; this.amove = false; }   // 좌클릭 이동 모드: 우클릭 = 조준 취소
       
     });
+    cv.addEventListener('wheel', e => { if (Renderer.mode === '3d' && Game.state === 'play') { e.preventDefault(); Render3D.onWheel(e); } }, { passive: false });   // 3D 카메라 줌
     window.addEventListener('keydown', e => this.onKey(e));
     window.addEventListener('keyup', e => this.onKeyUp(e));
   },
@@ -3701,10 +3717,34 @@ const Draw = {
   circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); },
 };
 
-// ============================== 렌더 ==============================
+// ============================== 렌더러 (표시 계층) ==============================
+// 게임 로직은 월드 좌표(m)만 다루고, 그리기와 화면↔월드 좌표 변환은 Renderer가 담당
+// 구현: Render(2D 캔버스). 이후 3D 구현을 같은 인터페이스로 추가 — init / frame / toWorld / toScreen / pxPerMeter / inputCanvas
+const Renderer = {
+  impl: null, mode: '2d',
+  init() { Render.init(); this.impl = Render; this.setMode(Settings.gfx, true); },
+  // 그래픽 전환: '3d'는 Three.js·WebGL이 가능할 때만, 실패하면 2D로 되돌리고 알림
+  setMode(m, quiet) {
+    if (m === '3d') {
+      try { if (!Render3D.ready) Render3D.init(); Render3D.resize(); Render3D.show(true); this.impl = Render3D; this.mode = '3d'; return true; }
+      catch (e) { console.warn('3D 렌더러 사용 불가:', e); if (!quiet) FX.toast('3D 그래픽을 사용할 수 없어 2D로 표시합니다', '#ffb347'); Settings.gfx = '2d'; saveSettings(); }
+    }
+    if (Render3D.ready) Render3D.show(false);
+    this.impl = Render; this.mode = '2d'; return m !== '3d';
+  },
+  resize() { Render.resize(); if (Render3D.ready) Render3D.resize(); },
+  frame() { Input.tick(); this.impl.frame(); },
+  toWorld(sx, sy) { return this.impl.toWorld(sx, sy); },
+  toScreen(p, h = 0) { return this.impl.toScreen(p, h); },   // h: 지면에서의 높이(m) — 2D는 무시
+  pxPerMeter(p) { return this.impl.pxPerMeter(p); },
+  overhead(u) { return this.impl.overhead(u); },               // 머리 위 체력바 위치 {x, top, bottom}
+  inputCanvas() { return this.impl.inputCanvas(); },
+};
+
+// ============================== 2D 렌더 ==============================
 const HUD_H = 118;
 const Render = {
-  init() { this.cv = document.getElementById('game'); this.ctx = this.cv.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize()); },
+  init() { this.cv = document.getElementById('game'); this.ctx = this.cv.getContext('2d'); this.resize(); window.addEventListener('resize', () => Renderer.resize()); },
   resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     this.cv.width = W * dpr; this.cv.height = H * dpr;
@@ -3712,34 +3752,28 @@ const Render = {
     this.L = { W, H, dpr, ppm, ox: (W - CONFIG.world.w * ppm) / 2, oy: Math.max(10, (H - HUD_H - CONFIG.world.h * ppm) / 2) };
   },
   toWorld(sx, sy) { const L = this.L; return { x: (sx - L.ox) / L.ppm, y: (sy - L.oy) / L.ppm }; },
-  toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + this.shx, y: L.oy + p.y * L.ppm + this.shy }; },
+  toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + (this.shx || 0), y: L.oy + p.y * L.ppm + (this.shy || 0) }; },
+  pxPerMeter() { return this.L.ppm; },
+  inputCanvas() { return this.cv; },
   frame() {
-    Input.tick();
     const { ctx, L } = this, T = CONFIG.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const sh = Settings.reduceShake ? 0 : FX.shake; this.shx = (Math.random() - 0.5) * sh; this.shy = (Math.random() - 0.5) * sh;
     ctx.setTransform(L.dpr * L.ppm, 0, 0, L.dpr * L.ppm, L.dpr * (L.ox + this.shx), L.dpr * (L.oy + this.shy));
     this.drawWorld(ctx, T);
     ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0);
-    if (Game.state === 'menu') return;
-    this.drawOverheads(ctx);
-    this.drawTexts(ctx);
-    if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
-    HUD.draw(ctx, L);
-    this.drawTopInfo(ctx, L);
-    this.drawToasts(ctx, L);
-    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
-      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
-    }
-    if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
+    ScreenLayer.draw(ctx, L);   // 체력바·글자·HUD — 렌더러와 무관한 화면 좌표 층
   },
-  drawWorld(ctx, T) {
-    const W = CONFIG.world.w, H = CONFIG.world.h;
-    ctx.fillStyle = T.floor; ctx.fillRect(0, 0, W, H);
-    ctx.lineWidth = 0.02;
-    for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (let y = 0; y <= H; y++) { ctx.strokeStyle = y % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    ctx.strokeStyle = '#2f3850'; ctx.lineWidth = 0.08; ctx.strokeRect(0, 0, W, H);
+  // layer: 'all' = 2D 전체 / 'ground' = 3D 렌더러의 바닥 데칼(예고 범위·이펙트·상태 표시·안개만 — 바닥·벽·부쉬·유닛 몸체·투사체는 3D 메시)
+  drawWorld(ctx, T, layer = 'all') {
+    const W = CONFIG.world.w, H = CONFIG.world.h, all = layer === 'all';
+    if (all) {
+      ctx.fillStyle = T.floor; ctx.fillRect(0, 0, W, H);
+      ctx.lineWidth = 0.02;
+      for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y++) { ctx.strokeStyle = y % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.strokeStyle = '#2f3850'; ctx.lineWidth = 0.08; ctx.strokeRect(0, 0, W, H);
+    }
     // 치유 영역
     for (const z of Game.zones) {
       ctx.save(); ctx.globalAlpha = 0.18 + 0.12 * Math.sin(Game.time * 6); ctx.fillStyle = '#5dff9a'; ctx.strokeStyle = 'rgba(93,255,154,.6)'; ctx.lineWidth = 0.04;
@@ -3747,7 +3781,7 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
-    for (const w of CONFIG.walls) {
+    if (all) for (const w of CONFIG.walls) {
       if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
         ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }
@@ -3762,12 +3796,11 @@ const Render = {
     for (const m of FX.marks) { const k = m.life / m.max; ctx.strokeStyle = m.color; ctx.globalAlpha = k; ctx.lineWidth = 0.05; Draw.circle(ctx, m.x, m.y, 0.15 + (1 - k) * 0.4); ctx.stroke(); ctx.globalAlpha = 1; }
     for (const t of FX.trails) { ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
-    for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
+    for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T, !all);
     for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     if (Game.player && Game.player.drawExtra && Game.state !== 'menu') Game.player.drawExtra(ctx);
     if (Game.player && Game.state !== 'menu') Tactical.draw(ctx, Game.player);
-    this.drawBushes(ctx);
-    for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
+    if (all) { this.drawBushes(ctx); for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T); }
     for (const s of FX.slashes) {
       const k = s.life / s.max; ctx.globalAlpha = k * 0.55; ctx.fillStyle = s.color;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.R, s.ang - s.half, s.ang + s.half); ctx.arc(s.x, s.y, s.inner || 0, s.ang + s.half, s.ang - s.half, true); ctx.closePath(); ctx.fill();
@@ -3790,7 +3823,7 @@ const Render = {
   },
   // 전장의 안개: 시야 다각형(벽에 막힘)과 시야 구역만 밝게, 나머지는 어둡게 + 사라진 적의 마지막 위치
   drawFog(ctx) {
-    const p = Game.player, cv = this.cv, V0 = CONFIG.vision;
+    const p = Game.player, cv = ctx.canvas, V0 = CONFIG.vision;
     if (!this.fogCv) this.fogCv = document.createElement('canvas');
     const fc = this.fogCv; if (fc.width !== cv.width || fc.height !== cv.height) { fc.width = cv.width; fc.height = cv.height; }
     if (!fc.width || !fc.height) return;   // 창이 최소화되는 등 캔버스 크기가 0이면 건너뜀
@@ -3905,10 +3938,11 @@ const Render = {
       ctx.restore();
     });
   },
-  drawUnit(ctx, u, T) {
+  drawUnit(ctx, u, T, decal) {
     if (u.dead) return;
     if (u.team !== 0 && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
     if (u.kind === 'ward') {   // 망원 카메라: 삼각대 + 남은 시간 링 (내 카메라는 시야 반경 점선)
+      if (decal) { if (u.team === 0 && Settings.showRange) KU.ring(ctx, u.pos, u.sightR(), u.color, 0.18, true); return; }
       const k = clamp(u.life / CONFIG.vision.camera.dur, 0, 1);
       ctx.save(); ctx.strokeStyle = u.color; ctx.lineWidth = 0.05;
       ctx.beginPath(); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x - 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x + 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x, u.pos.y + 0.28); ctx.stroke();
@@ -3922,7 +3956,7 @@ const Render = {
     if (u.kind === 'player' && u.shadow && u.shadow.phase !== 'out') { ctx.restore(); return; }   // 걸작: 대상 그림자 속
     if (u.kind === 'player' && Vision.bushAt(u.pos) >= 0) ctx.globalAlpha = 0.6;   // 부쉬 속: 상대에게 안 보임
     if (u.kind === 'player' && u.stealthT > 0) ctx.globalAlpha = 0.35;              // 은신
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.55, u.r * 0.95, u.r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    if (!decal) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.55, u.r * 0.95, u.r * 0.45, 0, 0, Math.PI * 2); ctx.fill(); }
     if (u.slows.length) { ctx.strokeStyle = 'rgba(255,170,60,.85)'; ctx.lineWidth = 0.07; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.45, u.r * 1.05, u.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); }
     if (u.trauma > 0 && u.crit <= 0) {
       ctx.strokeStyle = 'rgba(70,110,255,.95)'; ctx.lineWidth = 0.09; ctx.lineCap = 'round';
@@ -3938,6 +3972,7 @@ const Render = {
     if (u.unstoppable > 0) { ctx.strokeStyle = T.gold; ctx.lineWidth = 0.12; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.15); ctx.stroke(); }
     // 결투 상대 스킬 예고선
     if (u.act && u.act.type === 's1') { ctx.save(); ctx.globalAlpha = 0.15 + 0.35 * (u.act.t / u.act.dur); ctx.fillStyle = '#b56cff'; ctx.strokeStyle = '#b56cff'; ctx.lineWidth = 0.03; Draw.oRect(ctx, u.pos, V.ang(u.act.dir), CONFIG.enemy.s1.range, CONFIG.enemy.s1.width); ctx.restore(); }
+    if (decal) { this.drawUnitDecal(ctx, u, T); ctx.restore(); return; }
     ctx.fillStyle = u.color; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.fill();
     ctx.lineWidth = 0.06; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
     ctx.save(); ctx.translate(u.pos.x, u.pos.y);
@@ -3974,6 +4009,14 @@ const Render = {
     if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.03; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.stroke(); }
     ctx.restore();
   },
+  // 3D 모드의 바닥 표시: 보호막·속박·히트박스 (기절 별·몸체는 3D)
+  drawUnitDecal(ctx, u, T) {
+    if (u.shield > 0) { ctx.strokeStyle = 'rgba(170,190,255,.85)'; ctx.lineWidth = 0.07; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.3); ctx.stroke(); }
+    if (u.root > 0) { ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 0.05; for (const [rr, sp] of [[u.r + 0.22, 4], [u.r + 0.34, -3]]) { ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y, rr, rr * 0.8, Game.time * sp, 0.3, Math.PI * 2 - 0.3); ctx.stroke(); } }
+    if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.03; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.stroke(); }
+  },
+  // 머리 위 표시 위치(2D): 몸 원 위
+  overhead(u) { const s = this.toScreen(u.pos), R = u.r * this.L.ppm; return { x: s.x, top: s.y - R - 16, bottom: s.y + R + 13 }; },
   drawProjectile(ctx, pr, T) {
     if (pr.team !== 0 && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
     ctx.save();
@@ -3987,18 +4030,35 @@ const Render = {
     ctx.restore();
     if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.02; Draw.circle(ctx, pr.pos.x, pr.pos.y, pr.width / 2); ctx.stroke(); }
   },
+};
+
+// ============================== 화면 층 (렌더러 공통) ==============================
+// 월드 위치는 Renderer.toScreen으로 화면 좌표로 바꿔서 그림 — 2D·3D 렌더러가 같이 사용
+const ScreenLayer = {
+  draw(ctx, L) {
+    if (Game.state === 'menu') return;
+    this.drawOverheads(ctx);
+    this.drawTexts(ctx);
+    if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
+    HUD.draw(ctx, L);
+    this.drawTopInfo(ctx, L);
+    this.drawToasts(ctx, L);
+    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
+      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
+    }
+    if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
+  },
   // 머리 위 체력바/외상 중첩/상태
   drawOverheads(ctx) {
-    const L = this.L;
     for (const u of Game.units) {
       if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
-      const s = this.toScreen(u.pos), R = u.r * L.ppm, bw = Math.max(44, R * 2.6), bh = 6, x = s.x - bw / 2, y = s.y - R - 16;
+      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = Math.max(44, R * 2.6), bh = 6, x = o.x - bw / 2, y = o.top;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
       ctx.fillStyle = u.team === 0 ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);
       if (u.shield > 0) { ctx.fillStyle = '#e9eef7'; ctx.fillRect(x + bw * Math.max(0, u.hp) / total, y, bw * u.shield / total, bh); }
       if (u.healRed > 0) { ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 1; ctx.strokeRect(x - 1, y - 1, bw + 2, bh + 2); }
-      Draw.text(ctx, u.kind === 'player' ? `캐시 Lv${u.build.level}` : u.name + (u.infinite ? ' ∞' : ''), s.x, y - 7, { size: 11, align: 'center', color: '#c9cfdb', stroke: true });
+      Draw.text(ctx, u.kind === 'player' ? `${u.name || '캐시'} Lv${u.build.level}` : u.name + (u.infinite ? ' ∞' : ''), s.x, y - 7, { size: 11, align: 'center', color: '#c9cfdb', stroke: true });
       if (u.team !== 0) {
         if (u.crit > 0) {
           Draw.rr(ctx, s.x - 46, y - 33, 92, 17, 8); ctx.fillStyle = 'rgba(255,59,92,.9)'; ctx.fill();
@@ -4011,12 +4071,12 @@ const Render = {
       const st = [];
       if (u.stun > 0) st.push('기절 ' + fmt(u.stun, 1)); if (u.root > 0) st.push('속박 ' + fmt(u.root, 1));
       if (u.slows.length) st.push('둔화'); if (u.fear > 0) st.push('공포 ' + fmt(u.fear, 1)); if (u.unstoppable > 0) st.push('저지 불가');
-      if (st.length) Draw.text(ctx, st.join(' · '), s.x, s.y + R + 13, { size: 11, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true });
+      if (st.length) Draw.text(ctx, st.join(' · '), s.x, o.bottom, { size: 11, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true });
     }
   },
   drawTexts(ctx) {
     for (const t of FX.texts) {
-      const s = this.toScreen(t); ctx.globalAlpha = clamp(t.life / t.max * 1.6, 0, 1);
+      const s = Renderer.toScreen(t, 1.5); ctx.globalAlpha = clamp(t.life / t.max * 1.6, 0, 1);   // 3D: 머리 높이쯤에 뜸
       Draw.text(ctx, t.str, s.x, s.y, { size: t.size, bold: t.bold, align: 'center', color: t.color, stroke: true });
     }
     ctx.globalAlpha = 1;
@@ -4108,6 +4168,386 @@ const HUD = {
     const maxLv = k === 'R' || k === 'D' ? 3 : k === 'F' ? 0 : 5;
     for (let i = 0; i < maxLv; i++) { ctx.fillStyle = i < st.lv ? T.gold : '#2a3140'; ctx.fillRect(x + 4 + i * ((s - 8) / maxLv), y + s + 4, (s - 8) / maxLv - 2, 4); }
   },
+};
+
+// ============================== 3D 캐릭터 모델 (CC0) ==============================
+// 출처: Quaternius 「Ultimate Modular Women / Men Pack」 (CC0, poly.pizza 배포본) — models/LICENSE.txt
+// 님블뉴런 IP 정책상 게임 모델은 쓰지 않음. 범용 인물 모델에 실험체 느낌의 색·무기만 입힘
+// 웹(http/https)에서만 불러옴. HTML만 내려받아 file://로 열거나 로딩 실패 시 Render3D의 로우폴리 인형을 그대로 사용
+const Models = {
+  DIR: 'models/',
+  FILES: { cathy: 'cathy_base.glb', ranged: 'ranged_base.glb', male: 'daniel_base.glb' },
+  HEIGHT: 1.72,       // 게임 속 키(m)
+  state: 'idle',      // idle → loading → ready | failed
+  ver: 0,             // 준비될 때마다 증가 → Render3D가 인형을 모델로 교체
+  src: {},
+  // 실험체별 모습: 모델 + 재질 이름별 색 (null = 원래 색) + 무기
+  LOOKS: {
+    cathy:  { file: 'cathy',  colors: { Red: '#2b1b16', Brown: '#1e1612', LimeGreen: '#eef1f5', Gold: '#2fb9a8' } },   // 흰 가운·청록 포인트·검은 머리 (외과의)
+    daniel: { file: 'male',   colors: { White: '#26232e', Purple: '#3b2a4f', LightBlue: '#7a5cff', Hair: '#2d2140', Eyebrows: '#2d2140' } },   // 검보라 후드 (암살자)
+    aya:    { file: 'ranged', tint: true },
+    rio:    { file: 'ranged', tint: true },
+    katja:  { file: 'ranged', tint: true },
+    nadine: { file: 'male',   colors: { White: '#5b6640', Purple: '#7a5534', LightBlue: '#e0a35a', Hair: '#5a4632', Eyebrows: '#5a4632' } },   // 사냥꾼: 올리브 셔츠·갈색 후드
+  },
+  TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
+  ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', run: 'Run', slash: 'Sword_Slash', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
+
+  supported() { return /^https?:$/.test(location.protocol) && !!(window.THREE && THREE.GLTFLoader && THREE.SkeletonUtils); },
+  load() {
+    if (this.state !== 'idle') return;
+    if (!this.supported() || Settings.models3d === false) { this.state = 'failed'; return; }
+    this.state = 'loading';
+    const loader = new THREE.GLTFLoader(), keys = Object.keys(this.FILES);
+    Promise.all(keys.map(k => new Promise((ok, no) => loader.load(this.DIR + this.FILES[k], ok, undefined, no))))
+      .then(list => { list.forEach((g, i) => { this.src[keys[i]] = this.prepare(g); }); this.state = 'ready'; this.ver++; })
+      .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
+  },
+  // 원본 1회 처리: 그림자, 키 측정(뼈 기준 — 스키닝 메시 bbox는 부정확)
+  prepare(g) {
+    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    g.scene.updateMatrixWorld(true);
+    const head = g.scene.getObjectByName('Head_end') || g.scene.getObjectByName('Head'), v = new THREE.Vector3();
+    const h = head ? head.getWorldPosition(v).y : 1.8;
+    const clips = {}; for (const c of g.animations) clips[c.name.split('|').pop()] = c;
+    return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
+  },
+  keyFor(u) {
+    if (u.kind === 'player') return u.charKey === 'daniel' ? 'daniel' : 'cathy';
+    if (u.motifKey && this.LOOKS[u.motifKey]) return u.motifKey;
+    return null;   // 허수아비·야생동물·카메라·회피 모드 적은 기존 모형
+  },
+  available(u) { return this.state === 'ready' && !!this.keyFor(u); },
+  // 유닛 하나 만들기: 뼈대 복제 + 재질 복제(유닛별 투명도) + 손에 무기 + 애니메이션
+  create(u, weapon, mats) {
+    const key = this.keyFor(u), look = key && this.LOOKS[key], S = look && this.src[look.file];
+    if (!S) return null;
+    const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
+    obj.scale.setScalar(S.scale); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X)
+    obj.traverse(o => {
+      if (!o.isMesh) return;
+      o.userData.sharedGeo = true;   // 원본과 공유 — 유닛 삭제 시 지오메트리는 버리지 않음
+      const one = m => {
+        if (cache.has(m)) return cache.get(m);
+        const c = m.clone(); c.transparent = true; c.userData = {};
+        const name = (m.name || '').replace(/\.\d+$/, '');
+        let col = look.colors && look.colors[name];
+        if (!col && look.tint && this.TINT_MATS.includes(name)) col = name === 'White' ? new T3.Color(u.color).lerp(new T3.Color('#ffffff'), 0.55).getStyle() : u.color;
+        if (col) c.color.set(col).convertSRGBToLinear();
+        if (c.emissive) c.emissive.setRGB(0, 0, 0);
+        cache.set(m, c); mats.push(c); return c;
+      };
+      o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
+    });
+    // 무기: 오른손 손목 뼈에 부착 (뼈 축척 100배를 상쇄)
+    const hand = obj.getObjectByName('WristR') || obj.getObjectByName('Wrist.R');   // GLTFLoader가 이름의 '.'을 지움
+    if (hand && weapon) {
+      const holder = new T3.Group(); holder.add(weapon);
+      holder.scale.setScalar(1 / (S.scale * 100) * 1.0);
+      holder.rotation.set(0, 0, Math.PI / 2); holder.position.set(0, 0.0009, 0);   // 뼈의 +Y(손가락 방향) = 무기의 +X(날 방향)
+      weapon.position.set(-0.14, 0, 0);
+      hand.add(holder);
+    }
+    const mixer = new T3.AnimationMixer(obj), actions = {};
+    for (const [k, n] of Object.entries(this.ANIM)) if (S.clips[n]) actions[k] = mixer.clipAction(S.clips[n]);
+    for (const k of ['slash', 'shoot', 'hit', 'roll']) if (actions[k]) actions[k].setLoop(T3.LoopOnce);
+    if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
+    const ranged = !!(u.motif && !u.motif.melee);
+    const rig = { obj, mixer, actions, cur: null, ranged, oneShot: 0 };
+    this.play(rig, ranged ? 'idleGun' : 'idle', 0);
+    return rig;
+  },
+  play(rig, name, fade = 0.15, speed = 1) {
+    const a = rig.actions[name] || rig.actions.idle; if (!a) return;
+    a.timeScale = speed;
+    if (rig.cur === a) return;
+    a.reset().play(); if (rig.cur) a.crossFadeFrom(rig.cur, fade, false);
+    rig.cur = a;
+  },
+  // 상태 → 동작. 공격·피격은 한 번 재생 후 원래 동작으로
+  animate(rig, u, dt, moving) {
+    rig.oneShot = Math.max(0, rig.oneShot - dt);
+    const attacking = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
+    if (attacking && !rig.wasAtk && rig.oneShot <= 0) { const n = rig.ranged ? 'shoot' : 'slash'; this.play(rig, n, 0.08, rig.ranged ? 1.4 : 1.7); rig.oneShot = rig.ranged ? 0.45 : 0.4; }
+    else if (u.flash > 0.1 && !rig.wasHit && rig.oneShot <= 0 && !moving) { this.play(rig, 'hit', 0.08, 1.5); rig.oneShot = 0.3; }
+    else if (rig.oneShot <= 0) {
+      if (u.stun > 0) this.play(rig, 'hit', 0.1, 0.4);
+      else if (moving) this.play(rig, 'run', 0.15, clamp((u.speed ? u.speed() : 3.5) / 3.8, 0.75, 1.5));
+      else this.play(rig, rig.ranged ? 'idleGun' : 'idle', 0.2);
+    }
+    rig.wasAtk = attacking; rig.wasHit = u.flash > 0.1;
+    rig.mixer.update(dt);
+  },
+};
+
+// ============================== 3D 렌더 (Three.js r128) ==============================
+// 「세미 이터널 리턴」 표현: 쿼터뷰 추적 카메라, 햇빛·그림자, 콘크리트 벽·화단·유리 벽, 수풀 부쉬, 로우폴리 인형 캐릭터
+// 원칙: 게임 로직은 그대로(월드 좌표 x,y → 3D (x, 높이, y)). 예고 범위·이펙트·상태 표시·안개는 2D 그리기 코드를 바닥 텍스처(데칼)에 그려 재사용
+// 실패(라이브러리 없음·WebGL 불가) 시 Renderer가 2D로 되돌림
+const Render3D = {
+  ready: false, TEX_PPM: 40,
+  init() {
+    if (!window.THREE) throw new Error('Three.js를 불러오지 못했습니다');
+    const T3 = THREE;
+    this.cv = document.getElementById('game3d');
+    this.gl = new T3.WebGLRenderer({ canvas: this.cv, antialias: true, powerPreference: 'high-performance' });
+    this.gl.shadowMap.enabled = true; this.gl.shadowMap.type = T3.PCFSoftShadowMap;
+    this.gl.outputEncoding = T3.sRGBEncoding; this.gl.toneMapping = T3.ACESFilmicToneMapping; this.gl.toneMappingExposure = 0.95;
+    this.scene = new T3.Scene(); this.scene.background = new T3.Color('#1a2130');
+    this.camera = new T3.PerspectiveCamera(38, 1, 0.5, 200);
+    this.zoom = 22; this.camTarget = new T3.Vector3(16, 0, 9); this.ray = new T3.Raycaster(); this.groundPlane = new T3.Plane(new T3.Vector3(0, 1, 0), 0);
+    // 조명: 하늘·땅 반사광 + 비스듬한 햇빛(그림자)
+    this.hemi = new T3.HemisphereLight('#cfe3ff', '#5a5040', 0.6); this.scene.add(this.hemi);
+    this.sun = new T3.DirectionalLight('#fff1d6', 1.0); this.sun.position.set(6, 22, 4); this.sun.castShadow = true;
+    const sc = this.sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 16; sc.bottom = -16; sc.near = 1; sc.far = 60;
+    this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -0.0008; this.sun.shadow.radius = 3;
+    this.scene.add(this.sun); this.scene.add(this.sun.target);
+    // 바닥 데칼(2D 그리기 재사용)
+    this.decalCv = document.createElement('canvas'); this.decalCtx = this.decalCv.getContext('2d');
+    this.mapGroup = new T3.Group(); this.scene.add(this.mapGroup);
+    this.unitMeshes = new Map(); this.projMeshes = new Map();
+    this.mats = {};
+    this.mapKey = null; this.resize(); this.ready = true;
+    Models.load();
+  },
+  // ---------- 좌표 ----------
+  resize() {
+    const W = innerWidth, H = innerHeight;
+    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.gl.setSize(W, H, false);
+    this.camera.aspect = W / Math.max(1, H); this.camera.updateProjectionMatrix();
+    this.W = W; this.H = H;
+  },
+  toWorld(sx, sy) {
+    const T3 = THREE, ndc = new T3.Vector2(sx / Math.max(1, this.W) * 2 - 1, -(sy / Math.max(1, this.H)) * 2 + 1);
+    this.ray.setFromCamera(ndc, this.camera); const hit = new T3.Vector3();
+    if (!this.ray.ray.intersectPlane(this.groundPlane, hit)) return { x: this.camTarget.x, y: this.camTarget.z };
+    return { x: hit.x, y: hit.z };
+  },
+  toScreen(p, h = 0) { const v = new THREE.Vector3(p.x, h, p.y).project(this.camera); return { x: (v.x + 1) / 2 * this.W, y: (1 - v.y) / 2 * this.H }; },
+  pxPerMeter(p) { const a = this.toScreen(p), b = this.toScreen({ x: p.x + 1, y: p.y }); return Math.max(4, Math.hypot(b.x - a.x, b.y - a.y)); },
+  overhead(u) { const head = this.toScreen(u.pos, this.unitHeight(u) + 0.25), foot = this.toScreen(u.pos); return { x: head.x, top: head.y - 10, bottom: foot.y + 14 }; },
+  inputCanvas() { return Render.cv; },
+  unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : 1.75; },
+  // ---------- 재질 ----------
+  mat(key, make) { return this.mats[key] || (this.mats[key] = make()); },
+  std(color, o = {}) { const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85, metalness: 0.02 }, o)); m.color.set(color).convertSRGBToLinear(); return m; },   // 색은 sRGB → 선형
+  // ---------- 맵 ----------
+  groundTexture(key) {
+    const c = document.createElement('canvas'), W = CONFIG.world.w, H = CONFIG.world.h, P = 32; c.width = W * P; c.height = H * P;
+    const g = c.getContext('2d'), jungle = key === 'jungle';
+    g.fillStyle = jungle ? '#4d6b3c' : '#4a4f57'; g.fillRect(0, 0, c.width, c.height);
+    // 보도블록 / 잔디 결
+    for (let i = 0; i < W * H * 3; i++) { const x = Math.random() * c.width, y = Math.random() * c.height; g.fillStyle = jungle ? `rgba(${70 + Math.random() * 40},${100 + Math.random() * 50},${50 + Math.random() * 30},.35)` : `rgba(255,255,255,${Math.random() * 0.05})`; g.fillRect(x, y, jungle ? 3 : 6, jungle ? 6 : 6); }
+    if (!jungle) {   // 기본 아레나: 보도블록 줄눈 + 가운데 도로
+      g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2;
+      for (let x = 0; x <= W; x += 2) { g.beginPath(); g.moveTo(x * P, 0); g.lineTo(x * P, c.height); g.stroke(); }
+      for (let y = 0; y <= H; y += 2) { g.beginPath(); g.moveTo(0, y * P); g.lineTo(c.width, y * P); g.stroke(); }
+      g.fillStyle = '#383c42'; g.fillRect(0, 7 * P, c.width, 4 * P);
+      g.strokeStyle = 'rgba(255,214,90,.7)'; g.lineWidth = 4; g.setLineDash([40, 30]); g.beginPath(); g.moveTo(0, 9 * P); g.lineTo(c.width, 9 * P); g.stroke(); g.setLineDash([]);
+    } else {         // 숲길: 흙길
+      g.fillStyle = 'rgba(120,95,60,.55)'; g.fillRect(0, 7.6 * P, c.width, 2.8 * P); g.fillRect(12 * P, 0, 1.8 * P, c.height);
+    }
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+  },
+  buildMap() {
+    const T3 = THREE, G = this.mapGroup, W = CONFIG.world.w, H = CONFIG.world.h;
+    while (G.children.length) { const o = G.children.pop(); o.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) { if (m.material.map) m.material.map.dispose(); m.material.dispose(); } }); }
+    this.bushMeshes = [];
+    // 바닥
+    const ground = new T3.Mesh(new T3.PlaneGeometry(W, H), this.std('#ffffff', { map: this.groundTexture(Game.mapKey) }));
+    ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, 0, H / 2); ground.receiveShadow = true; G.add(ground);
+    // 아레나 바깥 (어두운 바닥) + 경계 연석
+    const out = new T3.Mesh(new T3.PlaneGeometry(W + 60, H + 60), this.std('#1d232e')); out.rotation.x = -Math.PI / 2; out.position.set(W / 2, -0.02, H / 2); G.add(out);
+    const curbM = this.std('#7d838d');
+    for (const [x, z, w, d] of [[W / 2, -0.15, W + 0.6, 0.3], [W / 2, H + 0.15, W + 0.6, 0.3], [-0.15, H / 2, 0.3, H], [W + 0.15, H / 2, 0.3, H]]) { const m = new T3.Mesh(new T3.BoxGeometry(w, 0.25, d), curbM); m.position.set(x, 0.12, z); m.castShadow = m.receiveShadow = true; G.add(m); }
+    // 벽: 높은 벽(콘크리트) · 낮은 턱(화단) · 창문 벽(유리)
+    const concrete = this.std('#8d939c'), concreteTop = this.std('#b4b9bf'), planter = this.std('#7f7a70'), hedge = this.std('#4f7d3f'), frame = this.std('#3c4452', { roughness: 0.5, metalness: 0.4 });
+    const glass = this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false });
+    for (const w of CONFIG.walls) {
+      const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
+      if (w.kind === 'low') {
+        const b = new T3.Mesh(new T3.BoxGeometry(w.w, 0.45, w.h), planter); b.position.set(cx, 0.225, cz); b.castShadow = b.receiveShadow = true; G.add(b);
+        const h = new T3.Mesh(new T3.BoxGeometry(Math.max(0.1, w.w - 0.12), 0.25, Math.max(0.1, w.h - 0.12)), hedge); h.position.set(cx, 0.55, cz); h.castShadow = true; G.add(h);
+      } else if (w.kind === 'glass') {
+        const hgt = 2.0, base = new T3.Mesh(new T3.BoxGeometry(w.w, 0.3, w.h), frame); base.position.set(cx, 0.15, cz); base.castShadow = true; G.add(base);
+        const top = new T3.Mesh(new T3.BoxGeometry(w.w, 0.15, w.h), frame); top.position.set(cx, hgt, cz); G.add(top);
+        const pane = new T3.Mesh(new T3.BoxGeometry(Math.max(0.06, w.w * 0.4), hgt - 0.3, Math.max(0.06, w.h * 0.4)), glass); pane.position.set(cx, 0.3 + (hgt - 0.3) / 2, cz); pane.renderOrder = 2; G.add(pane);
+        const L = Math.max(w.w, w.h), hz = w.w > w.h;   // 창틀 기둥
+        for (let t = 0; t <= L + 0.01; t += Math.max(1, L / Math.round(L / 1.2))) { const post = new T3.Mesh(new T3.BoxGeometry(hz ? 0.1 : w.w, hgt, hz ? w.h : 0.1), frame); post.position.set(hz ? w.x + t : cx, hgt / 2, hz ? cz : w.y + t); post.castShadow = true; G.add(post); }
+      } else {
+        const hgt = 2.0, b = new T3.Mesh(new T3.BoxGeometry(w.w, hgt, w.h), concrete); b.position.set(cx, hgt / 2, cz); b.castShadow = b.receiveShadow = true; G.add(b);
+        const cap = new T3.Mesh(new T3.BoxGeometry(w.w + 0.08, 0.1, w.h + 0.08), concreteTop); cap.position.set(cx, hgt + 0.05, cz); cap.castShadow = true; G.add(cap);
+      }
+    }
+    // 부쉬: 잎 덩어리(로우폴리 구) 무리
+    const leafGeo = new T3.IcosahedronGeometry(1, 0), leafCols = ['#3f7a3a', '#4b8a40', '#367034', '#5a9a48'];
+    (CONFIG.bushes || []).forEach(b => {
+      const grp = new T3.Group(), n = Math.max(6, Math.round(b.w * b.h * 2.4)), mats = leafCols.map(c => this.std(c, { transparent: true, opacity: 1, flatShading: true }));
+      for (let i = 0; i < n; i++) {
+        const r = 0.32 + ((i * 0.618) % 1) * 0.22, m = new T3.Mesh(leafGeo, mats[i % mats.length]);
+        m.scale.set(r, r * 0.9, r); m.position.set(b.x + 0.25 + ((i * 0.618034) % 1) * (b.w - 0.5), r * 0.75 + ((i * 0.31) % 1) * 0.25, b.y + 0.25 + ((i * 0.381966 * 1.7) % 1) * (b.h - 0.5));
+        m.rotation.set(i, i * 2, 0); m.castShadow = true; grp.add(m);
+      }
+      grp.userData = { mats, base: grp.children.map(c => c.rotation.y) }; G.add(grp); this.bushMeshes.push(grp);
+    });
+    this.mapKey = Game.mapKey; this.wallRef = CONFIG.walls;
+  },
+  // ---------- 유닛 (로우폴리 인형) ----------
+  weaponMesh(u) {
+    const T3 = THREE, g = new T3.Group(), metal = this.std('#d7dbe2', { roughness: 0.3, metalness: 0.7, transparent: true }), dark = this.std('#2a2f38', { roughness: 0.5, transparent: true });   // 유닛별 재질(투명도 독립)
+    const wpn = u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+    const box = (w, h, d, m, x, y, z) => { const b = new T3.Mesh(new T3.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
+    if (wpn === 'dagger') box(0.42, 0.05, 0.09, metal, 0.42, 0, 0);
+    else if (wpn === 'dual') { box(0.5, 0.05, 0.08, metal, 0.42, 0, 0.12); box(0.5, 0.05, 0.08, metal, 0.42, 0, -0.12); }
+    else if (wpn === 'scissor') { const a = box(0.55, 0.04, 0.07, metal, 0.4, 0, 0.04); a.rotation.y = 0.18; const b = box(0.55, 0.04, 0.07, metal, 0.4, 0, -0.04); b.rotation.y = -0.18; }
+    else if (wpn === '권총') box(0.32, 0.12, 0.08, dark, 0.32, 0.02, 0);
+    else if (wpn === '저격총') { box(1.1, 0.08, 0.08, dark, 0.5, 0, 0); box(0.25, 0.1, 0.1, metal, 0.35, 0.09, 0); }
+    else if (wpn === '석궁') { box(0.6, 0.08, 0.08, dark, 0.35, 0, 0); box(0.08, 0.05, 0.7, dark, 0.55, 0, 0); }
+    else if (wpn === '활') { const arc = new T3.Mesh(new T3.TorusGeometry(0.4, 0.03, 4, 12, Math.PI), this.std('#8a5a33', { transparent: true })); arc.rotation.set(Math.PI / 2, 0, -Math.PI / 2); arc.position.set(0.35, 0, 0); g.add(arc); }
+    return g;
+  },
+  makeUnit(u) {
+    const T3 = THREE, root = new T3.Group(), body = new T3.Group(); root.add(body);
+    const col = new T3.Color(u.color || '#888'), mats = [];
+    const M = (c, o) => { const m = this.std(c, Object.assign({ transparent: true }, o)); mats.push(m); return m; };
+    const add = (geo, m, x, y, z, parent = body) => { const o = new T3.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
+    if (u.kind === 'animal') {   // 늑대
+      const fur = M('#7a5f46'); add(new T3.BoxGeometry(0.85, 0.42, 0.42), fur, 0, 0.5, 0); const head = add(new T3.BoxGeometry(0.34, 0.3, 0.3), fur, 0.5, 0.68, 0);
+      add(new T3.ConeGeometry(0.07, 0.16, 4), fur, 0.48, 0.9, 0.08); add(new T3.ConeGeometry(0.07, 0.16, 4), fur, 0.48, 0.9, -0.08);
+      add(new T3.BoxGeometry(0.16, 0.12, 0.16), M('#4b3a2c'), 0.7, 0.62, 0);
+      for (const [x, z] of [[0.3, 0.14], [0.3, -0.14], [-0.3, 0.14], [-0.3, -0.14]]) add(new T3.BoxGeometry(0.1, 0.32, 0.1), fur, x, 0.16, z);
+      add(new T3.BoxGeometry(0.4, 0.08, 0.08), fur, -0.58, 0.62, 0).rotation.z = 0.5; head.userData.head = true;
+    } else if (u.kind === 'dummy') {   // 허수아비: 나무 기둥 + 가로대 + 자루 머리
+      const wood = M('#8a6a45'), sack = M('#c8b48a'); add(new T3.CylinderGeometry(0.08, 0.1, 1.5, 6), wood, 0, 0.75, 0); add(new T3.BoxGeometry(0.08, 0.08, 1.1), wood, 0, 1.2, 0);
+      add(new T3.CylinderGeometry(0.3, 0.36, 0.7, 7), sack, 0, 1.0, 0); add(new T3.SphereGeometry(0.24, 8, 6), sack, 0, 1.55, 0);
+    } else if (u.kind === 'ward') {    // 망원 카메라 삼각대
+      const leg = M('#3a3f48'); for (let i = 0; i < 3; i++) { const l = add(new T3.CylinderGeometry(0.02, 0.02, 0.6, 4), leg, Math.cos(i * 2.09) * 0.12, 0.28, Math.sin(i * 2.09) * 0.12); l.rotation.set(Math.sin(i * 2.09) * 0.35, 0, -Math.cos(i * 2.09) * 0.35); }
+      add(new T3.BoxGeometry(0.28, 0.18, 0.2), M(u.color), 0, 0.62, 0); add(new T3.CylinderGeometry(0.06, 0.06, 0.12, 8), M('#20242c'), 0.18, 0.62, 0).rotation.z = Math.PI / 2;
+    } else if (Models.available(u)) {    // CC0 인물 모델 + 무기 (6_y_models.js)
+      const rig = Models.create(u, this.weaponMesh(u), mats);
+      if (rig) { body.add(rig.obj); body.userData.rig = rig; rig.obj.traverse(o => { if (o.material && !mats.includes(o.material)) mats.push(o.material); }); }
+    } else {                            // 실험체 인형: 다리·몸통·팔·머리·머리카락 + 무기
+      const r = u.r || 0.5, cloth = M(col.getStyle()), dark = M(col.clone().multiplyScalar(0.55).getStyle()), skin = M('#f2d3bd'), hair = M(u.charKey === 'daniel' || (u.motif && u.motif.name === '다니엘') ? '#3b2a4f' : u.kind === 'player' ? '#2b1b16' : col.clone().multiplyScalar(0.4).getStyle());
+      for (const z of [0.13, -0.13]) add(new T3.CylinderGeometry(0.1, 0.09, 0.55, 6), dark, 0, 0.28, z);
+      add(new T3.CylinderGeometry(r * 0.5, r * 0.62, 0.62, 8), cloth, 0, 0.84, 0);
+      add(new T3.SphereGeometry(r * 0.52, 8, 6), cloth, 0, 1.12, 0).scale.set(1, 0.45, 1);
+      const armL = add(new T3.CylinderGeometry(0.07, 0.07, 0.5, 6), cloth, 0.05, 0.9, 0.32), armR = add(new T3.CylinderGeometry(0.07, 0.07, 0.5, 6), cloth, 0.12, 0.9, -0.32);
+      armL.rotation.z = 0.3; armR.rotation.z = 0.9;
+      const head = add(new T3.SphereGeometry(0.27, 10, 8), skin, 0, 1.45, 0);
+      const cap = add(new T3.SphereGeometry(0.29, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, -0.02, 1.48, 0); cap.rotation.z = 0.25;
+      if (u.kind === 'player' && u.charKey !== 'daniel') { const cross = M('#ffffff'); add(new T3.BoxGeometry(0.02, 0.16, 0.05), cross, r * 0.55, 0.92, 0); add(new T3.BoxGeometry(0.02, 0.05, 0.16), cross, r * 0.55, 0.92, 0); }   // 캐시: 의료 십자
+      const wp = this.weaponMesh(u); wp.position.set(0.25, 0.75, -0.38); body.add(wp); wp.traverse(o => { if (o.material) mats.push(o.material); });
+      head.userData.head = true; body.userData.armR = armR;
+    }
+    // 발밑 팀 링
+    const ring = new T3.Mesh(new T3.RingGeometry((u.r || 0.5) * 0.95, (u.r || 0.5) * 1.12, 28), new T3.MeshBasicMaterial({ color: new T3.Color(u.team === 0 ? '#4fe08a' : u.team === 2 ? '#c9b48a' : '#ff4d5e').convertSRGBToLinear(), transparent: true, opacity: 0.75, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; root.add(ring); mats.push(ring.material);
+    // 기절 별
+    const stars = new T3.Group(); for (let i = 0; i < 3; i++) { const s = new T3.Mesh(new T3.OctahedronGeometry(0.07), new T3.MeshBasicMaterial({ color: '#ffc857' })); stars.add(s); } stars.visible = false; root.add(stars);
+    root.userData = { body, mats, stars, bob: Math.random() * 6, last: V.copy(u.pos), modelVer: Models.ver };
+    this.scene.add(root); return root;
+  },
+  syncUnits(dt) {
+    const p = Game.player, seen = new Set();
+    for (const u of Game.units) {
+      seen.add(u.id);
+      let m = this.unitMeshes.get(u.id);
+      if (m && m.userData.modelVer !== Models.ver && Models.keyFor(u)) { this.dropUnit(u.id, m); m = null; }   // 모델 로딩 완료 → 인형 교체
+      if (!m) { m = this.makeUnit(u); this.unitMeshes.set(u.id, m); }
+      const D = m.userData, vis = !u.dead && (u.team === 0 || Vision.visible(p, u)) && !(u.kind === 'player' && u.shadow && u.shadow.phase !== 'out');
+      m.visible = vis; if (!vis) continue;
+      m.position.set(u.pos.x, 0, u.pos.y);
+      D.body.rotation.y = -(u.facing || 0);
+      // 이동 중 흔들림, 평타·스킬 시 앞으로 내밀기
+      const moving = V.dist(u.pos, D.last) > 0.002; D.last = V.copy(u.pos);
+      if (D.body.userData.rig) Models.animate(D.body.userData.rig, u, dt, moving);
+      else { D.bob += dt * (moving ? 14 : 3); D.body.position.y = moving ? Math.abs(Math.sin(D.bob)) * 0.06 : Math.sin(D.bob) * 0.012; }
+      const atk = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
+      if (D.body.userData.armR) D.body.userData.armR.rotation.z = atk ? 1.6 : 0.9;
+      // 투명도: 은신·부쉬(내 캐릭터)·무적 깜빡임 / 피격 섬광
+      let op = 1; if (u.team === 0 && u.kind === 'player') { if (u.stealthT > 0) op = 0.35; else if (Vision.bushAt(u.pos) >= 0) op = 0.6; }
+      if (u.invuln > 0 && Math.floor(Game.time * 20) % 2 === 0) op *= 0.5;
+      const fl = u.flash > 0 ? Math.min(1, u.flash / 0.12) : 0;
+      for (const mt of D.mats) { mt.opacity = op * (mt.userData.baseOp || (mt.userData.baseOp = mt.opacity || 1)); mt.transparent = mt.opacity < 0.999; if (mt.emissive) mt.emissive.setRGB(fl * 0.9, fl * 0.9, fl * 0.9); }   // 불투명일 땐 깊이 정렬 문제(유령처럼 비침) 방지
+      D.stars.visible = u.stun > 0;
+      if (u.stun > 0) D.stars.children.forEach((s, i) => { const a = Game.time * 5 + i * 2.09; s.position.set(Math.cos(a) * 0.35, this.unitHeight(u) + 0.15, Math.sin(a) * 0.35); });
+    }
+    for (const [id, m] of this.unitMeshes) if (!seen.has(id)) this.dropUnit(id, m);
+  },
+  dropUnit(id, m) {
+    this.scene.remove(m);
+    m.traverse(o => { if (o.geometry && !o.userData.sharedGeo) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(x => x.dispose()); });
+    const rig = m.userData.body && m.userData.body.userData.rig; if (rig) rig.mixer.stopAllAction();
+    this.unitMeshes.delete(id);
+  },
+  // 설정에서 모델 켜고 끄기
+  refreshModels() { if (Settings.models3d === false) { Models.state = 'failed'; Models.ver++; } else if (Models.state === 'failed' && Models.supported()) { Models.state = 'idle'; Models.load(); } },
+  // ---------- 투사체 ----------
+  syncProjectiles() {
+    const seen = new Set(), T3 = THREE;
+    for (const pr of Game.projectiles) {
+      seen.add(pr);
+      let m = this.projMeshes.get(pr);
+      if (!m) {
+        const col = pr.kind === 'needle' ? CONFIG.theme.accent2 : (pr.color || '#c79bff'), len = pr.kind === 'needle' ? 0.6 : (pr.len || 1.2);
+        m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
+        this.scene.add(m); this.projMeshes.set(pr, m);
+      }
+      m.visible = pr.team === 0 || Vision.pointVisible(pr.pos);
+      m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
+    }
+    for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.geometry.dispose(); this.projMeshes.delete(pr); }
+  },
+  // ---------- 부쉬 반투명·흔들림 ----------
+  syncBushes() {
+    const p = Game.player, pb = p ? Vision.bushAt(p.pos) : -1;
+    this.bushMeshes.forEach((g, bi) => {
+      const op = bi === pb ? 0.45 : 1; for (const m of g.userData.mats) m.opacity = op;
+      const R = Vision.rustles.find(r => r.b === bi && (r.team !== 0 || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.12 * (R.t / CONFIG.vision.rustle) : 0;
+      g.children.forEach((c, i) => { c.rotation.y = g.userData.base[i] + sh; });
+    });
+  },
+  // ---------- 바닥 데칼 (2D 그리기 재사용) ----------
+  drawDecal() {
+    const W = CONFIG.world.w, H = CONFIG.world.h, P = this.TEX_PPM, c = this.decalCv;
+    if (c.width !== W * P || c.height !== H * P) { c.width = W * P; c.height = H * P; if (this.decalTex) this.decalTex.dispose(); this.decalTex = null; }
+    const g = this.decalCtx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+    g.setTransform(P, 0, 0, P, 0, 0); Render.drawWorld(g, CONFIG.theme, 'ground');
+    if (!this.decalTex) {
+      this.decalTex = new THREE.CanvasTexture(c); this.decalTex.encoding = THREE.sRGBEncoding; this.decalTex.anisotropy = 4;
+      if (this.decal) { this.scene.remove(this.decal); this.decal.geometry.dispose(); }
+      this.decal = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: this.decalTex, transparent: true, depthWrite: false }));
+      this.decal.rotation.x = -Math.PI / 2; this.decal.position.set(W / 2, 0.03, H / 2); this.decal.renderOrder = 1; this.scene.add(this.decal);
+    }
+    this.decalTex.needsUpdate = true;
+  },
+  // ---------- 카메라·조명 ----------
+  updateCamera(dt) {
+    const p = Game.player, W = CONFIG.world.w, H = CONFIG.world.h;
+    const want = p && !p.dead && Game.state !== 'menu' ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : new THREE.Vector3(W / 2, 0, H / 2);
+    this.camTarget.lerp(want, Game.state === 'menu' ? 1 : Math.min(1, dt * 8));
+    const z = Game.state === 'menu' ? 30 : this.zoom, pitch = 56 * Math.PI / 180, sh = Settings.reduceShake ? 0 : FX.shake * 0.01;
+    this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
+    this.camera.lookAt(this.camTarget); this.camera.updateMatrixWorld();
+    // 해: 카메라 근처를 따라다니며 그림자 범위 유지 / 밤: 푸르고 어둡게
+    this.sun.position.set(this.camTarget.x + 6, 22, this.camTarget.z + 4); this.sun.target.position.copy(this.camTarget);
+    const night = Vision.fogOn && Vision.night;
+    this.hemi.intensity = night ? 0.28 : 0.6; this.sun.intensity = night ? 0.22 : 1.0;
+    this.sun.color.set(night ? '#8fa8ff' : '#fff1d6'); this.scene.background.set(night ? '#0b0f1a' : '#1a2130');
+  },
+  frame() {
+    const now = performance.now(), dt = Math.min(0.1, (now - (this.lastT || now)) / 1000); this.lastT = now;
+    if (this.mapKey !== Game.mapKey || this.wallRef !== CONFIG.walls) this.buildMap();
+    this.updateCamera(dt);
+    this.syncUnits(dt); this.syncProjectiles(); this.syncBushes();
+    this.drawDecal();
+    this.gl.render(this.scene, this.camera);
+    // 화면 층(체력바·글자·HUD)은 2D 캔버스를 투명하게 덮어 그림
+    const ctx = Render.ctx, L = Render.L; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, Render.cv.width, Render.cv.height);
+    ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0); ScreenLayer.draw(ctx, L);
+  },
+  onWheel(e) { this.zoom = clamp(this.zoom + Math.sign(e.deltaY) * 2, 12, 34); },
+  show(on) { this.cv.style.display = on ? 'block' : 'none'; },
 };
 
 // ============================== 사이드 패널 ==============================
@@ -4250,7 +4690,7 @@ const UI = {
       <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
-      <div class="row"><label>빌드</label>${bb}</div>
+      <div class="row"><label>빌드</label>${bb}<label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
@@ -4259,10 +4699,12 @@ const UI = {
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
       <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
-        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>`, {
+        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
+      ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       char: d => { Settings.character = d.v; saveSettings(); this.showMenu(); },
       'in:tac': el => { Settings.tactical = el.value; saveSettings(); this.showMenu(); },
+      gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
       quick: d => this.start(d.v, this.quickOpts(d.v)),
@@ -4373,6 +4815,10 @@ const UI = {
       <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
       ${cb('pointerLock', '마우스 잠금 모드 — 웨일·비발디 등의 <b>우클릭 드래그 마우스 제스처</b>가 이동을 가로챌 때 사용 (플레이 중 클릭하면 커서가 게임 화면에 고정, Esc로 해제·일시정지)')}
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
+      <h3>그래픽</h3>
+      <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
+      ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
+      <div class="sub" style="margin:4px 0">3D: 캐릭터를 따라가는 쿼터뷰 카메라, 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
@@ -4384,10 +4830,12 @@ const UI = {
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
       cast: d => { Settings.castMode = d.v; saveSettings(); this.showSettings(back); },
       mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
+      gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
       'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
+      'in:models3d': el => { Settings.models3d = el.checked; saveSettings(); if (Render3D.ready) Render3D.refreshModels(); },
       'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
       'in:volume': el => { Settings.volume = +el.value; saveSettings(); },
@@ -4418,6 +4866,7 @@ const UI = {
       · <b>F 블링크</b>: 커서 방향 3m 순간 이동(벽 중심을 넘으면 벽 너머로). 쿨 90초, Lv12·18 빌드는 2레벨 — 쿨 45초 + 2.5초 이속 15%.<br>
       · <b>시야(1:1 결투)</b>: 시야 낮 8.5m / 밤 3.4m→6.4m. 높은 벽은 시야를 가리고(암시야), 낮은 턱·창문 벽은 너머가 보입니다. 부쉬 안에선 밖이 보이고 밖에선 안이 안 보입니다. 시야 밖 상대의 스킬·평타는 빨간 <b>!</b>, 이동은 발자국(부쉬 안 제외)으로 표시됩니다. <b>C</b> 망원 카메라(커서 방향 4m 설치, 반경 13m, 60초, 은신 감지, 최대 2개, 평타 한 번에 파괴) · <b>V</b> 정찰 드론(커서 지점 5초 시야, 벽 무시).<br>
       · 수치는 코드 맨 위 <code>CONFIG</code>에서 바꿀 수 있습니다.</div>
+      <h3>안내</h3><div class="sub">${NOTICE.long}</div>
       <div class="row"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, { back: () => this.showMenu() }, { Escape: 'back' });
   },
 
@@ -4463,7 +4912,7 @@ const UI = {
       <h3>스킬별 기여도</h3><canvas class="chart" id="cv-contrib"></canvas>
       ${r.heatmap ? '<h3>피격 위치 히트맵</h3><canvas class="chart" id="cv-heat"></canvas>' : ''}
       <h3>최근 10판 추이 (${esc(r.scoreLabel || '')})</h3><canvas class="chart" id="cv-trend"></canvas>
-      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`, H, { r: 'retry', Enter: 'retry', m: 'menu', Escape: 'menu' });
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { r: 'retry', Enter: 'retry', m: 'menu', Escape: 'menu' });
     Charts.dps('cv-dps'); Charts.contrib('cv-contrib'); Charts.trend('cv-trend', r.hist); if (r.heatmap) Charts.heat('cv-heat', r.heatmap);
   },
 };
@@ -4478,11 +4927,11 @@ function loop(now) {
     while (acc >= CONFIG.sim.step && n < CONFIG.sim.maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
     if (n >= CONFIG.sim.maxSteps) acc = 0;
   } else acc = 0;
-  try { Render.frame(); } catch (e) { console.error(e); }
+  try { Renderer.frame(); } catch (e) { console.error(e); }
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);
 }
-Render.init(); Input.init(Render.cv); UI.init(); UI.showMenu();
+Renderer.init(); Input.init(Renderer.inputCanvas()); UI.init(); UI.showMenu();
 requestAnimationFrame(loop);
 </script>
 </body>

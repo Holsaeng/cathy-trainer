@@ -115,7 +115,7 @@ const Input = {
     this.rLast = now; this.rightCmd(true);
   },
   moveBtn() { return Settings.moveButton === 'left' ? 0 : 2; },   // 이동 버튼: 우클릭(기본) / 좌클릭(웨일 등 브라우저 마우스 제스처 회피)
-  setPos(x, y) { this.screen = { x, y }; this.world = Render.toWorld(x, y); },
+  setPos(x, y) { this.screen = { x, y }; this.world = Renderer.toWorld(x, y); },
   // 마우스 잠금(Pointer Lock): 웨일·비발디 등 브라우저의 우클릭 드래그 '마우스 제스처'가 게임 입력을 가로채지 않도록 커서를 캔버스에 가둠
   wantLock() { return Settings.pointerLock && Game.state === 'play' && !Game.paused; },
   lock(cv) { if (this.wantLock() && !this.locked && cv.requestPointerLock) { try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 미지원 */ } } },
@@ -150,6 +150,7 @@ const Input = {
       } else if (e.button === 2) { this.aiming = null; this.amove = false; }   // 좌클릭 이동 모드: 우클릭 = 조준 취소
       
     });
+    cv.addEventListener('wheel', e => { if (Renderer.mode === '3d' && Game.state === 'play') { e.preventDefault(); Render3D.onWheel(e); } }, { passive: false });   // 3D 카메라 줌
     window.addEventListener('keydown', e => this.onKey(e));
     window.addEventListener('keyup', e => this.onKeyUp(e));
   },
@@ -211,10 +212,34 @@ const Draw = {
   circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); },
 };
 
-// ============================== 렌더 ==============================
+// ============================== 렌더러 (표시 계층) ==============================
+// 게임 로직은 월드 좌표(m)만 다루고, 그리기와 화면↔월드 좌표 변환은 Renderer가 담당
+// 구현: Render(2D 캔버스). 이후 3D 구현을 같은 인터페이스로 추가 — init / frame / toWorld / toScreen / pxPerMeter / inputCanvas
+const Renderer = {
+  impl: null, mode: '2d',
+  init() { Render.init(); this.impl = Render; this.setMode(Settings.gfx, true); },
+  // 그래픽 전환: '3d'는 Three.js·WebGL이 가능할 때만, 실패하면 2D로 되돌리고 알림
+  setMode(m, quiet) {
+    if (m === '3d') {
+      try { if (!Render3D.ready) Render3D.init(); Render3D.resize(); Render3D.show(true); this.impl = Render3D; this.mode = '3d'; return true; }
+      catch (e) { console.warn('3D 렌더러 사용 불가:', e); if (!quiet) FX.toast('3D 그래픽을 사용할 수 없어 2D로 표시합니다', '#ffb347'); Settings.gfx = '2d'; saveSettings(); }
+    }
+    if (Render3D.ready) Render3D.show(false);
+    this.impl = Render; this.mode = '2d'; return m !== '3d';
+  },
+  resize() { Render.resize(); if (Render3D.ready) Render3D.resize(); },
+  frame() { Input.tick(); this.impl.frame(); },
+  toWorld(sx, sy) { return this.impl.toWorld(sx, sy); },
+  toScreen(p, h = 0) { return this.impl.toScreen(p, h); },   // h: 지면에서의 높이(m) — 2D는 무시
+  pxPerMeter(p) { return this.impl.pxPerMeter(p); },
+  overhead(u) { return this.impl.overhead(u); },               // 머리 위 체력바 위치 {x, top, bottom}
+  inputCanvas() { return this.impl.inputCanvas(); },
+};
+
+// ============================== 2D 렌더 ==============================
 const HUD_H = 118;
 const Render = {
-  init() { this.cv = document.getElementById('game'); this.ctx = this.cv.getContext('2d'); this.resize(); window.addEventListener('resize', () => this.resize()); },
+  init() { this.cv = document.getElementById('game'); this.ctx = this.cv.getContext('2d'); this.resize(); window.addEventListener('resize', () => Renderer.resize()); },
   resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     this.cv.width = W * dpr; this.cv.height = H * dpr;
@@ -222,34 +247,28 @@ const Render = {
     this.L = { W, H, dpr, ppm, ox: (W - CONFIG.world.w * ppm) / 2, oy: Math.max(10, (H - HUD_H - CONFIG.world.h * ppm) / 2) };
   },
   toWorld(sx, sy) { const L = this.L; return { x: (sx - L.ox) / L.ppm, y: (sy - L.oy) / L.ppm }; },
-  toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + this.shx, y: L.oy + p.y * L.ppm + this.shy }; },
+  toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + (this.shx || 0), y: L.oy + p.y * L.ppm + (this.shy || 0) }; },
+  pxPerMeter() { return this.L.ppm; },
+  inputCanvas() { return this.cv; },
   frame() {
-    Input.tick();
     const { ctx, L } = this, T = CONFIG.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const sh = Settings.reduceShake ? 0 : FX.shake; this.shx = (Math.random() - 0.5) * sh; this.shy = (Math.random() - 0.5) * sh;
     ctx.setTransform(L.dpr * L.ppm, 0, 0, L.dpr * L.ppm, L.dpr * (L.ox + this.shx), L.dpr * (L.oy + this.shy));
     this.drawWorld(ctx, T);
     ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0);
-    if (Game.state === 'menu') return;
-    this.drawOverheads(ctx);
-    this.drawTexts(ctx);
-    if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
-    HUD.draw(ctx, L);
-    this.drawTopInfo(ctx, L);
-    this.drawToasts(ctx, L);
-    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
-      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
-    }
-    if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
+    ScreenLayer.draw(ctx, L);   // 체력바·글자·HUD — 렌더러와 무관한 화면 좌표 층
   },
-  drawWorld(ctx, T) {
-    const W = CONFIG.world.w, H = CONFIG.world.h;
-    ctx.fillStyle = T.floor; ctx.fillRect(0, 0, W, H);
-    ctx.lineWidth = 0.02;
-    for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (let y = 0; y <= H; y++) { ctx.strokeStyle = y % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    ctx.strokeStyle = '#2f3850'; ctx.lineWidth = 0.08; ctx.strokeRect(0, 0, W, H);
+  // layer: 'all' = 2D 전체 / 'ground' = 3D 렌더러의 바닥 데칼(예고 범위·이펙트·상태 표시·안개만 — 바닥·벽·부쉬·유닛 몸체·투사체는 3D 메시)
+  drawWorld(ctx, T, layer = 'all') {
+    const W = CONFIG.world.w, H = CONFIG.world.h, all = layer === 'all';
+    if (all) {
+      ctx.fillStyle = T.floor; ctx.fillRect(0, 0, W, H);
+      ctx.lineWidth = 0.02;
+      for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y++) { ctx.strokeStyle = y % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.strokeStyle = '#2f3850'; ctx.lineWidth = 0.08; ctx.strokeRect(0, 0, W, H);
+    }
     // 치유 영역
     for (const z of Game.zones) {
       ctx.save(); ctx.globalAlpha = 0.18 + 0.12 * Math.sin(Game.time * 6); ctx.fillStyle = '#5dff9a'; ctx.strokeStyle = 'rgba(93,255,154,.6)'; ctx.lineWidth = 0.04;
@@ -257,7 +276,7 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
-    for (const w of CONFIG.walls) {
+    if (all) for (const w of CONFIG.walls) {
       if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
         ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }
@@ -272,12 +291,11 @@ const Render = {
     for (const m of FX.marks) { const k = m.life / m.max; ctx.strokeStyle = m.color; ctx.globalAlpha = k; ctx.lineWidth = 0.05; Draw.circle(ctx, m.x, m.y, 0.15 + (1 - k) * 0.4); ctx.stroke(); ctx.globalAlpha = 1; }
     for (const t of FX.trails) { ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
-    for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T);
+    for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T, !all);
     for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     if (Game.player && Game.player.drawExtra && Game.state !== 'menu') Game.player.drawExtra(ctx);
     if (Game.player && Game.state !== 'menu') Tactical.draw(ctx, Game.player);
-    this.drawBushes(ctx);
-    for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T);
+    if (all) { this.drawBushes(ctx); for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T); }
     for (const s of FX.slashes) {
       const k = s.life / s.max; ctx.globalAlpha = k * 0.55; ctx.fillStyle = s.color;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.R, s.ang - s.half, s.ang + s.half); ctx.arc(s.x, s.y, s.inner || 0, s.ang + s.half, s.ang - s.half, true); ctx.closePath(); ctx.fill();
@@ -300,7 +318,7 @@ const Render = {
   },
   // 전장의 안개: 시야 다각형(벽에 막힘)과 시야 구역만 밝게, 나머지는 어둡게 + 사라진 적의 마지막 위치
   drawFog(ctx) {
-    const p = Game.player, cv = this.cv, V0 = CONFIG.vision;
+    const p = Game.player, cv = ctx.canvas, V0 = CONFIG.vision;
     if (!this.fogCv) this.fogCv = document.createElement('canvas');
     const fc = this.fogCv; if (fc.width !== cv.width || fc.height !== cv.height) { fc.width = cv.width; fc.height = cv.height; }
     if (!fc.width || !fc.height) return;   // 창이 최소화되는 등 캔버스 크기가 0이면 건너뜀
@@ -415,10 +433,11 @@ const Render = {
       ctx.restore();
     });
   },
-  drawUnit(ctx, u, T) {
+  drawUnit(ctx, u, T, decal) {
     if (u.dead) return;
     if (u.team !== 0 && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
     if (u.kind === 'ward') {   // 망원 카메라: 삼각대 + 남은 시간 링 (내 카메라는 시야 반경 점선)
+      if (decal) { if (u.team === 0 && Settings.showRange) KU.ring(ctx, u.pos, u.sightR(), u.color, 0.18, true); return; }
       const k = clamp(u.life / CONFIG.vision.camera.dur, 0, 1);
       ctx.save(); ctx.strokeStyle = u.color; ctx.lineWidth = 0.05;
       ctx.beginPath(); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x - 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x + 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x, u.pos.y + 0.28); ctx.stroke();
@@ -432,7 +451,7 @@ const Render = {
     if (u.kind === 'player' && u.shadow && u.shadow.phase !== 'out') { ctx.restore(); return; }   // 걸작: 대상 그림자 속
     if (u.kind === 'player' && Vision.bushAt(u.pos) >= 0) ctx.globalAlpha = 0.6;   // 부쉬 속: 상대에게 안 보임
     if (u.kind === 'player' && u.stealthT > 0) ctx.globalAlpha = 0.35;              // 은신
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.55, u.r * 0.95, u.r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    if (!decal) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.55, u.r * 0.95, u.r * 0.45, 0, 0, Math.PI * 2); ctx.fill(); }
     if (u.slows.length) { ctx.strokeStyle = 'rgba(255,170,60,.85)'; ctx.lineWidth = 0.07; ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y + u.r * 0.45, u.r * 1.05, u.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); }
     if (u.trauma > 0 && u.crit <= 0) {
       ctx.strokeStyle = 'rgba(70,110,255,.95)'; ctx.lineWidth = 0.09; ctx.lineCap = 'round';
@@ -448,6 +467,7 @@ const Render = {
     if (u.unstoppable > 0) { ctx.strokeStyle = T.gold; ctx.lineWidth = 0.12; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.15); ctx.stroke(); }
     // 결투 상대 스킬 예고선
     if (u.act && u.act.type === 's1') { ctx.save(); ctx.globalAlpha = 0.15 + 0.35 * (u.act.t / u.act.dur); ctx.fillStyle = '#b56cff'; ctx.strokeStyle = '#b56cff'; ctx.lineWidth = 0.03; Draw.oRect(ctx, u.pos, V.ang(u.act.dir), CONFIG.enemy.s1.range, CONFIG.enemy.s1.width); ctx.restore(); }
+    if (decal) { this.drawUnitDecal(ctx, u, T); ctx.restore(); return; }
     ctx.fillStyle = u.color; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.fill();
     ctx.lineWidth = 0.06; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
     ctx.save(); ctx.translate(u.pos.x, u.pos.y);
@@ -484,6 +504,14 @@ const Render = {
     if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.03; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.stroke(); }
     ctx.restore();
   },
+  // 3D 모드의 바닥 표시: 보호막·속박·히트박스 (기절 별·몸체는 3D)
+  drawUnitDecal(ctx, u, T) {
+    if (u.shield > 0) { ctx.strokeStyle = 'rgba(170,190,255,.85)'; ctx.lineWidth = 0.07; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.3); ctx.stroke(); }
+    if (u.root > 0) { ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 0.05; for (const [rr, sp] of [[u.r + 0.22, 4], [u.r + 0.34, -3]]) { ctx.beginPath(); ctx.ellipse(u.pos.x, u.pos.y, rr, rr * 0.8, Game.time * sp, 0.3, Math.PI * 2 - 0.3); ctx.stroke(); } }
+    if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.03; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.stroke(); }
+  },
+  // 머리 위 표시 위치(2D): 몸 원 위
+  overhead(u) { const s = this.toScreen(u.pos), R = u.r * this.L.ppm; return { x: s.x, top: s.y - R - 16, bottom: s.y + R + 13 }; },
   drawProjectile(ctx, pr, T) {
     if (pr.team !== 0 && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
     ctx.save();
@@ -497,18 +525,35 @@ const Render = {
     ctx.restore();
     if (Settings.showHitbox) { ctx.strokeStyle = '#5dff9a'; ctx.lineWidth = 0.02; Draw.circle(ctx, pr.pos.x, pr.pos.y, pr.width / 2); ctx.stroke(); }
   },
+};
+
+// ============================== 화면 층 (렌더러 공통) ==============================
+// 월드 위치는 Renderer.toScreen으로 화면 좌표로 바꿔서 그림 — 2D·3D 렌더러가 같이 사용
+const ScreenLayer = {
+  draw(ctx, L) {
+    if (Game.state === 'menu') return;
+    this.drawOverheads(ctx);
+    this.drawTexts(ctx);
+    if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
+    HUD.draw(ctx, L);
+    this.drawTopInfo(ctx, L);
+    this.drawToasts(ctx, L);
+    if (Input.locked) {   // 마우스 잠금 중엔 OS 커서가 숨겨지므로 직접 그림
+      const s = Input.screen; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x - 9, s.y); ctx.lineTo(s.x - 3, s.y); ctx.moveTo(s.x + 3, s.y); ctx.lineTo(s.x + 9, s.y); ctx.moveTo(s.x, s.y - 9); ctx.lineTo(s.x, s.y - 3); ctx.moveTo(s.x, s.y + 3); ctx.lineTo(s.x, s.y + 9); ctx.stroke();
+    }
+    if (Input.amove) { Draw.circle(ctx, Input.screen.x, Input.screen.y, 10); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.stroke(); Draw.text(ctx, 'A', Input.screen.x + 13, Input.screen.y - 10, { size: 13, bold: true, color: '#ffb347' }); }
+  },
   // 머리 위 체력바/외상 중첩/상태
   drawOverheads(ctx) {
-    const L = this.L;
     for (const u of Game.units) {
       if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
-      const s = this.toScreen(u.pos), R = u.r * L.ppm, bw = Math.max(44, R * 2.6), bh = 6, x = s.x - bw / 2, y = s.y - R - 16;
+      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = Math.max(44, R * 2.6), bh = 6, x = o.x - bw / 2, y = o.top;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
       ctx.fillStyle = u.team === 0 ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);
       if (u.shield > 0) { ctx.fillStyle = '#e9eef7'; ctx.fillRect(x + bw * Math.max(0, u.hp) / total, y, bw * u.shield / total, bh); }
       if (u.healRed > 0) { ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 1; ctx.strokeRect(x - 1, y - 1, bw + 2, bh + 2); }
-      Draw.text(ctx, u.kind === 'player' ? `캐시 Lv${u.build.level}` : u.name + (u.infinite ? ' ∞' : ''), s.x, y - 7, { size: 11, align: 'center', color: '#c9cfdb', stroke: true });
+      Draw.text(ctx, u.kind === 'player' ? `${u.name || '캐시'} Lv${u.build.level}` : u.name + (u.infinite ? ' ∞' : ''), s.x, y - 7, { size: 11, align: 'center', color: '#c9cfdb', stroke: true });
       if (u.team !== 0) {
         if (u.crit > 0) {
           Draw.rr(ctx, s.x - 46, y - 33, 92, 17, 8); ctx.fillStyle = 'rgba(255,59,92,.9)'; ctx.fill();
@@ -521,12 +566,12 @@ const Render = {
       const st = [];
       if (u.stun > 0) st.push('기절 ' + fmt(u.stun, 1)); if (u.root > 0) st.push('속박 ' + fmt(u.root, 1));
       if (u.slows.length) st.push('둔화'); if (u.fear > 0) st.push('공포 ' + fmt(u.fear, 1)); if (u.unstoppable > 0) st.push('저지 불가');
-      if (st.length) Draw.text(ctx, st.join(' · '), s.x, s.y + R + 13, { size: 11, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true });
+      if (st.length) Draw.text(ctx, st.join(' · '), s.x, o.bottom, { size: 11, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true });
     }
   },
   drawTexts(ctx) {
     for (const t of FX.texts) {
-      const s = this.toScreen(t); ctx.globalAlpha = clamp(t.life / t.max * 1.6, 0, 1);
+      const s = Renderer.toScreen(t, 1.5); ctx.globalAlpha = clamp(t.life / t.max * 1.6, 0, 1);   // 3D: 머리 높이쯤에 뜸
       Draw.text(ctx, t.str, s.x, s.y, { size: t.size, bold: t.bold, align: 'center', color: t.color, stroke: true });
     }
     ctx.globalAlpha = 1;

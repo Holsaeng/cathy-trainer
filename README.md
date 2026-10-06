@@ -3,7 +3,8 @@
 이터널 리턴의 실험체 **캐시(Cathy)** 숙련도를 올리기 위한 브라우저 미니게임입니다.
 HTML 파일 하나로 동작하며, 설치 없이 `cathy_trainer.html`을 브라우저로 열면 바로 플레이할 수 있습니다.
 
-> 팬이 만든 비공식 연습 도구입니다. 이터널 리턴과 등장 캐릭터의 권리는 님블뉴런(Nimble Neuron)에 있습니다.
+> 팬이 만든 **비공식** 연습 도구이며, 님블뉴런(Nimble Neuron)과 관련이 없고 공식 지원을 받지 않습니다. 이터널 리턴과 등장 캐릭터의 권리는 님블뉴런에 있습니다.
+> [님블뉴런 IP 이용 정책](https://support.playeternalreturn.com/hc/en-us/articles/49503976113177-Nimble-Neuron-IP-Usage-Policy-August-7th-2025)에 따라 공식 로고·일러스트·게임 모델·UI는 사용하지 않습니다. 3D 캐릭터는 직접 만든 로우폴리 모델 또는 CC0(자유 이용) 범용 모델을 색·소품으로 꾸민 것입니다. 비상업 목적이며 수익을 얻지 않습니다.
 
 ## 실행 방법
 - **웹에서 바로 플레이: https://holsaeng.github.io/cathy-trainer/**
@@ -43,8 +44,15 @@ HTML 파일 하나로 동작하며, 설치 없이 `cathy_trainer.html`을 브라
 소스는 `src/`의 조각 파일이며, 빌드하면 `cathy_trainer.html` 하나로 합쳐집니다.
 
 ```bash
-node build.js
+node build.js          # cathy_trainer.html
+node build.js --test   # + cathy_trainer.test.html — 열면 회귀 테스트(tests/regression.js)가 자동 실행, 결과가 화면 상단과 탭 제목에 표시
 ```
+
+변경할 때마다 테스트 빌드를 열어 `TEST PASS`인지 확인합니다.
+
+**구조**: 게임 로직(이동·스킬·충돌·시야·AI)은 미터 단위 평면 좌표만 다루고, 화면 표시는 `Renderer`가 담당합니다. 현재 구현은 2D 캔버스(`Render`)이며, 체력바·글자·HUD는 렌더러와 무관한 `ScreenLayer`가 그립니다. 3D 렌더러(`Render3D`, Three.js r128 CDN)도 같은 인터페이스(`init / frame / toWorld / toScreen / pxPerMeter / overhead / inputCanvas`)로 붙어 있고, 메인 메뉴·설정에서 2D/3D를 고릅니다. 3D는 벽·부쉬·유닛·투사체를 3D 메시로, 예고 범위·이펙트·시야 안개는 2D 그리기 코드를 바닥 텍스처(데칼)에 그려 재사용합니다. 라이브러리를 불러오지 못하면 2D로 자동 전환됩니다.
+
+**3D 인물 모델**: [Quaternius](https://quaternius.com)의 CC0 모델(Ultimate Modular Women/Men Pack, [Poly Pizza](https://poly.pizza) 배포본)을 수정 없이 `models/`에 두고, 게임 안에서 색과 무기만 바꿔 캐시·다니엘·원딜 AI 느낌을 냅니다. 달리기·칼 휘두르기·사격·피격 애니메이션이 상태에 맞춰 재생됩니다. 웹(GitHub Pages)에서만 불러오며, HTML만 내려받아 열거나 불러오지 못하면 기존 로우폴리 인형으로 표시됩니다(설정 → 그래픽에서 끌 수 있음). 테스트를 웹 서버로 열면 모델 경로까지 검사합니다.
 
 | 파일 | 내용 |
 |---|---|
@@ -55,8 +63,16 @@ node build.js
 | `src/4_b_kits.js` | 원딜 4명 실제 스킬 키트 |
 | `src/3_z_wards.js` | 시야 아이템(망원 카메라·정찰 드론) |
 | `src/3_z_daniel_player.js` | 플레이어블 다니엘 |
-| `src/3_z_rest.js` | X 휴식 |
+| `src/3_z_rest.js` | X 휴식 (시즌 12) |
+| `src/3_z_tactical.js` | 전술 스킬 10종 |
 | `src/4_c_daniel.js` | 다니엘(근접 암살자) AI 키트·판단 |
 | `src/5_modes.js` | 게임 모드 |
-| `src/6_game_render.js` | 게임 루프·입력·렌더·HUD |
+| `src/5_z_sphere.js` | 크로노 스피어 |
+| `src/6_game_render.js` | 게임 루프·입력·`Renderer`(표시 계층)·2D 렌더·`ScreenLayer`·HUD |
+| `tests/regression.js` | 회귀 테스트 (메뉴·스킬·시야·휴식·전술·모드·입력·벽·AI) |
+| `docs/` | 이터널 리턴 리서치 노트 |
+| `src/6_z_render3d.js` | 3D 렌더러(쿼터뷰 추적 카메라·조명·맵·로우폴리 캐릭터·바닥 데칼) |
+| `src/6_y_models.js` | 3D 인물 모델(CC0) 로딩·색 입히기·손에 무기·애니메이션 |
+| `src/2_a_notice.js` | 비공식 표기 문구 (메뉴·결과·조작법 화면) |
+| `models/` | CC0 인물 모델 GLB 3개 + `LICENSE.txt`(출처) |
 | `src/7_ui_boot.js` | 메뉴·설정·결과 화면·차트 |
