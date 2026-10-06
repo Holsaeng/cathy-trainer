@@ -404,7 +404,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '5ccfca06';
+const BUILD_ID = '8c58618e';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 const rand = (a, b) => a + Rng.next() * (b - a);
 const vrand = (a, b) => a + Math.random() * (b - a);   // 화면 효과용 (판정 난수를 소모하지 않음)
@@ -5139,21 +5139,25 @@ const Models = {
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
   CUSTOM: ['cathy', 'daniel'],
-  choice(key) { const m = Settings.models3dBy || {}; return m[key] || 'cc0'; },
-  // 로컬 전용 설계(local/<키>_ref.json — 깃허브에 올리지 않음, .gitignore). 이 PC에서 열 때만 「원작풍 (로컬 전용)」 선택지가 생김
+  // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
+  choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
+  // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
+  async find(name) {
+    for (const dir of ['local/', this.DIR]) { try { const r = await fetch(dir + name, { method: 'HEAD' }); if (r.ok) return dir + name; } catch (e) { /* file:// 등 */ } }
+    return null;
+  },
+  // 원작풍 설계(models/<키>_ref.json, 이 PC에선 local/이 우선) → 설정에 「원작풍」 선택지가 생김
   loadLocal() {
-    for (const k of this.CUSTOM) fetch('local/' + k + '_ref.json').then(r => r.ok ? r.json() : null).then(d => {
+    for (const k of this.CUSTOM) this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
       if (!d || !d.parts) return;
       try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
     }).catch(() => {});
   },
-  // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → local/<키>_custom.glb, 깃 제외). 없으면 조용히 넘어감
-  //   IP 정책 확인 전까지 직접 만든 3D 모델 데이터는 온라인에 배포하지 않음 — 이 PC에서만 씀 (docs/ip_policy_notes.md)
+  // Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb, 이 PC에선 local/이 우선). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
-      const file = 'local/' + k + '_custom.glb';
-      fetch(file, { method: 'HEAD' }).then(r => {
-        if (!r.ok) return;
+      this.find(k + '_custom.glb').then(file => {
+        if (!file) return;
         loader.load(file, g => {
           // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
           const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;
@@ -6991,7 +6995,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍 (로컬 전용)']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>

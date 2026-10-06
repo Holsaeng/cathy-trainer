@@ -354,7 +354,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍 (로컬 전용)']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>

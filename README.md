@@ -4,7 +4,7 @@
 HTML 파일 하나로 동작하며, 설치 없이 `cathy_trainer.html`을 브라우저로 열면 바로 플레이할 수 있습니다.
 
 > 팬이 만든 **비공식** 연습 도구이며, 님블뉴런(Nimble Neuron)과 관련이 없고 공식 지원을 받지 않습니다. 이터널 리턴이라는 게임명과 실험체 이름·설정 등 모든 권리는 님블뉴런에 있으며, 연습 목적으로만 이름을 표기합니다.
-> **님블뉴런 IP 이용 정책(2025-08-07)에 맞는지 회사에 확인 문의 중**이며, 권리자의 요청이 있으면 즉시 수정하거나 삭제합니다. 확인 전까지 직접 만든 3D 캐릭터 모델 파일은 온라인에 배포하지 않습니다(`docs/ip_policy_notes.md`).
+> **님블뉴런 IP 이용 정책(2025-08-07)에 맞는지 회사에 확인 문의 중**이며, 권리자의 요청이 있으면 즉시 수정하거나 삭제합니다(`docs/ip_policy_notes.md`).
 > [님블뉴런 IP 이용 정책](https://support.playeternalreturn.com/hc/en-us/articles/49503976113177-Nimble-Neuron-IP-Usage-Policy-August-7th-2025)에 따라 공식 로고·일러스트·게임 모델·UI는 사용하지 않습니다. 3D 캐릭터는 직접 만든 로우폴리 모델 또는 CC0(자유 이용) 범용 모델을 색·소품으로 꾸민 것입니다. 비상업 목적이며 수익을 얻지 않습니다.
 
 ## IP 기준선 (3D 캐릭터 외형)
@@ -16,7 +16,9 @@ HTML 파일 하나로 동작하며, 설치 없이 `cathy_trainer.html`을 브라
 | 다니엘: 설정상 직업(미용사)의 일반 요소 — 검은 장발, 짙은 재킷, 미용사 앞치마·가위·빗, 단검 | 다니엘: 보라 장발, 버클 스트랩 롱코트, 보라 장식·띠 |
 | 무기 종류(단검·쌍검)와 일반적인 칼 모양, 역할 소품 | 원본 일러스트·게임 모델·얼굴 재현, 공식 로고·UI·스킨 디자인 |
 
-직접 만든 모델(`src/6_y_designs.js` → 게임 `src/6_y_procgen.js` · Blender `tools/blender/make_model.py`)과 CC0 모델 꾸미기 모두 이 기준을 따릅니다. 원작에 더 가까운 설계는 `local/`(깃 제외)에만 두고 이 PC에서만 씁니다.
+직접 만든 모델(`src/6_y_designs.js` → 게임 `src/6_y_procgen.js` · Blender `tools/blender/make_model.py`)과 CC0 모델 꾸미기 모두 이 기준을 따릅니다.
+
+> **2026-10-07부터 (저장소 관리자 결정)**: 공개판에도 직접 만든 Blender 모델(`models/cathy_custom.glb`·`models/daniel_custom.glb`, 기본 3D 모델)과 원작풍 설계(`models/cathy_ref.json`, 설정 → 그래픽 → 「원작풍」 선택 시, 위 표의 원본 고유 요소 일부 포함)를 올립니다. 권리자의 요청이 있으면 즉시 내립니다.
 
 ## 실행 방법
 - **웹에서 바로 플레이: https://holsaeng.github.io/cathy-trainer/**
@@ -101,7 +103,7 @@ node build.js --test   # + cathy_trainer.test.html — 열면 회귀 테스트(t
 | `src/6_y_models.js` | 3D 인물 모델(CC0) 로딩·색 입히기·손에 무기·애니메이션 |
 | `src/6_y_designs.js` | 직접 만든 캐릭터 설계(캐시·다니엘) — 게임과 Blender가 함께 읽는 순수 JSON |
 | `src/6_y_procgen.js` | 설계 → 게임 안에서 모델 생성(구·원통·회전체·상자·고리) + CC0 뼈대에 스키닝 — 설정 → 그래픽 → 실험체별 3D 모델 |
-| `tools/blender/` | 같은 설계를 Blender로 만드는 스크립트(`make_model.py`, `run.sh`) → `local/<키>_custom.glb`(깃 제외) + 미리보기 PNG |
+| `tools/blender/` | 같은 설계를 Blender로 만드는 스크립트(`make_model.py`, `run.sh`) → `local/<키>_custom.glb`(이 PC 시험용) → 확정본은 `models/`로 복사 + 미리보기 PNG |
 | `src/6_y_motions.js` | 직접 만든 동작(쌍검): 손 위치·칼날 방향 키프레임 → 두 관절 IK로 클립 굽기 |
 | `src/2_a_notice.js` | 비공식 표기 문구 (메뉴·결과·조작법 화면) |
 | `models/` | CC0 인물 모델 GLB 3개(Quaternius 원본) + `LICENSE.txt`(출처) |

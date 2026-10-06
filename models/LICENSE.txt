@@ -12,3 +12,10 @@ daniel_base.glb  ← Ultimate Modular Men Pack · "Hoodie Character" (CC0)
 
 원본 파일을 수정 없이 넣었고, 게임 안에서 색과 무기만 바꿔 실험체 느낌을 냅니다.
 이터널 리턴(님블뉴런)의 게임 모델이 아닙니다.
+
+직접 만든 모델 / Fan-made models (CC0 아님 · Not CC0)
+--------------------------------------------------
+cathy_custom.glb, daniel_custom.glb  ← 이 저장소에서 직접 만든 로우폴리 모양(tools/blender/make_model.py).
+                                       게임에서는 모양만 쓰고 뼈대·동작은 위 CC0 원본(*_base.glb)에 다시 붙임.
+cathy_ref.json                        ← 직접 만든 원작풍 설계 데이터(설정 → 「원작풍」).
+이터널 리턴(님블뉴런)의 게임 모델·리소스를 추출하거나 사용하지 않았습니다. 팬 제작물이며 권리자 요청 시 즉시 삭제합니다.

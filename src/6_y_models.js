@@ -40,21 +40,25 @@ const Models = {
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
   CUSTOM: ['cathy', 'daniel'],
-  choice(key) { const m = Settings.models3dBy || {}; return m[key] || 'cc0'; },
-  // 로컬 전용 설계(local/<키>_ref.json — 깃허브에 올리지 않음, .gitignore). 이 PC에서 열 때만 「원작풍 (로컬 전용)」 선택지가 생김
+  // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
+  choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
+  // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
+  async find(name) {
+    for (const dir of ['local/', this.DIR]) { try { const r = await fetch(dir + name, { method: 'HEAD' }); if (r.ok) return dir + name; } catch (e) { /* file:// 등 */ } }
+    return null;
+  },
+  // 원작풍 설계(models/<키>_ref.json, 이 PC에선 local/이 우선) → 설정에 「원작풍」 선택지가 생김
   loadLocal() {
-    for (const k of this.CUSTOM) fetch('local/' + k + '_ref.json').then(r => r.ok ? r.json() : null).then(d => {
+    for (const k of this.CUSTOM) this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
       if (!d || !d.parts) return;
       try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
     }).catch(() => {});
   },
-  // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → local/<키>_custom.glb, 깃 제외). 없으면 조용히 넘어감
-  //   IP 정책 확인 전까지 직접 만든 3D 모델 데이터는 온라인에 배포하지 않음 — 이 PC에서만 씀 (docs/ip_policy_notes.md)
+  // Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb, 이 PC에선 local/이 우선). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
-      const file = 'local/' + k + '_custom.glb';
-      fetch(file, { method: 'HEAD' }).then(r => {
-        if (!r.ok) return;
+      this.find(k + '_custom.glb').then(file => {
+        if (!file) return;
         loader.load(file, g => {
           // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
           const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;

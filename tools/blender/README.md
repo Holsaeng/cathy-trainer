@@ -18,7 +18,7 @@ bash tools/blender/run.sh
 bash tools/blender/run.sh daniel
 ```
 
-- 결과는 깃에 올라가지 않는 `local/`에 저장돼요(IP 정책 확인 전까지 3D 모델 데이터는 온라인 배포 안 함, `docs/ip_policy_notes.md`). `local/<키>_custom.glb`가 있으면 게임이 자동으로 읽고, 설정 → 그래픽 → <실험체> 3D 모델에 **Blender 모델** 버튼이 생깁니다.
+- 결과는 깃에 올라가지 않는 `local/`에 저장돼요(이 PC에서 먼저 확인용). 게임은 `local/<키>_custom.glb`가 있으면 그것을, 없으면 공개판 `models/<키>_custom.glb`를 읽습니다. 확정되면 `models/`로 복사해 올리세요. Blender 모델이 있으면 기본 3D 모델이 됩니다(설정 → 그래픽 → <실험체> 3D 모델에서 바꾸기).
 - `tools/blender/preview_<키>.png`에 정면·측면·뒷면 미리보기가 렌더됩니다.
 - 게임은 이 파일에서 **모양(메시·음영·가중치)만** 가져와 원본 CC0 뼈대(`models/*_base.glb`)에 다시 붙입니다(`Procgen.rebind`). Blender로 내보내면 뼈의 기본 방향·끝점이 다시 계산돼 다리 동작이 어긋나기 때문이에요. 그래서 평타 동기화·쌍검 동작·스킬 동작·다리 보정이 원본과 똑같이 동작합니다.
 - 모양을 바꿀 땐 `src/6_y_designs.js`의 수치를 고칩니다(형식은 파일 안 `_doc`). 새 실험체는 설계를 추가하고 `Models.CUSTOM`에 키를 넣으면 됩니다.
