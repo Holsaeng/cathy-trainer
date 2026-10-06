@@ -5,6 +5,8 @@
 // 실패(라이브러리 없음·WebGL 불가) 시 Renderer가 2D로 되돌림
 const Render3D = {
   ready: false, TEX_PPM: 40,
+  // 카메라: 이터널 리턴처럼 높고 가파르게(탑뷰와 쿼터뷰 사이), 좁은 시야각으로 원근감을 줄임 — 실제 랭크 영상 화면 비교
+  CAM: { pitch: 63, closePitch: 40, fov: 26, zoom: 36, min: 6, max: 54, step: 1.12, edge: 14, pan: 20 },   // 휠 한 칸 = 거리 ×1.12 · 가까이 당길수록(기본 줌 아래) 카메라가 눕어 모델 앞모습이 보임
   init() {
     if (!window.THREE) throw new Error('Three.js를 불러오지 못했습니다');
     const T3 = THREE;
@@ -13,8 +15,8 @@ const Render3D = {
     this.gl.shadowMap.enabled = true; this.gl.shadowMap.type = T3.PCFSoftShadowMap;
     this.gl.outputEncoding = T3.sRGBEncoding; this.gl.toneMapping = T3.ACESFilmicToneMapping; this.gl.toneMappingExposure = 0.95;
     this.scene = new T3.Scene(); this.scene.background = new T3.Color('#1a2130');
-    this.camera = new T3.PerspectiveCamera(38, 1, 0.5, 200);
-    this.zoom = 22; this.camTarget = new T3.Vector3(16, 0, 9); this.ray = new T3.Raycaster(); this.groundPlane = new T3.Plane(new T3.Vector3(0, 1, 0), 0);
+    this.camera = new T3.PerspectiveCamera(this.CAM.fov, 1, 0.5, 300);
+    this.zoom = this.CAM.zoom; this.camTarget = new T3.Vector3(16, 0, 9); this.ray = new T3.Raycaster(); this.groundPlane = new T3.Plane(new T3.Vector3(0, 1, 0), 0);
     // 조명: 하늘·땅 반사광 + 비스듬한 햇빛(그림자)
     this.hemi = new T3.HemisphereLight('#cfe3ff', '#5a5040', 0.6); this.scene.add(this.hemi);
     this.sun = new T3.DirectionalLight('#fff1d6', 1.0); this.sun.position.set(6, 22, 4); this.sun.castShadow = true;
@@ -247,11 +249,21 @@ const Render3D = {
   // ---------- 카메라·조명 ----------
   updateCamera(dt) {
     const p = Game.player, W = CONFIG.world.w, H = CONFIG.world.h;
-    const want = p && !p.dead && Game.state !== 'menu' ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : new THREE.Vector3(W / 2, 0, H / 2);
-    this.camTarget.lerp(want, Game.state === 'menu' ? 1 : Math.min(1, dt * 8));
-    const z = Game.state === 'menu' ? 30 : this.zoom, pitch = 56 * Math.PI / 180, sh = Settings.reduceShake ? 0 : FX.shake * 0.01;
-    this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
-    this.camera.lookAt(this.camTarget); this.camera.updateMatrixWorld();
+    const C = this.CAM, play = Game.state !== 'menu' && p && !p.dead;
+    // 카메라 잠금(Y 전환, 기본 잠금): 잠금이면 내 캐릭터를 따라감 / 풀면 마우스를 화면 가장자리에 대 이동, 스페이스를 누르고 있으면 내 캐릭터로
+    const follow = !play ? null : (Settings.camLock !== false || Input.spaceHeld) ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : null;
+    if (!play) this.camTarget.set(W / 2, 0, H / 2);
+    else if (follow) this.camTarget.lerp(follow, Math.min(1, dt * (Input.spaceHeld ? 14 : 8)));
+    else if (Game.state === 'play' && !Game.paused && document.hasFocus()) {
+      const s = Input.screen, e = C.edge, sp = C.pan * (this.zoom / C.zoom) * dt;
+      if (s.x <= e) this.camTarget.x -= sp; else if (s.x >= this.W - e) this.camTarget.x += sp;
+      if (s.y <= e) this.camTarget.z -= sp; else if (s.y >= this.H - e) this.camTarget.z += sp;
+      this.camTarget.x = clamp(this.camTarget.x, -4, W + 4); this.camTarget.z = clamp(this.camTarget.z, -4, H + 4);
+    }
+    const z = Game.state === 'menu' ? 48 : this.zoom, close = clamp((C.zoom - z) / (C.zoom - C.min), 0, 1), pitch = lerp(C.pitch, C.closePitch, close * close * (3 - 2 * close)) * Math.PI / 180, sh = Settings.reduceShake ? 0 : FX.shake * 0.01;
+    const ly = 0.95 * close * close;   // 가까이 당기면 발밑 대신 몸 가운데를 바라봄
+    this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, ly + Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
+    this.camera.lookAt(this.camTarget.x, ly, this.camTarget.z); this.camera.updateMatrixWorld();
     // 해: 카메라 근처를 따라다니며 그림자 범위 유지 / 밤: 푸르고 어둡게
     this.sun.position.set(this.camTarget.x + 6, 22, this.camTarget.z + 4); this.sun.target.position.copy(this.camTarget);
     const night = Vision.fogOn && Vision.night;
@@ -269,6 +281,6 @@ const Render3D = {
     const ctx = Render.ctx, L = Render.L; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, Render.cv.width, Render.cv.height);
     ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0); ScreenLayer.draw(ctx, L);
   },
-  onWheel(e) { this.zoom = clamp(this.zoom + Math.sign(e.deltaY) * 2, 12, 34); },
+  onWheel(e) { const C = this.CAM; this.zoom = clamp(this.zoom * Math.pow(C.step, Math.sign(e.deltaY)), C.min, C.max); },
   show(on) { this.cv.style.display = on ? 'block' : 'none'; },
 };

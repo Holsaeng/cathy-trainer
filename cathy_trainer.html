@@ -628,8 +628,8 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', sound: true, volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -3678,6 +3678,7 @@ const Input = {
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
     }
+    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
     if (Game.state !== 'play' || Game.paused || e.repeat || !Game.player) return;
     const k = e.key.toLowerCase(), act = Object.keys(Settings.keys).find(a => Settings.keys[a] === k);
     if (!act) return;
@@ -3688,6 +3689,7 @@ const Input = {
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
+    if (act === 'Y') { Settings.camLock = Settings.camLock === false; saveSettings(); FX.toast(Settings.camLock ? '카메라 잠금' : '카메라 잠금 해제 — 화면 가장자리로 이동, 스페이스로 내 캐릭터', '#9fd8ff'); return; }   // 이터널 리턴과 같은 카메라 잠금 전환
     if (act === 'R' && p.shadow) { p.cmdSkill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
@@ -3698,6 +3700,7 @@ const Input = {
     this.aiming = act; this.amove = false;
   },
   onKeyUp(e) {
+    if (e.key === ' ') this.spaceHeld = false;
     if (!this.holdKey || Game.state !== 'play' || Game.paused || !Game.player) { this.holdKey = null; return; }
     const act = Object.keys(Settings.keys).find(a => Settings.keys[a] === e.key.toLowerCase());
     if (act !== this.holdKey) return;
@@ -4055,7 +4058,7 @@ const ScreenLayer = {
   drawOverheads(ctx) {
     for (const u of Game.units) {
       if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
-      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = Math.max(44, R * 2.6), bh = 6, x = o.x - bw / 2, y = o.top;
+      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = clamp(R * 2.6, 44, 110), bh = 6, x = o.x - bw / 2, y = o.top;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
       ctx.fillStyle = u.team === 0 ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);
@@ -4181,43 +4184,63 @@ const DESIGNS = {
   "_doc": "좌표: 모델 기준 m (위 +Y, 정면 +Z, 왼손 쪽 +X), 바인드 T자세. 점 = [x,y,z] 또는 {b: 뼈, o: [dx,dy,dz], set: {y: 절대값}}. rel: 뼈 이름이면 배열 좌표·lathe 높이가 그 뼈 기준. sym: 왼쪽(+X)으로 적고 오른쪽은 x 반전, 뼈 이름의 % = L/R. w: 따라갈 뼈 후보(가까운 2개). ang: 구의 [phi시작, phi길이, theta시작, theta길이] (π 단위, phi 0 = -X, 0.5 = +Z 정면). p: lathe 각도 [시작, 길이] (π 단위, 0 = 정면). rot: 오일러 XYZ(rad).",
   "cathy": {
     "rig": "cathy",
-    "colors": { "skin": "#e2b48e", "hair": "#2a1c17", "scrub": "#2a9d8f", "pants": "#21786d", "coat": "#f3f5f7", "shoe": "#2b2f36", "eye": "#1d1a1a", "tie": "#2fd1bd", "band": "#4a4f58", "badge": "#dfe9f0", "lip": "#b5655b", "blush": "#f2a7a0", "white": "#ffffff" },
-    "skirt": { "top": 0.9, "span": 0.45, "max": 0.5 },
+    "colors": { "skin": "#c48b62", "hair": "#5a3826", "scrub": "#b3263a", "scrubDark": "#861b2b", "coat": "#f2f3f6", "pipe": "#7d8ba3", "shoe": "#2b2f36", "sole": "#e9ecef", "eye": "#1d1a1a", "lash": "#24140e", "badge": "#dfe9f0", "lip": "#a5594d", "blush": "#f2a7a0", "white": "#ffffff", "glove": "#1e1e22", "belt": "#18191c", "pouch": "#4a525c", "steel": "#c9cfd6", "tights": "#3a2b27", "skirt": "#1f2024", "skirtHem": "#161719", "scarf": "#2a2c33", "ribbon": "#b3263a", "heel": "#141416" },
+    "skirt": { "top": 0.9, "span": 0.42, "max": 0.78 },
     "parts": [
-      { "t": "sphere", "rel": "Head", "at": [0, 0.093, 0.01], "s": [0.116, 0.126, 0.12], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"] },
-      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.042, 0.088, 0.123], "s": [0.017, 0.023, 0.008], "seg": [6, 5], "c": "eye", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "at": [0.048, 0.097, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "at": [-0.036, 0.097, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
-      { "t": "box", "rel": "Head", "sym": true, "at": [0.044, 0.128, 0.122], "s": [0.03, 0.006, 0.006], "c": "hair", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.068, 0.058, 0.112], "s": [0.019, 0.009, 0.005], "seg": [6, 3], "c": "blush", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.093, 0.01], "s": [0.114, 0.126, 0.12], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.042, 0.088, 0.123], "s": [0.017, 0.022, 0.008], "seg": [6, 5], "c": "eye", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0.048, 0.096, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [-0.036, 0.096, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "sym": true, "at": [0.045, 0.111, 0.125], "s": [0.03, 0.005, 0.005], "rot": [0, 0, 0.16], "c": "lash", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "sym": true, "at": [0.045, 0.133, 0.121], "s": [0.028, 0.005, 0.005], "rot": [0, 0, 0.08], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.068, 0.058, 0.112], "s": [0.017, 0.008, 0.005], "seg": [6, 3], "c": "blush", "w": ["Head"] },
       { "t": "sphere", "rel": "Head", "at": [0, 0.063, 0.13], "s": [0.009, 0.013, 0.01], "seg": [5, 4], "c": "skin", "w": ["Head"] },
-      { "t": "box", "rel": "Head", "at": [0, 0.033, 0.123], "s": [0.026, 0.005, 0.004], "c": "lip", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "at": [0, 0.113, -0.005], "s": [0.13, 0.13, 0.13], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "at": [0, 0.093, -0.002], "s": [0.133, 0.132, 0.13], "seg": [16, 8], "ang": [1.1, 0.8, 0, 0.8], "c": "hair", "w": ["Head"] },
-      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.045, 0.176, 0.085], "s": [0.072, 0.035, 0.05], "seg": [10, 5], "c": "hair", "w": ["Head"] },
-      { "t": "tube", "rel": "Head", "sym": true, "a": [0.112, 0.153, 0.04], "b": [0.105, 0.013, 0.06], "r": [0.03, 0.014], "seg": 6, "c": "hair", "w": ["Head"] },
-      { "t": "tube", "rel": "Head", "a": [0, 0.048, -0.145], "b": [0, -0.267, -0.19], "r": [0.042, 0.016], "seg": 8, "rings": 6, "c": "hair", "w": ["Head", "Neck", "Chest"] },
-      { "t": "tube", "rel": "Head", "a": [0, 0.053, -0.144], "b": [0, 0.023, -0.15], "r": [0.038, 0.038], "seg": 8, "c": "band", "w": ["Head", "Neck"] },
+      { "t": "box", "rel": "Head", "at": [0, 0.033, 0.123], "s": [0.024, 0.005, 0.004], "c": "lip", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.115, -0.005], "s": [0.134, 0.134, 0.132], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0, 0.093, -0.004], "s": [0.137, 0.134, 0.133], "seg": [16, 8], "ang": [1.08, 0.84, 0, 0.82], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [0.028, 0.172, 0.09], "s": [0.1, 0.038, 0.055], "rot": [0, 0, 0.22], "seg": [12, 6], "c": "hair", "w": ["Head"] },
+      { "t": "sphere", "rel": "Head", "at": [-0.07, 0.16, 0.08], "s": [0.05, 0.04, 0.05], "rot": [0, 0, -0.35], "seg": [8, 5], "c": "hair", "w": ["Head"] },
+      { "t": "tube", "rel": "Head", "sym": true, "a": [0.114, 0.15, 0.045], "b": [0.108, 0, 0.068], "r": [0.03, 0.013], "seg": 7, "c": "hair", "w": ["Head"] },
+      { "t": "tube", "rel": "Head", "a": [0, 0.05, -0.145], "b": [0, -0.12, -0.205], "r": [0.046, 0.033], "seg": 9, "rings": 4, "c": "hair", "w": ["Head", "Neck", "Chest"] },
+      { "t": "tube", "rel": "Head", "a": [0, -0.115, -0.204], "b": [0, -0.31, -0.17], "r": [0.033, 0.011], "seg": 9, "rings": 4, "c": "hair", "w": ["Neck", "Chest"] },
+      { "t": "tube", "rel": "Head", "a": [0, 0.058, -0.143], "b": [0, 0.028, -0.152], "r": [0.04, 0.04], "seg": 9, "c": "ribbon", "w": ["Head", "Neck"] },
       { "t": "tube", "a": [0, 1.36, 0.045], "b": [0, 1.46, 0.045], "r": [0.043, 0.04], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"] },
-      { "t": "lathe", "prof": [[0.112, 0.89], [0.116, 0.96], [0.102, 1.04], [0.11, 1.13], [0.124, 1.22], [0.12, 1.3], [0.075, 1.355], [0.042, 1.37]], "cz": 0.05, "zs": 0.82, "n": 14, "c": "scrub", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"] },
-      { "t": "lathe", "prof": [[0.113, 0.86], [0.12, 0.92], [0.114, 0.97]], "cz": 0.05, "zs": 0.85, "n": 14, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"] },
-      { "t": "tube", "sym": true, "a": { "b": "UpperLeg%", "o": [0, 0.02, 0] }, "b": { "b": "LowerLeg%" }, "r": [0.058, 0.048], "seg": 9, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%" }, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%" }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.075 } }, "r": [0.047, 0.036], "seg": 9, "rings": 5, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.095 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.03 } }, "r": [0.03, 0.03], "seg": 8, "c": "skin", "w": ["LowerLeg%", "Foot%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%", "set": { "y": 0.035, "z": 0.1 } }, "s": [0.048, 0.037, 0.105], "seg": [10, 6], "c": "shoe", "w": ["Foot%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "UpperArm%" }, "s": [0.058, 0.058, 0.058], "seg": [8, 6], "c": "coat", "w": ["UpperArm%", "Shoulder%", "Chest"] },
-      { "t": "tube", "sym": true, "a": { "b": "UpperArm%" }, "b": { "b": "LowerArm%" }, "r": [0.052, 0.046], "seg": 9, "rings": 4, "c": "coat", "w": ["UpperArm%", "LowerArm%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerArm%" }, "s": [0.046, 0.046, 0.046], "seg": [8, 6], "c": "coat", "w": ["LowerArm%", "UpperArm%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerArm%" }, "b": { "b": "Wrist%", "o": [-0.005, 0, 0] }, "r": [0.046, 0.042], "seg": 9, "rings": 4, "c": "coat", "w": ["LowerArm%", "Wrist%"] },
-      { "t": "tube", "sym": true, "a": { "b": "Wrist%", "o": [-0.01, 0, 0] }, "b": { "b": "Wrist%", "o": [0.005, 0, 0] }, "r": [0.043, 0.043], "seg": 9, "c": "scrub", "w": ["Wrist%", "LowerArm%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.045, -0.003, 0.004] }, "s": [0.045, 0.022, 0.036], "seg": [8, 6], "c": "skin", "w": ["Wrist%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.02, 0, 0.03] }, "s": [0.018, 0.014, 0.02], "seg": [6, 4], "c": "skin", "w": ["Wrist%"] },
-      { "t": "lathe", "prof": [[0.178, 0.34], [0.172, 0.5], [0.164, 0.7], [0.156, 0.9], [0.135, 1.0], [0.13, 1.12], [0.142, 1.22], [0.138, 1.3], [0.092, 1.36]], "cz": 0.05, "zs": 0.86, "n": 16, "p": [0.11, 1.78], "c": "coat", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true },
+      { "t": "lathe", "prof": [[0.11, 0.89], [0.114, 0.96], [0.1, 1.04], [0.108, 1.13], [0.122, 1.22], [0.118, 1.3], [0.075, 1.355], [0.042, 1.37]], "cz": 0.05, "zs": 0.82, "n": 14, "c": "scrub", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"] },
+      { "t": "box", "sym": true, "at": [0.022, 1.29, 0.137], "s": [0.012, 0.075, 0.006], "rot": [0.12, 0, 0.42], "c": "scrubDark", "w": ["Chest"] },
+      { "t": "lathe", "prof": [[0.112, 0.985], [0.118, 0.95], [0.128, 0.88], [0.142, 0.8], [0.152, 0.73]], "cz": 0.05, "zs": 0.86, "n": 16, "c": "skirt", "w": ["Hips", "Abdomen"], "skirt": true },
+      { "t": "lathe", "prof": [[0.1525, 0.735], [0.153, 0.722]], "cz": 0.05, "zs": 0.86, "n": 16, "c": "skirtHem", "w": ["Hips"], "skirt": true },
+      { "t": "lathe", "prof": [[0.105, 0.86], [0.112, 0.92], [0.108, 0.97]], "cz": 0.05, "zs": 0.85, "n": 14, "c": "tights", "w": ["Hips", "UpperLegL", "UpperLegR"] },
+      { "t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%", "set": {"y": 0.66}}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "tights", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%", "set": {"y": 0.665}}, "b": {"b": "LowerLeg%"}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "tights", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.042, 0.042, 0.042], "seg": [8, 6], "c": "tights", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.1}}, "r": [0.04, 0.033], "seg": 9, "rings": 5, "c": "tights", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.11}}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.05}}, "r": [0.027, 0.027], "seg": 8, "c": "tights", "w": ["LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "UpperArm%"}, "s": [0.058, 0.058, 0.058], "seg": [8, 6], "c": "coat", "w": ["UpperArm%", "Shoulder%", "Chest"] },
+      { "t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.052, 0.047], "seg": 9, "rings": 4, "c": "coat", "w": ["UpperArm%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.047, 0.047, 0.047], "seg": [8, 6], "c": "coat", "w": ["LowerArm%", "UpperArm%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "LowerArm%", "o": [0.07, 0, 0.006]}, "r": [0.047, 0.046], "seg": 9, "c": "coat", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerArm%", "o": [0.062, 0, 0.006]}, "b": {"b": "LowerArm%", "o": [0.09, 0, 0.007]}, "r": [0.055, 0.055], "seg": 10, "c": "coat", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerArm%", "o": [0.088, 0, 0.007]}, "b": {"b": "LowerArm%", "o": [0.096, 0, 0.007]}, "r": [0.056, 0.056], "seg": 10, "c": "pipe", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerArm%", "o": [0.08, 0, 0.008]}, "b": {"b": "Wrist%", "o": [-0.02, 0, 0]}, "r": [0.034, 0.029], "seg": 8, "rings": 3, "c": "skin", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.03, 0, 0]}, "b": {"b": "Wrist%", "o": [0, 0, 0]}, "r": [0.034, 0.033], "seg": 8, "c": "glove", "w": ["Wrist%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.045, -0.003, 0.004]}, "s": [0.045, 0.022, 0.036], "seg": [8, 6], "c": "glove", "w": ["Wrist%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.02, 0, 0.03]}, "s": [0.018, 0.014, 0.02], "seg": [6, 4], "c": "glove", "w": ["Wrist%"] },
+      { "t": "lathe", "prof": [[0.19, 0.36], [0.18, 0.5], [0.166, 0.7], [0.154, 0.88], [0.134, 0.98], [0.124, 1.08], [0.134, 1.19], [0.142, 1.27], [0.132, 1.33], [0.092, 1.37]], "cz": 0.05, "zs": 0.86, "n": 18, "p": [0.12, 1.76], "c": "coat", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true },
+      { "t": "lathe", "prof": [[0.1915, 0.355], [0.1905, 0.382]], "cz": 0.05, "zs": 0.86, "n": 18, "p": [0.12, 1.76], "c": "pipe", "w": ["Hips"], "skirt": true },
       { "t": "torus", "at": [0, 1.345, 0.05], "R": 0.085, "r": 0.022, "zs": 0.85, "c": "coat", "w": ["Neck", "Chest"] },
-      { "t": "box", "at": [0.075, 1.2, 0.163], "s": [0.05, 0.03, 0.006], "c": "badge", "w": ["Chest"] },
       { "t": "box", "at": [-0.07, 1.19, 0.163], "s": [0.045, 0.05, 0.006], "c": "coat", "w": ["Chest"] },
-      { "t": "box", "at": [-0.062, 1.215, 0.166], "s": [0.006, 0.04, 0.006], "c": "tie", "w": ["Chest"] }
+      { "t": "torus", "at": [0, 0.96, 0.052], "R": 0.118, "r": 0.012, "zs": 0.84, "c": "belt", "w": ["Hips", "Abdomen"] },
+      { "t": "box", "at": [-0.112, 0.915, 0.075], "s": [0.03, 0.07, 0.055], "rot": [0, -0.5, 0], "c": "pouch", "w": ["Hips"] },
+      { "t": "box", "at": [-0.112, 0.96, 0.068], "s": [0.006, 0.04, 0.006], "rot": [0, -0.5, 0.1], "c": "steel", "w": ["Hips"] },
+      { "t": "box", "at": [-0.112, 0.96, 0.084], "s": [0.006, 0.036, 0.006], "rot": [0, -0.5, -0.1], "c": "steel", "w": ["Hips"] },
+      { "t": "tube", "a": [0, 1.35, 0.045], "b": [0, 1.43, 0.045], "r": [0.058, 0.052], "seg": 12, "c": "scarf", "w": ["Neck", "Chest"] },
+      { "t": "box", "at": [0.02, 1.3, 0.13], "s": [0.05, 0.1, 0.015], "rot": [0.15, 0, 0.12], "c": "scarf", "w": ["Chest", "Neck"] },
+      { "t": "sphere", "rel": "Head", "sym": true, "at": [0.03, 0.045, -0.155], "s": [0.028, 0.016, 0.01], "seg": [6, 4], "rot": [0, 0, 0.5], "c": "ribbon", "w": ["Head"] },
+      { "t": "box", "rel": "Head", "sym": true, "at": [0.015, 0, -0.162], "s": [0.012, 0.06, 0.004], "rot": [0, 0, 0.2], "c": "ribbon", "w": ["Head", "Neck"] },
+      { "t": "torus", "at": [0, 1.005, 0.05], "R": 0.112, "r": 0.012, "zs": 0.84, "c": "belt", "w": ["Hips", "Abdomen"] },
+      { "t": "box", "at": [0, 1.005, 0.146], "s": [0.026, 0.022, 0.008], "c": "steel", "w": ["Abdomen"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.05, "z": 0.105}}, "s": [0.036, 0.03, 0.095], "seg": [10, 6], "c": "heel", "w": ["Foot%"] },
+      { "t": "box", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.03, "z": 0.025}}, "s": [0.016, 0.06, 0.018], "c": "heel", "w": ["Foot%"] }
     ]
   },
   "daniel": {
@@ -4247,19 +4270,19 @@ const DESIGNS = {
       { "t": "sphere", "sym": true, "at": [0.062, 1.2, 0.166], "s": [0.008, 0.008, 0.005], "seg": [6, 4], "c": "steel", "w": ["Chest"] },
       { "t": "sphere", "sym": true, "at": [0.058, 1.08, 0.163], "s": [0.008, 0.008, 0.005], "seg": [6, 4], "c": "steel", "w": ["Torso"] },
       { "t": "lathe", "prof": [[0.12, 0.76], [0.126, 0.84], [0.12, 0.9]], "cz": 0.045, "zs": 0.85, "n": 14, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"] },
-      { "t": "tube", "sym": true, "a": { "b": "UpperLeg%", "o": [0, 0.02, 0] }, "b": { "b": "LowerLeg%" }, "r": [0.066, 0.054], "seg": 9, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%" }, "s": [0.055, 0.055, 0.055], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%" }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.01], "set": { "y": 0.2 } }, "r": [0.05, 0.045], "seg": 9, "rings": 4, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.24 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.04 } }, "r": [0.054, 0.05], "seg": 10, "c": "boot", "w": ["LowerLeg%", "Foot%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerLeg%", "set": { "y": 0.04, "z": 0.1 } }, "s": [0.056, 0.045, 0.118], "seg": [10, 6], "c": "boot", "w": ["Foot%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.235 } }, "b": { "b": "LowerLeg%", "o": [0, 0, -0.008], "set": { "y": 0.215 } }, "r": [0.057, 0.057], "seg": 10, "c": "strap", "w": ["LowerLeg%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "UpperArm%" }, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "jacket", "w": ["UpperArm%", "Shoulder%", "Chest"] },
-      { "t": "tube", "sym": true, "a": { "b": "UpperArm%" }, "b": { "b": "LowerArm%" }, "r": [0.058, 0.05], "seg": 9, "rings": 4, "c": "jacket", "w": ["UpperArm%", "LowerArm%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "LowerArm%" }, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "jacket", "w": ["LowerArm%", "UpperArm%"] },
-      { "t": "tube", "sym": true, "a": { "b": "LowerArm%" }, "b": { "b": "Wrist%", "o": [-0.012, 0, 0] }, "r": [0.05, 0.044], "seg": 9, "rings": 4, "c": "jacket", "w": ["LowerArm%", "Wrist%"] },
-      { "t": "tube", "sym": true, "a": { "b": "Wrist%", "o": [-0.025, 0, 0] }, "b": { "b": "Wrist%", "o": [0.0, 0, 0] }, "r": [0.048, 0.048], "seg": 9, "c": "trim", "w": ["Wrist%", "LowerArm%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.046, -0.003, 0.004] }, "s": [0.049, 0.024, 0.038], "seg": [8, 6], "c": "skin", "w": ["Wrist%"] },
-      { "t": "sphere", "sym": true, "at": { "b": "Wrist%", "o": [0.02, 0, 0.032] }, "s": [0.02, 0.015, 0.022], "seg": [6, 4], "c": "skin", "w": ["Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%"}, "r": [0.066, 0.054], "seg": 9, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.055, 0.055, 0.055], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.2}}, "r": [0.05, 0.045], "seg": 9, "rings": 4, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.24}}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.04}}, "r": [0.054, 0.05], "seg": 10, "c": "boot", "w": ["LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.04, "z": 0.1}}, "s": [0.056, 0.045, 0.118], "seg": [10, 6], "c": "boot", "w": ["Foot%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.235}}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.215}}, "r": [0.057, 0.057], "seg": 10, "c": "strap", "w": ["LowerLeg%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "UpperArm%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "jacket", "w": ["UpperArm%", "Shoulder%", "Chest"] },
+      { "t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.058, 0.05], "seg": 9, "rings": 4, "c": "jacket", "w": ["UpperArm%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "jacket", "w": ["LowerArm%", "UpperArm%"] },
+      { "t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "Wrist%", "o": [-0.012, 0, 0]}, "r": [0.05, 0.044], "seg": 9, "rings": 4, "c": "jacket", "w": ["LowerArm%", "Wrist%"] },
+      { "t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.025, 0, 0]}, "b": {"b": "Wrist%", "o": [0, 0, 0]}, "r": [0.048, 0.048], "seg": 9, "c": "trim", "w": ["Wrist%", "LowerArm%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.046, -0.003, 0.004]}, "s": [0.049, 0.024, 0.038], "seg": [8, 6], "c": "skin", "w": ["Wrist%"] },
+      { "t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.02, 0, 0.032]}, "s": [0.02, 0.015, 0.022], "seg": [6, 4], "c": "skin", "w": ["Wrist%"] },
       { "t": "torus", "at": [0, 0.865, 0.045], "R": 0.133, "r": 0.013, "zs": 0.84, "c": "strap", "w": ["Hips", "Abdomen"] },
       { "t": "lathe", "prof": [[0.158, 0.45], [0.152, 0.6], [0.144, 0.74], [0.137, 0.86]], "cz": 0.045, "zs": 0.9, "n": 10, "p": [1.68, 0.64], "c": "apron", "w": ["Hips"], "skirt": true },
       { "t": "box", "at": [0.05, 0.72, 0.178], "s": [0.075, 0.08, 0.008], "c": "strap", "w": ["Hips"], "skirt": true },
@@ -4309,12 +4332,19 @@ const Models = {
       .then(list => { list.forEach((g, i) => { this.src[keys[i]] = this.prepare(g); });
         try { Motions.bake(this.src.cathy); } catch (e) { console.warn('쌍검 동작 생성 실패 — 기본 동작 사용:', e); }   // 6_y_motions.js
         for (const k of this.CUSTOM) try { this.src[k + 'Proc'] = Procgen.build(this.src[DESIGNS[k].rig], DESIGNS[k]); } catch (e) { console.warn('직접 만든 모델 생성 실패:', k, e); }   // 6_y_procgen.js · 6_y_designs.js
-        this.state = 'ready'; this.ver++; this.loadOptional(loader); })
+        this.state = 'ready'; this.ver++; this.loadOptional(loader); this.loadLocal(); })
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
   CUSTOM: ['cathy', 'daniel'],
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || 'cc0'; },
+  // 로컬 전용 설계(local/<키>_ref.json — 깃허브에 올리지 않음, .gitignore). 이 PC에서 열 때만 「원작풍 (로컬 전용)」 선택지가 생김
+  loadLocal() {
+    for (const k of this.CUSTOM) fetch('local/' + k + '_ref.json').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d || !d.parts) return;
+      try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
+    }).catch(() => {});
+  },
   // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
@@ -4322,9 +4352,8 @@ const Models = {
       fetch(file, { method: 'HEAD' }).then(r => {
         if (!r.ok) return;
         loader.load(file, g => {
-          // Blender로 내보내면 뼈의 기본 방향이 원본과 달라짐 → 크기는 원본 뼈대 축척, 무기·소품 기준은 대기 동작 첫 프레임, 쌍검 동작은 이 파일 기준으로 다시 굽기
-          const S = this.prepare(g); S.proc = true; S.scale = this.src[DESIGNS[k].rig].scale; S.refPose = 'Idle'; S.design = DESIGNS[k];
-          if (k === 'cathy') try { Motions.bake(S); } catch (e) { console.warn('Blender 모델 쌍검 동작 생성 실패:', e); }
+          // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
+          const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;
           this.src[k + 'Blend'] = S; if (this.choice(k) === 'blend') this.ver++;
         }, undefined, e => console.warn('Blender 모델을 읽지 못했습니다:', k, e));
       }).catch(() => {});
@@ -4353,6 +4382,7 @@ const Models = {
       const ch = this.choice(key);
       if (ch === 'proc' && this.src[key + 'Proc']) S = this.src[key + 'Proc'];
       if (ch === 'blend' && this.src[key + 'Blend']) S = this.src[key + 'Blend'];
+      if (ch === 'ref' && this.src[key + 'Ref']) S = this.src[key + 'Ref'];   // 로컬 전용
     }
     if (!S) return null;
     const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
@@ -4558,6 +4588,26 @@ const Models = {
   step(rig, dt) {
     rig.mixer.update(dt);
     if (rig.segEnd !== null && rig.cur && rig.cur.time > rig.segEnd) { rig.cur.time = rig.segEnd; rig.cur.timeScale = 0; rig.mixer.update(0); }
+    this.fixLegs(rig);
+  },
+  // 다리 보정: CC0 뼈대의 동작은 무릎이 바깥으로 벌어지게 구워져 있음(대기 자세 엉덩이 x0.11 → 무릎 0.19 → 발 0.11, IK 무릎 방향 기준점이 옆에 있던 탓)
+  //   → 매 프레임 엉덩이·발목 위치는 그대로 두고, 무릎만 캐릭터 정면 쪽(살짝 바깥)으로 꺾이게 두 관절 IK로 다시 계산
+  fixLegs(rig) {
+    if (rig.legs === undefined) {
+      rig.legs = ['L', 'R'].map(sd => ({ sd: sd === 'L' ? 1 : -1, U: rig.obj.getObjectByName('UpperLeg' + sd), Lo: rig.obj.getObjectByName('LowerLeg' + sd), E: rig.obj.getObjectByName('LowerLeg' + sd + '_end'), F: rig.obj.getObjectByName('Foot' + sd) })).filter(l => l.U && l.Lo && l.E && l.F);
+      // 무릎 끝점(LowerLeg_end)이 발목(= 발 IK 뼈)과 일치하는 뼈대에서만 (Blender로 내보낸 파일은 끝점이 다시 계산돼 어긋나고, 무릎 벌어짐도 없음)
+      rig.obj.updateMatrixWorld(true);
+      if (rig.legs.some(l => l.E.getWorldPosition(new THREE.Vector3()).distanceTo(l.F.getWorldPosition(new THREE.Vector3())) > 0.05)) rig.legs = [];
+      rig._v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Quaternion()];
+    }
+    if (!rig.legs.length || typeof Motions === 'undefined') return;
+    const [fw, side, hip, q] = rig._v;
+    rig.obj.getWorldQuaternion(q); fw.set(0, 0, 1).applyQuaternion(q); side.set(1, 0, 0).applyQuaternion(q);   // 모델 정면(+Z)·왼쪽(+X)의 월드 방향
+    for (const l of rig.legs) {
+      const ank = l.E.getWorldPosition(new THREE.Vector3()); l.U.getWorldPosition(hip);
+      const pole = hip.clone().lerp(ank, 0.5).addScaledVector(fw, 0.6).addScaledVector(side, 0.12 * l.sd);
+      Motions.ik(l.U, l.Lo, l.E, ank, pole);
+    }
   },
   // 클립의 한 구간을 원하는 속도로 재생 (판정 시간에 맞추기)
   playSeg(rig, name, from, scale, fade) {
@@ -4752,6 +4802,35 @@ const Procgen = {
     o.scale.setScalar(1);   // Models.prepare와 같은 규약: 원본 축척(게임에서 S.scale 적용)
     return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D };
   },
+  // Blender 모델 붙이기: Blender 파일(models/<키>_custom.glb)에서는 모양(메시·음영·가중치)만 가져오고 뼈대·동작은 원본 CC0 것을 그대로 씀
+  //   (Blender로 내보내면 뼈의 기본 방향·끝점이 다시 계산돼 다리 동작이 어긋나 발이 부츠에서 떨어졌음) → 직접 만든 모델과 똑같이 다리 보정·쌍검 동작·무기 위치가 맞음
+  rebind(S, g, D) {
+    const T3 = THREE, o = THREE.SkeletonUtils.clone(S.scene); o.scale.setScalar(S.scale); o.updateMatrixWorld(true);
+    let sk = null; const olds = []; o.traverse(m => { if (m.isSkinnedMesh) { olds.push(m); if (!sk) sk = m.skeleton; } });
+    if (!sk) return null;
+    const keep = sk.bones.map(b => [b.position.clone(), b.quaternion.clone(), b.scale.clone()]);
+    sk.pose(); o.updateMatrixWorld(true);
+    for (const m of olds) m.parent.remove(m);
+    const skel = new T3.Skeleton(sk.bones), byName = new Map(sk.bones.map((b, i) => [b.name, i]));
+    const toLocal = new T3.Matrix4().copy(o.matrixWorld).invert().multiply(new T3.Matrix4().makeScale(S.scale, S.scale, S.scale));   // Blender 파일 월드(원본 축척) → 이 모델 안쪽 좌표
+    g.scene.updateMatrixWorld(true);
+    let n = 0;
+    g.scene.traverse(m => {
+      if (!m.isSkinnedMesh) return;
+      const geo = m.geometry.clone(); geo.applyMatrix4(new T3.Matrix4().copy(toLocal).multiply(m.bindMatrix));   // 바인드 자세(T자세) 모양 그대로
+      const si = geo.attributes.skinIndex;
+      const map = i => { const b = m.skeleton.bones[i], j = b ? byName.get(b.name) : undefined; return j === undefined ? 0 : j; }, idx = new Uint16Array(si.count * 4);   // 뼈 번호를 이름으로 다시 맞춤
+      for (let i = 0; i < si.count; i++) { idx[i * 4] = map(si.getX(i)); idx[i * 4 + 1] = map(si.getY(i)); idx[i * 4 + 2] = map(si.getZ(i)); idx[i * 4 + 3] = map(si.getW(i)); }
+      geo.setAttribute('skinIndex', new T3.Uint16BufferAttribute(idx, 4));
+      const mat = m.material.clone(); mat.skinning = true; mat.name = 'blend';
+      const mesh = new T3.SkinnedMesh(geo, mat); mesh.castShadow = true; mesh.frustumCulled = false;
+      o.add(mesh); mesh.updateMatrixWorld(true); mesh.bind(skel, mesh.matrixWorld); n++;
+    });
+    if (!n) return null;
+    sk.bones.forEach((b, i) => { b.position.copy(keep[i][0]); b.quaternion.copy(keep[i][1]); b.scale.copy(keep[i][2]); });
+    o.scale.setScalar(1);
+    return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D, blend: true };
+  },
   // 뼈 구간(뼈 → 끝): 가중치 계산용
   TIP: { Hips: 'Abdomen', Abdomen: 'Torso', Torso: 'Chest', Chest: 'Neck', Neck: 'Head', UpperArmL: 'LowerArmL', LowerArmL: 'WristL', UpperArmR: 'LowerArmR', LowerArmR: 'WristR', UpperLegL: 'LowerLegL', UpperLegR: 'LowerLegR', ShoulderL: 'UpperArmL', ShoulderR: 'UpperArmR' },
   segments(bones, BP) {
@@ -4876,6 +4955,8 @@ const Procgen = {
 // 실패(라이브러리 없음·WebGL 불가) 시 Renderer가 2D로 되돌림
 const Render3D = {
   ready: false, TEX_PPM: 40,
+  // 카메라: 이터널 리턴처럼 높고 가파르게(탑뷰와 쿼터뷰 사이), 좁은 시야각으로 원근감을 줄임 — 실제 랭크 영상 화면 비교
+  CAM: { pitch: 63, closePitch: 40, fov: 26, zoom: 36, min: 6, max: 54, step: 1.12, edge: 14, pan: 20 },   // 휠 한 칸 = 거리 ×1.12 · 가까이 당길수록(기본 줌 아래) 카메라가 눕어 모델 앞모습이 보임
   init() {
     if (!window.THREE) throw new Error('Three.js를 불러오지 못했습니다');
     const T3 = THREE;
@@ -4884,8 +4965,8 @@ const Render3D = {
     this.gl.shadowMap.enabled = true; this.gl.shadowMap.type = T3.PCFSoftShadowMap;
     this.gl.outputEncoding = T3.sRGBEncoding; this.gl.toneMapping = T3.ACESFilmicToneMapping; this.gl.toneMappingExposure = 0.95;
     this.scene = new T3.Scene(); this.scene.background = new T3.Color('#1a2130');
-    this.camera = new T3.PerspectiveCamera(38, 1, 0.5, 200);
-    this.zoom = 22; this.camTarget = new T3.Vector3(16, 0, 9); this.ray = new T3.Raycaster(); this.groundPlane = new T3.Plane(new T3.Vector3(0, 1, 0), 0);
+    this.camera = new T3.PerspectiveCamera(this.CAM.fov, 1, 0.5, 300);
+    this.zoom = this.CAM.zoom; this.camTarget = new T3.Vector3(16, 0, 9); this.ray = new T3.Raycaster(); this.groundPlane = new T3.Plane(new T3.Vector3(0, 1, 0), 0);
     // 조명: 하늘·땅 반사광 + 비스듬한 햇빛(그림자)
     this.hemi = new T3.HemisphereLight('#cfe3ff', '#5a5040', 0.6); this.scene.add(this.hemi);
     this.sun = new T3.DirectionalLight('#fff1d6', 1.0); this.sun.position.set(6, 22, 4); this.sun.castShadow = true;
@@ -5118,11 +5199,21 @@ const Render3D = {
   // ---------- 카메라·조명 ----------
   updateCamera(dt) {
     const p = Game.player, W = CONFIG.world.w, H = CONFIG.world.h;
-    const want = p && !p.dead && Game.state !== 'menu' ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : new THREE.Vector3(W / 2, 0, H / 2);
-    this.camTarget.lerp(want, Game.state === 'menu' ? 1 : Math.min(1, dt * 8));
-    const z = Game.state === 'menu' ? 30 : this.zoom, pitch = 56 * Math.PI / 180, sh = Settings.reduceShake ? 0 : FX.shake * 0.01;
-    this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
-    this.camera.lookAt(this.camTarget); this.camera.updateMatrixWorld();
+    const C = this.CAM, play = Game.state !== 'menu' && p && !p.dead;
+    // 카메라 잠금(Y 전환, 기본 잠금): 잠금이면 내 캐릭터를 따라감 / 풀면 마우스를 화면 가장자리에 대 이동, 스페이스를 누르고 있으면 내 캐릭터로
+    const follow = !play ? null : (Settings.camLock !== false || Input.spaceHeld) ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : null;
+    if (!play) this.camTarget.set(W / 2, 0, H / 2);
+    else if (follow) this.camTarget.lerp(follow, Math.min(1, dt * (Input.spaceHeld ? 14 : 8)));
+    else if (Game.state === 'play' && !Game.paused && document.hasFocus()) {
+      const s = Input.screen, e = C.edge, sp = C.pan * (this.zoom / C.zoom) * dt;
+      if (s.x <= e) this.camTarget.x -= sp; else if (s.x >= this.W - e) this.camTarget.x += sp;
+      if (s.y <= e) this.camTarget.z -= sp; else if (s.y >= this.H - e) this.camTarget.z += sp;
+      this.camTarget.x = clamp(this.camTarget.x, -4, W + 4); this.camTarget.z = clamp(this.camTarget.z, -4, H + 4);
+    }
+    const z = Game.state === 'menu' ? 48 : this.zoom, close = clamp((C.zoom - z) / (C.zoom - C.min), 0, 1), pitch = lerp(C.pitch, C.closePitch, close * close * (3 - 2 * close)) * Math.PI / 180, sh = Settings.reduceShake ? 0 : FX.shake * 0.01;
+    const ly = 0.95 * close * close;   // 가까이 당기면 발밑 대신 몸 가운데를 바라봄
+    this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, ly + Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
+    this.camera.lookAt(this.camTarget.x, ly, this.camTarget.z); this.camera.updateMatrixWorld();
     // 해: 카메라 근처를 따라다니며 그림자 범위 유지 / 밤: 푸르고 어둡게
     this.sun.position.set(this.camTarget.x + 6, 22, this.camTarget.z + 4); this.sun.target.position.copy(this.camTarget);
     const night = Vision.fogOn && Vision.night;
@@ -5140,7 +5231,7 @@ const Render3D = {
     const ctx = Render.ctx, L = Render.L; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, Render.cv.width, Render.cv.height);
     ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0); ScreenLayer.draw(ctx, L);
   },
-  onWheel(e) { this.zoom = clamp(this.zoom + Math.sign(e.deltaY) * 2, 12, 34); },
+  onWheel(e) { const C = this.CAM; this.zoom = clamp(this.zoom * Math.pow(C.step, Math.sign(e.deltaY)), C.min, C.max); },
   show(on) { this.cv.style.display = on ? 'block' : 'none'; },
 };
 
@@ -5397,7 +5488,7 @@ const UI = {
 
   showSettings(back) {
     this.settingsBack = back;
-    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 블링크', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식' };
+    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 블링크', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식</h3>
@@ -5412,8 +5503,9 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델']].filter(([v]) => v !== 'blend' || Models.src[k + 'Blend']).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
-      <div class="sub" style="margin:4px 0">3D: 캐릭터를 따라가는 쿼터뷰 카메라, 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
+      ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍 (로컬 전용)']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${cb('camLock', '카메라 잠금 (3D) — 끄면 마우스를 화면 가장자리에 대 카메라 이동, 스페이스를 누르고 있으면 내 캐릭터로. 플레이 중 <kbd>Y</kbd>로 전환')}
+      <div class="sub" style="margin:4px 0">3D: 이터널 리턴처럼 높이 내려다보는 시점(탑뷰와 쿼터뷰 사이), 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
@@ -5431,6 +5523,7 @@ const UI = {
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
       'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
+      'in:camLock': el => { Settings.camLock = el.checked; saveSettings(); },
       'in:models3d': el => { Settings.models3d = el.checked; saveSettings(); if (Render3D.ready) Render3D.refreshModels(); },
       'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },

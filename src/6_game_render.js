@@ -170,6 +170,7 @@ const Input = {
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
     }
+    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
     if (Game.state !== 'play' || Game.paused || e.repeat || !Game.player) return;
     const k = e.key.toLowerCase(), act = Object.keys(Settings.keys).find(a => Settings.keys[a] === k);
     if (!act) return;
@@ -180,6 +181,7 @@ const Input = {
     if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
+    if (act === 'Y') { Settings.camLock = Settings.camLock === false; saveSettings(); FX.toast(Settings.camLock ? '카메라 잠금' : '카메라 잠금 해제 — 화면 가장자리로 이동, 스페이스로 내 캐릭터', '#9fd8ff'); return; }   // 이터널 리턴과 같은 카메라 잠금 전환
     if (act === 'R' && p.shadow) { p.cmdSkill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
@@ -190,6 +192,7 @@ const Input = {
     this.aiming = act; this.amove = false;
   },
   onKeyUp(e) {
+    if (e.key === ' ') this.spaceHeld = false;
     if (!this.holdKey || Game.state !== 'play' || Game.paused || !Game.player) { this.holdKey = null; return; }
     const act = Object.keys(Settings.keys).find(a => Settings.keys[a] === e.key.toLowerCase());
     if (act !== this.holdKey) return;
@@ -547,7 +550,7 @@ const ScreenLayer = {
   drawOverheads(ctx) {
     for (const u of Game.units) {
       if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
-      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = Math.max(44, R * 2.6), bh = 6, x = o.x - bw / 2, y = o.top;
+      const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = clamp(R * 2.6, 44, 110), bh = 6, x = o.x - bw / 2, y = o.top;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
       ctx.fillStyle = u.team === 0 ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);

@@ -35,12 +35,19 @@ const Models = {
       .then(list => { list.forEach((g, i) => { this.src[keys[i]] = this.prepare(g); });
         try { Motions.bake(this.src.cathy); } catch (e) { console.warn('쌍검 동작 생성 실패 — 기본 동작 사용:', e); }   // 6_y_motions.js
         for (const k of this.CUSTOM) try { this.src[k + 'Proc'] = Procgen.build(this.src[DESIGNS[k].rig], DESIGNS[k]); } catch (e) { console.warn('직접 만든 모델 생성 실패:', k, e); }   // 6_y_procgen.js · 6_y_designs.js
-        this.state = 'ready'; this.ver++; this.loadOptional(loader); })
+        this.state = 'ready'; this.ver++; this.loadOptional(loader); this.loadLocal(); })
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
   CUSTOM: ['cathy', 'daniel'],
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || 'cc0'; },
+  // 로컬 전용 설계(local/<키>_ref.json — 깃허브에 올리지 않음, .gitignore). 이 PC에서 열 때만 「원작풍 (로컬 전용)」 선택지가 생김
+  loadLocal() {
+    for (const k of this.CUSTOM) fetch('local/' + k + '_ref.json').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d || !d.parts) return;
+      try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
+    }).catch(() => {});
+  },
   // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
@@ -48,9 +55,8 @@ const Models = {
       fetch(file, { method: 'HEAD' }).then(r => {
         if (!r.ok) return;
         loader.load(file, g => {
-          // Blender로 내보내면 뼈의 기본 방향이 원본과 달라짐 → 크기는 원본 뼈대 축척, 무기·소품 기준은 대기 동작 첫 프레임, 쌍검 동작은 이 파일 기준으로 다시 굽기
-          const S = this.prepare(g); S.proc = true; S.scale = this.src[DESIGNS[k].rig].scale; S.refPose = 'Idle'; S.design = DESIGNS[k];
-          if (k === 'cathy') try { Motions.bake(S); } catch (e) { console.warn('Blender 모델 쌍검 동작 생성 실패:', e); }
+          // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
+          const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;
           this.src[k + 'Blend'] = S; if (this.choice(k) === 'blend') this.ver++;
         }, undefined, e => console.warn('Blender 모델을 읽지 못했습니다:', k, e));
       }).catch(() => {});
@@ -79,6 +85,7 @@ const Models = {
       const ch = this.choice(key);
       if (ch === 'proc' && this.src[key + 'Proc']) S = this.src[key + 'Proc'];
       if (ch === 'blend' && this.src[key + 'Blend']) S = this.src[key + 'Blend'];
+      if (ch === 'ref' && this.src[key + 'Ref']) S = this.src[key + 'Ref'];   // 로컬 전용
     }
     if (!S) return null;
     const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
@@ -284,6 +291,26 @@ const Models = {
   step(rig, dt) {
     rig.mixer.update(dt);
     if (rig.segEnd !== null && rig.cur && rig.cur.time > rig.segEnd) { rig.cur.time = rig.segEnd; rig.cur.timeScale = 0; rig.mixer.update(0); }
+    this.fixLegs(rig);
+  },
+  // 다리 보정: CC0 뼈대의 동작은 무릎이 바깥으로 벌어지게 구워져 있음(대기 자세 엉덩이 x0.11 → 무릎 0.19 → 발 0.11, IK 무릎 방향 기준점이 옆에 있던 탓)
+  //   → 매 프레임 엉덩이·발목 위치는 그대로 두고, 무릎만 캐릭터 정면 쪽(살짝 바깥)으로 꺾이게 두 관절 IK로 다시 계산
+  fixLegs(rig) {
+    if (rig.legs === undefined) {
+      rig.legs = ['L', 'R'].map(sd => ({ sd: sd === 'L' ? 1 : -1, U: rig.obj.getObjectByName('UpperLeg' + sd), Lo: rig.obj.getObjectByName('LowerLeg' + sd), E: rig.obj.getObjectByName('LowerLeg' + sd + '_end'), F: rig.obj.getObjectByName('Foot' + sd) })).filter(l => l.U && l.Lo && l.E && l.F);
+      // 무릎 끝점(LowerLeg_end)이 발목(= 발 IK 뼈)과 일치하는 뼈대에서만 (Blender로 내보낸 파일은 끝점이 다시 계산돼 어긋나고, 무릎 벌어짐도 없음)
+      rig.obj.updateMatrixWorld(true);
+      if (rig.legs.some(l => l.E.getWorldPosition(new THREE.Vector3()).distanceTo(l.F.getWorldPosition(new THREE.Vector3())) > 0.05)) rig.legs = [];
+      rig._v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Quaternion()];
+    }
+    if (!rig.legs.length || typeof Motions === 'undefined') return;
+    const [fw, side, hip, q] = rig._v;
+    rig.obj.getWorldQuaternion(q); fw.set(0, 0, 1).applyQuaternion(q); side.set(1, 0, 0).applyQuaternion(q);   // 모델 정면(+Z)·왼쪽(+X)의 월드 방향
+    for (const l of rig.legs) {
+      const ank = l.E.getWorldPosition(new THREE.Vector3()); l.U.getWorldPosition(hip);
+      const pole = hip.clone().lerp(ank, 0.5).addScaledVector(fw, 0.6).addScaledVector(side, 0.12 * l.sd);
+      Motions.ik(l.U, l.Lo, l.E, ank, pole);
+    }
   },
   // 클립의 한 구간을 원하는 속도로 재생 (판정 시간에 맞추기)
   playSeg(rig, name, from, scale, fade) {

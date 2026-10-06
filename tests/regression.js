@@ -192,6 +192,18 @@
       cv.dispatchEvent(new MouseEvent('mousedown', { button: 2, buttons: 2, clientX: s.x, clientY: s.y, bubbles: true, cancelable: true })); window.dispatchEvent(new MouseEvent('mouseup', { button: 2, bubbles: true }));
       T.ok('3D 우클릭 이동 위치', Game.player.moveTarget && V.dist(Game.player.moveTarget, tgt) < 0.1);
       const o = Renderer.overhead(Game.player), f = Renderer.toScreen(Game.player.pos); T.ok('머리 위 체력바가 발보다 위', o.top < f.y);
+      // 카메라: 이터널 리턴처럼 높은 시점 + Y 잠금 전환 + 스페이스(누르고 있기) 내 캐릭터로
+      T.ok('3D 카메라 높은 시점(63°·좁은 시야각)', Render3D.CAM.pitch >= 60 && Render3D.camera.fov <= 30 && Render3D.camera.position.y > 25);
+      const lock0 = Settings.camLock !== false, key = (k, up) => window.dispatchEvent(new KeyboardEvent(up ? 'keyup' : 'keydown', { key: k, bubbles: true }));
+      key('y'); key('y', true); T.ok('Y 카메라 잠금 전환', (Settings.camLock !== false) === !lock0);
+      key(' '); T.ok('스페이스 누르는 동안 내 캐릭터로', Input.spaceHeld === true); key(' ', true); T.ok('스페이스 떼면 해제', !Input.spaceHeld);
+      Settings.camLock = lock0;
+      { const z0 = Render3D.zoom; Render3D.zoom = Render3D.CAM.min; Renderer.frame();   // 최대 줌인: 카메라가 눕고 몸 가운데를 봄, 클릭 위치는 그대로 정확
+        const c = Render3D.camera.position, t = Render3D.camTarget, pitch = Math.atan2(c.y - 0.95, Math.hypot(c.x - t.x, c.z - t.z)) * 180 / Math.PI;
+        const q = { x: Game.player.pos.x + 1, y: Game.player.pos.y + 0.5 }, sq = Renderer.toScreen(q), wq = Renderer.toWorld(sq.x, sq.y);
+        T.ok('최대 줌인(가까이·눕힌 각도)', Render3D.CAM.min <= 8 && pitch < 50 && Render3D.camera.position.y < 8, pitch.toFixed(0));
+        T.ok('줌인 상태 화면↔월드 왕복', V.dist(wq, q) < 0.05, V.dist(wq, q).toFixed(3));
+        Render3D.zoom = z0; Renderer.frame(); }
     } else T.ok('창 크기 0 — 3D 좌표 검사는 화면이 보일 때 실행', true);
     // CC0 인물 모델(6_y_models.js): 웹에서 로딩이 끝났으면 모델, 아니면(file:// · 로딩 중 · 실패 · 끄기) 인형으로 대체
     T.ok('모델 매핑', Models.keyFor({ kind: 'player' }) === 'cathy' && Models.keyFor({ kind: 'player', charKey: 'daniel' }) === 'daniel' && Models.keyFor({ kind: 'dummy' }) === null && Models.keyFor({ kind: 'ranged', motifKey: 'nadine' }) === 'nadine');
@@ -221,6 +233,16 @@
         T.ok('다니엘 직접 만든 모델(스키닝·평타 동작)', !!rd && n >= 8 && rd.melee && rd.dan && !!rd.actions.slash && Models.weaponKind(Game.player, Models.src.danielProc) === 'dagger');
         T.ok('다니엘 스킬 동작 표(E·R·D·Q·W 손짓)', ['dE', 'dR', 'dD'].every(k => Models.SKILL_ANIM[k]) && Models.DAN_GESTURE.Q && Models.DAN_GESTURE.W);
         if (Models.src.danielBlend) { Settings.models3dBy = { daniel: 'blend' }; Models.ver++; Renderer.frame(); const rb2 = rigOf(Game.player); T.ok('다니엘 Blender 모델로 교체', !!rb2 && !!rb2.actions.run && Math.abs(Models.src.danielBlend.scale - Models.src.male.scale) < 1e-9); }
+        // 다리 관절: 대기 자세에서 무릎이 옆으로 벌어지지 않고(보정), Blender 모델도 발목이 발 뼈와 붙어 있음(원본 뼈대에 다시 붙임)
+        for (const m of ['cc0', 'proc', 'blend']) {
+          if (m === 'blend' && !Models.src.danielBlend) continue;
+          Settings.models3dBy = { daniel: m }; const rg = Models.create({ id: 'leg', kind: 'player', charKey: 'daniel', color: '#b07cff', weapon: 'dagger', team: 0 }, null, []);
+          rg.mixer.stopAllAction(); const ac = rg.actions.idle; ac.reset().play(); ac.time = 0.5; ac.timeScale = 0; rg.mixer.update(0); Models.fixLegs(rg); rg.root.updateMatrixWorld(true);
+          const q = rg.obj.getWorldQuaternion(new THREE.Quaternion()).invert(), P = n => rg.obj.getObjectByName(n).getWorldPosition(new THREE.Vector3()).applyQuaternion(q);
+          const h = P('UpperLegL'), k = P('LowerLegL'), e = P('LowerLegL_end'), d = e.clone().sub(h).normalize(), kh = k.clone().sub(h), side = Math.abs(kh.sub(d.multiplyScalar(kh.dot(d))).x);
+          const gap = rg.obj.getObjectByName('LowerLegL_end').getWorldPosition(new THREE.Vector3()).distanceTo(rg.obj.getObjectByName('FootL').getWorldPosition(new THREE.Vector3()));
+          T.ok('다니엘 ' + m + ' 다리 관절(무릎 옆 벌어짐·발목)', side < 0.04 && gap < 0.03, (side * 100).toFixed(1) + 'cm / ' + (gap * 100).toFixed(1) + 'cm');
+        }
         Settings.models3dBy = {}; Models.ver++; Renderer.frame(); Settings.character = 'cathy'; }
       Settings.models3d = false; Render3D.refreshModels(); Renderer.frame(); T.ok('모델 끄기 → 인형', !rigOf(Game.player));
       Settings.models3d = true; Render3D.refreshModels();

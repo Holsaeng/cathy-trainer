@@ -28,6 +28,35 @@ const Procgen = {
     o.scale.setScalar(1);   // Models.prepare와 같은 규약: 원본 축척(게임에서 S.scale 적용)
     return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D };
   },
+  // Blender 모델 붙이기: Blender 파일(models/<키>_custom.glb)에서는 모양(메시·음영·가중치)만 가져오고 뼈대·동작은 원본 CC0 것을 그대로 씀
+  //   (Blender로 내보내면 뼈의 기본 방향·끝점이 다시 계산돼 다리 동작이 어긋나 발이 부츠에서 떨어졌음) → 직접 만든 모델과 똑같이 다리 보정·쌍검 동작·무기 위치가 맞음
+  rebind(S, g, D) {
+    const T3 = THREE, o = THREE.SkeletonUtils.clone(S.scene); o.scale.setScalar(S.scale); o.updateMatrixWorld(true);
+    let sk = null; const olds = []; o.traverse(m => { if (m.isSkinnedMesh) { olds.push(m); if (!sk) sk = m.skeleton; } });
+    if (!sk) return null;
+    const keep = sk.bones.map(b => [b.position.clone(), b.quaternion.clone(), b.scale.clone()]);
+    sk.pose(); o.updateMatrixWorld(true);
+    for (const m of olds) m.parent.remove(m);
+    const skel = new T3.Skeleton(sk.bones), byName = new Map(sk.bones.map((b, i) => [b.name, i]));
+    const toLocal = new T3.Matrix4().copy(o.matrixWorld).invert().multiply(new T3.Matrix4().makeScale(S.scale, S.scale, S.scale));   // Blender 파일 월드(원본 축척) → 이 모델 안쪽 좌표
+    g.scene.updateMatrixWorld(true);
+    let n = 0;
+    g.scene.traverse(m => {
+      if (!m.isSkinnedMesh) return;
+      const geo = m.geometry.clone(); geo.applyMatrix4(new T3.Matrix4().copy(toLocal).multiply(m.bindMatrix));   // 바인드 자세(T자세) 모양 그대로
+      const si = geo.attributes.skinIndex;
+      const map = i => { const b = m.skeleton.bones[i], j = b ? byName.get(b.name) : undefined; return j === undefined ? 0 : j; }, idx = new Uint16Array(si.count * 4);   // 뼈 번호를 이름으로 다시 맞춤
+      for (let i = 0; i < si.count; i++) { idx[i * 4] = map(si.getX(i)); idx[i * 4 + 1] = map(si.getY(i)); idx[i * 4 + 2] = map(si.getZ(i)); idx[i * 4 + 3] = map(si.getW(i)); }
+      geo.setAttribute('skinIndex', new T3.Uint16BufferAttribute(idx, 4));
+      const mat = m.material.clone(); mat.skinning = true; mat.name = 'blend';
+      const mesh = new T3.SkinnedMesh(geo, mat); mesh.castShadow = true; mesh.frustumCulled = false;
+      o.add(mesh); mesh.updateMatrixWorld(true); mesh.bind(skel, mesh.matrixWorld); n++;
+    });
+    if (!n) return null;
+    sk.bones.forEach((b, i) => { b.position.copy(keep[i][0]); b.quaternion.copy(keep[i][1]); b.scale.copy(keep[i][2]); });
+    o.scale.setScalar(1);
+    return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D, blend: true };
+  },
   // 뼈 구간(뼈 → 끝): 가중치 계산용
   TIP: { Hips: 'Abdomen', Abdomen: 'Torso', Torso: 'Chest', Chest: 'Neck', Neck: 'Head', UpperArmL: 'LowerArmL', LowerArmL: 'WristL', UpperArmR: 'LowerArmR', LowerArmR: 'WristR', UpperLegL: 'LowerLegL', UpperLegR: 'LowerLegR', ShoulderL: 'UpperArmL', ShoulderR: 'UpperArmR' },
   segments(bones, BP) {
