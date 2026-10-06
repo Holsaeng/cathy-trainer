@@ -11,6 +11,11 @@ const NetLab = {
   // ---------- 창 안(호스트·손님) ----------
   child() {
     const role = this.childRole(); if (!role || window.parent === window) return;
+    if (this.q().has('rtc')) {   // 실제 WebRTC 시험: 연결은 바깥 페이지가 Rtc로 직접 진행
+      Settings.netStun = false;   // 외부 서버 없이 같은 PC 안에서만
+      window.LAB = { Net, Game, Cmd, Rtc, UI, Settings, Stats, V, CONFIG, document, advanceSim, loop };
+      window.parent.postMessage({ lab: 'ready', role }, '*'); return;
+    }
     const link = { send: s => window.parent.postMessage({ lab: 'net', from: role, s }, '*') };
     window.addEventListener('message', e => {
       const d = e.data || {};
@@ -44,12 +49,13 @@ const NetLab = {
     this.fh = $('lab-h'); this.fg = $('lab-g'); this.last = { h: 0, g: 0 }; this.ready = {};
     window.addEventListener('message', e => {
       const d = e.data || {};
-      if (d.lab === 'ready') { this.ready[d.role] = true; if (this.q().has('test') && this.ready.host && this.ready.guest) setTimeout(() => this.autoTest(), 300); }
+      if (d.lab === 'ready') { this.ready[d.role] = true; if (this.q().has('test') && this.ready.host && this.ready.guest) setTimeout(() => this.q().has('rtc') ? this.rtcTest() : this.autoTest(), 300); }
       if (d.lab === 'net') this.relay(d.from === 'host' ? 'g' : 'h', d.s);
     });
     $('lab-go').onclick = () => this.fh.contentWindow.postMessage({ lab: 'go', opts: { guestWeapon: $('lab-gw').value, map: 'basic', rounds: 3 } }, '*');
     setInterval(() => { try { const L = this.fh.contentWindow.LAB, S = L.Net.stats, t = Math.max(1, L.Game.time); $('lab-stat').textContent = `호스트 → 손님 ${(S.bytes / 1024 / t).toFixed(1)}KB/s · 키프레임 요청 ${S.keyReq}`; } catch (x) { /* 로딩 중 */ } }, 1000);
-    this.fh.src = base + '?net=host&lab=1'; this.fg.src = base + '?net=guest&lab=1';
+    const rtc = this.q().has('rtc') ? '&rtc=1' : '';
+    this.fh.src = base + '?net=host&lab=1' + rtc; this.fg.src = base + '?net=guest&lab=1' + rtc;
   },
   // 가짜 네트워크: 지연 + 흔들림, 손실은 재전송 지연으로. 같은 방향은 순서 유지
   relay(to, s) {
@@ -58,6 +64,77 @@ const NetLab = {
     const at = Math.max(performance.now() + delay, this.last[to] + 1); this.last[to] = at;
     const w = (to === 'g' ? this.fg : this.fh).contentWindow;
     setTimeout(() => w.postMessage({ lab: 'net', s }, '*'), at - performance.now());
+  },
+  // ---------- 실제 WebRTC 자동 시험 (?netlab&rtc&test) ----------
+  //   사람이 하는 「코드 복사·붙여넣기」를 바깥 페이지가 대신 → 진짜 연결로 대전·명령·끊김 감지 확인 (STUN 끔: 외부 접속 없음)
+  async rtcTest() {
+    const H = this.fh.contentWindow.LAB, G = this.fg.contentWindow.LAB, res = [], ok = (n, c, info = '') => res.push({ n, c: !!c, info });
+    const sleep = ms => new Promise(r => setTimeout(r, ms)), err = [];
+    for (const w of [this.fh.contentWindow, this.fg.contentWindow]) w.addEventListener('error', e => err.push(e.message));
+    const fail = async (p, re) => { try { await p; return false; } catch (e) { return re.test(e.message) ? e.message : false; } };
+    try {
+      // 잘못된 코드 처리
+      ok('엉뚱한 코드 거부', await fail(G.Rtc.join('안녕하세요'), /연결 코드가 아닙니다/));
+      ok('잘린 코드 거부', await fail(G.Rtc.join('CT1.z!!!!'), /잘렸거나|읽을 수 없|올바르지/));
+      const fake = await G.Rtc.pack({ t: 'offer', sdp: 'v=0', v: 'oldver00' });
+      ok('버전이 다른 코드 거부', await fail(G.Rtc.join(fake), /버전/));
+      // 연결: 호스트 초대 → 손님 응답 → 호스트 연결
+      G.Settings.weapon = 'dual';
+      const offer = await H.Rtc.host({ map: 'basic', rounds: 3, time: 'day', sphere: false, seed: 99 });
+      ok('초대 코드 만들기', offer.startsWith('CT1.') && offer.length < 4000, offer.length + '자');
+      ok('응답 코드 자리에 초대 코드를 넣으면 거부', await fail(H.Rtc.accept(offer), /응답 코드가 아닙니다/));
+      const answer = await G.Rtc.join(offer);
+      ok('응답 코드 만들기', answer.startsWith('CT1.') && answer !== offer, answer.length + '자');
+      await H.Rtc.accept(answer);
+      let w = 0; while (w++ < 100 && !(H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Net.role === 'host' && G.Game.modeId === 'pvp')) await sleep(100);
+      ok('실제 연결 성공 → 대전 시작', H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Game.modeId === 'pvp' && G.Net.role === 'guest', `${H.Rtc.state}/${G.Rtc.state} ${(w / 10).toFixed(1)}초`);
+      ok('손님 무기가 호스트에 전달', H.Game.mode && H.Game.mode.enemy && H.Game.mode.enemy.weapon === 'dual');
+      // 실제 시간으로 진행 (창이 숨겨져도 돌도록 직접 진행)
+      H.Net.manual = G.Net.manual = true; const S = CONFIG.sim.step; let last = performance.now(), acc = 0, t0 = last, tick = 0;
+      while (performance.now() - t0 < 8000) {
+        const now = performance.now(); acc += Math.min(0.1, (now - last) / 1000); last = now; H.Net.fakeNow = G.Net.fakeNow = now;
+        while (acc >= S) { acc -= S; tick++; if (H.Game.state === 'play') H.Game.step(S); }
+        const gp = G.Game.player, ge = G.Game.units.find(u => u.kind === 'player' && u !== gp);
+        if (G.Game.state === 'play' && gp && ge && !gp.dead) { if (tick % 50 < 2) G.Cmd.move({ x: ge.pos.x + 2.5, y: ge.pos.y }); if (tick % 140 < 2) G.Cmd.skill('Q', ge.pos); }
+        G.Net.guestTick(1 / 60);
+        await sleep(8);
+      }
+      const sec = H.Game.time;
+      ok('손님 명령이 실제 연결로 호스트에 도착', H.Net.stats.cmds > 5, `${H.Net.stats.cmds}개`);
+      ok('호스트 상태가 실제 연결로 손님에게 도착', G.Net.rx.got > 60 && G.Game.player && G.Game.player.team === 1, `${G.Net.rx.got}개`);
+      ok('왕복 지연 측정', G.Net.rtt > 0 && G.Net.rtt < 500, Math.round(G.Net.rtt) + 'ms');
+      ok('전송량 30KB/s 이하', H.Net.stats.bytes / 1024 / sec < 30, (H.Net.stats.bytes / 1024 / sec).toFixed(1) + 'KB/s');
+      // 호스트 탭이 숨겨진 상황: 화면 갱신(requestAnimationFrame)을 멈춰도 손님 확인 메시지로 계산이 계속 진행되는지
+      {
+        const hw = this.fh.contentWindow, raf = hw.requestAnimationFrame; hw.requestAnimationFrame = () => 0;   // 호스트 화면 갱신 멈춤
+        H.Net.hidden = () => true; H.Net.manual = false; G.Net.manual = false; await sleep(100);
+        const t1 = H.Game.time, r1 = performance.now();
+        const g0 = performance.now(); while (performance.now() - g0 < 3000) { G.Net.fakeNow = performance.now(); G.Net.guestTick(1 / 60); await sleep(16); }
+        const ran = H.Game.time - t1, real = (performance.now() - r1) / 1000;
+        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.8 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초`);
+        H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop);   // 원래대로
+      }
+      // 끊김: 손님이 창을 닫은 것처럼 → 호스트가 알아챔
+      G.Rtc.close();
+      w = 0; while (w++ < 90 && H.Rtc.state !== 'lost') await sleep(100);
+      const card = H.document.querySelector('#card') ? H.document.querySelector('#card').innerText : '';
+      ok('손님이 나가면 호스트가 알아챔', H.Rtc.state === 'lost' && /연결이 끊겼습니다/.test(card) && !H.Net.role, `${(w / 10).toFixed(1)}초 · ${card.slice(0, 20).split('\n').join(' ')}`);
+      // 다시 연결(끊긴 뒤 새 방) → 이번엔 호스트가 메뉴로 나감 → 손님이 알아챔
+      H.Net.manual = G.Net.manual = false;
+      const offer2 = await H.Rtc.host({ map: 'jungle', rounds: 1, time: 'night', sphere: true }), answer2 = await G.Rtc.join(offer2); await H.Rtc.accept(answer2);
+      w = 0; while (w++ < 100 && !(H.Rtc.state === 'open' && G.Rtc.state === 'open' && G.Game.modeId === 'pvp' && G.Net.rx && G.Net.rx.got > 0)) await sleep(100);
+      ok('끊긴 뒤 다시 연결', H.Rtc.state === 'open' && G.Game.mapKey === 'jungle' && G.Net.rx.got > 0, `${(w / 10).toFixed(1)}초`);
+      H.UI.showMenu();
+      w = 0; while (w++ < 90 && G.Rtc.state !== 'lost') await sleep(100);
+      const gcard = G.document.querySelector('#card') ? G.document.querySelector('#card').innerText : '';
+      ok('호스트가 나가면 손님이 알아챔', G.Rtc.state === 'lost' && /연결이 끊겼습니다/.test(gcard) && /나갔습니다|끊겼습니다/.test(gcard), `${(w / 10).toFixed(1)}초`);
+      ok('오류 없음', !err.length, err.slice(0, 3).join(' / '));
+    } catch (x) { ok('예외 없이 실행', false, x.message + ' ' + (x.stack || '').split('\n')[1]); }
+    const bad = res.filter(r => !r.c);
+    document.title = bad.length ? `NETLAB RTC FAIL ${bad.length}/${res.length}` : `NETLAB RTC PASS ${res.length}`;
+    window.__lab = res;
+    const pre = document.createElement('pre'); pre.style.cssText = 'color:#e6e9ef;white-space:pre-wrap';
+    pre.textContent = res.map(r => `${r.c ? '✔' : '✘'} ${r.n}${r.info ? ' (' + r.info + ')' : ''}`).join('\n'); document.body.prepend(pre);
   },
   // ---------- 자동 시험 ----------
   autoTest() {

@@ -26,14 +26,25 @@ const Net = {
   // 시계(ms): 보통은 실제 시간, 실험실 자동 시험(manual)은 바깥에서 진행하는 가짜 시간
   fakeNow: 0,
   now() { return this.manual ? this.fakeNow : performance.now(); },
+  hidden() { return typeof document !== 'undefined' && document.hidden; },   // 실험실 시험에서 바꿔 끼움
+  onAck: null,
   quiet(fn) { this.depth++; try { return fn(); } finally { this.depth--; } },
   note(k, args, forUnit) {
     if (this.role !== 'host') return;
     const e = { k, a: Snap.enc(args) }; if (forUnit) e.f = forUnit.id - Game.uid0;
     this.ev.push(e); if (this.ev.length > 400) this.ev.shift();   // 한 번에 너무 많으면 오래된 것부터 버림
   },
-  send(o) { const s = JSON.stringify(o); this.stats.sent++; this.stats.bytes += s.length; if (this.link) this.link.send(s); },
-  stop() { if (this.role && this.link) try { this.send({ t: 'bye' }); } catch (e) { /* 끊김 */ } this.role = null; this.link = null; this.inbox = []; },
+  send(o) {
+    const s = JSON.stringify(o); this.stats.sent++; this.stats.bytes += s.length;
+    const ok = this.link ? this.link.send(s) : true;
+    if (ok === false && o.t === 's' && this.tx) { this.tx.wantKey = true; this.stats.skipped = (this.stats.skipped || 0) + 1; }   // 보내기 대기열이 밀려 건너뜀 → 다음은 키프레임
+  },
+  stop() {
+    if (this.role && this.link) try { this.send({ t: 'bye' }); } catch (e) { /* 끊김 */ }
+    this.role = null; this.link = null; this.inbox = [];
+    // bye가 나간 뒤 그 연결만 닫기 (그사이 새로 만든 연결은 건드리지 않음)
+    if (typeof Rtc !== 'undefined' && Rtc.pc) { const pc = Rtc.pc; setTimeout(() => { if (Rtc.pc === pc) Rtc.close(); }, 200); }
+  },
   // ---------- 호스트 ----------
   startHost(link, opts = {}) {
     this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = [];
@@ -90,10 +101,12 @@ const Net = {
     let m; try { m = JSON.parse(str); } catch (e) { return; }
     this.stats.recv++; this.stats.rbytes += str.length;
     if (this.role === 'host') {
+      if (this.onAck) this.onAck();   // 손님이 보낸 메시지(확인·핑·명령)마다: 숨겨진 탭이면 계산 진행 → 상태 전송 → 손님 확인… 으로 계속 이어짐
       if (m.t === 'c') { (this.inbox = this.inbox || []).push(m.c); if (this.inbox.length > 200) this.inbox.shift(); }
       else if (m.t === 'key') { this.tx.wantKey = true; this.stats.keyReq++; }
       else if (m.t === 'ping') this.send({ t: 'pong', c: m.c });
-      else if (m.t === 'bye') FX.toast('상대가 나갔습니다', '#ffb347');
+      // m.t === 'a': 손님 확인(아래에서 계산 진행만)
+      else if (m.t === 'bye') { FX.toast('상대가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('상대가 나갔습니다'); }
       return;
     }
     if (this.role !== 'guest') return;
@@ -101,7 +114,7 @@ const Net = {
       if (m.v !== Snap.V) { FX.toast('버전이 다른 상대입니다 — 같은 버전으로 접속하세요', '#ff6b6b'); return; }
       Game.start(m.mode, m.opts); this.rx = { n: 0, tree: null, asked: false, got: 0 }; this.ended = false; this.gotStats = false; this.pred = { target: null }; return;
     }
-    if (m.t === 'bye') { FX.toast('호스트가 나갔습니다', '#ffb347'); return; }
+    if (m.t === 'bye') { FX.toast('호스트가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('호스트가 나갔습니다'); return; }
     if (m.t === 'pong') { const s = this.now() - m.c; if (s >= 0 && s < 5000) this.rtt = this.rtt ? this.rtt * 0.8 + s * 0.2 : s; return; }
     if (m.t === 'stats') { Stats.reset(); Object.assign(Stats, Snap.dec(m.s, new Map())); this.gotStats = true; return; }
     if (m.t !== 's' || !Game.mode) return;
@@ -161,6 +174,7 @@ const Net = {
     if (this.role !== 'guest' || !Game.mode) return;
     const now = this.now(), me = Game.player;
     if (now - this.lastPing > 1000) { this.lastPing = now; this.send({ t: 'ping', c: now }); }   // 왕복 지연 측정
+    else if (now - (this.lastBeat || 0) > 50) { this.lastBeat = now; this.send({ t: 'a' }); }   // 심장박동(0.05초): 호스트 탭이 숨겨져도 이 메시지로 계산이 진행됨
     for (const u of Game.units) if (u._to) { const k = clamp((now - u._t0) / u._span, 0, 1); u.pos = { x: lerp(u._from.x, u._to.x, k), y: lerp(u._from.y, u._to.y, k) }; }
     // 내 캐릭터: 예측 위치로 부드럽게 (1.5m 넘게 어긋나면 바로 맞춤)
     if (me && me._to && this.predOn()) {

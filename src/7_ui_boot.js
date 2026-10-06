@@ -130,6 +130,7 @@ const UI = {
   },
 
   showMenu() {
+    if (Net.role) Net.stop();   // 메뉴로 나가면 온라인 대전 종료
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
     const modes = this.modeList(), dan = Settings.character === 'daniel';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
@@ -147,7 +148,7 @@ const UI = {
         <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
-      <div class="row" style="margin-top:16px"><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
+      <div class="row" style="margin-top:16px"><button class="btn" data-a="online">🌐 온라인 대전 (시험)</button><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
         <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
       ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
@@ -156,6 +157,7 @@ const UI = {
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showMenu(); },
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
+      online: () => this.showOnline(),
       quick: d => this.start(d.v, this.quickOpts(d.v)),
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
@@ -238,6 +240,79 @@ const UI = {
     }
   },
 
+  // ---------- 온라인 대전 (연결 코드 복사·붙여넣기) ----------
+  showOnline() {
+    const ok = Rtc.ok(), w = CONFIG.basicAttack[Settings.weapon === 'dual' ? 'dual' : 'dagger'].label;
+    this.show(`<h2>🌐 온라인 대전 (시험)</h2>
+      <div class="sub">친구와 브라우저끼리 직접 연결해 <b>캐시 vs 캐시 1:1</b>. 서버 없이 <b>연결 코드</b>를 메신저로 한 번씩 주고받습니다.</div>
+      ${ok ? '' : '<div class="sub" style="color:#ff6b6b">이 브라우저는 WebRTC를 지원하지 않습니다.</div>'}
+      <div class="row" style="margin-top:12px"><button class="btn primary" data-a="host" ${ok ? '' : 'disabled'}>방 만들기 (호스트)</button><button class="btn" data-a="join" ${ok ? '' : 'disabled'}>참가하기 (손님)</button></div>
+      <div class="sub" style="margin-top:8px">내 무기: <b>${w}</b> (메뉴에서 변경) · 빌드·맵은 호스트 설정을 따름 · 공개 STUN: <b>${Settings.netStun === false ? '꺼짐 (같은 네트워크에서만)' : '켜짐'}</b> (설정에서 변경)</div>
+      <div class="sub" style="color:#ffb347">⚠ 연결 코드에는 접속 정보(IP 주소)가 들어 있습니다. 믿을 수 있는 상대에게만 보내세요.</div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>${NOTICE.html()}`,
+      { host: () => this.showOnlineHost(), join: () => this.showOnlineJoin(), back: () => { Rtc.close(); this.showMenu(); } }, { Escape: 'back' });
+  },
+  // 코드 상자: 복사 버튼 + 상태 줄
+  netBox(id, label, ro) { return `<div style="margin-top:10px"><b>${label}</b><textarea id="${id}" ${ro ? 'readonly' : ''} rows="4" style="width:100%;box-sizing:border-box;margin-top:4px;font:11px monospace;background:#0d1016;color:#e6e9ef;border:1px solid #2a3140;border-radius:6px;padding:6px"></textarea></div>`; },
+  netStatus(t, bad) { const el = document.getElementById('net-st'); if (el) { el.textContent = t; el.style.color = bad ? '#ff6b6b' : '#9fd8ff'; } },
+  copy(id) {
+    const el = document.getElementById(id); if (!el || !el.value) return;
+    const done = () => this.netStatus('복사했습니다 — 메신저에 붙여넣어 보내세요');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done, () => { el.select(); document.execCommand('copy'); done(); });
+    else { el.select(); document.execCommand('copy'); done(); }
+  },
+  showOnlineHost() {
+    const o = this.netOpts = this.netOpts || { map: 'basic', rounds: 3, sphere: false, time: 'day' };
+    const btn = (k, v, l) => `<button class="btn ${o[k] === v ? 'sel' : ''}" data-a="opt" data-k="${k}" data-v="${v}">${l}</button>`;
+    this.show(`<h2>🌐 방 만들기 (호스트)</h2>
+      <div class="row"><label>맵</label>${btn('map', 'basic', '기본 아레나')}${btn('map', 'jungle', '숲길')}<label style="margin-left:12px">판</label>${btn('rounds', 3, '3판 2선승')}${btn('rounds', 1, '단판')}</div>
+      <div class="row"><label>시간</label>${btn('time', 'day', '낮')}${btn('time', 'night', '밤')}<label style="margin-left:12px">크로노 스피어</label>${btn('sphere', true, '켬')}${btn('sphere', false, '끔')}</div>
+      <div class="sub">1. 「초대 코드 만들기」 → 2. 복사해서 친구에게 보내기 → 3. 친구가 보낸 <b>응답 코드</b>를 아래에 붙여넣고 「연결」</div>
+      <div class="row"><button class="btn primary" data-a="make">초대 코드 만들기</button></div>
+      ${this.netBox('net-offer', '초대 코드 (친구에게 보내기)', true)}<div class="row"><button class="btn" data-a="copy" data-v="net-offer">📋 복사</button></div>
+      ${this.netBox('net-answer', '친구의 응답 코드 붙여넣기', false)}<div class="row"><button class="btn primary" data-a="connect">연결</button></div>
+      <div id="net-st" class="sub" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, {
+      opt: d => { o[d.k] = d.k === 'rounds' ? +d.v : d.k === 'sphere' ? d.v === 'true' : d.v; Rtc.close(); this.showOnlineHost(); },
+      make: async () => {
+        this.netStatus('접속 정보를 모으는 중… (최대 5초)');
+        try { const code = await Rtc.host(Object.assign({}, o)); document.getElementById('net-offer').value = code; this.netStatus(`초대 코드 준비 완료 (${code.length}자) — 복사해서 보내세요`); }
+        catch (e) { this.netStatus('실패: ' + e.message, true); }
+      },
+      copy: d => this.copy(d.v),
+      connect: async () => {
+        try { await Rtc.accept(document.getElementById('net-answer').value); this.netStatus('연결하는 중…'); }
+        catch (e) { this.netStatus('실패: ' + e.message, true); }
+      },
+      back: () => { Rtc.close(); this.showOnline(); },
+    }, { Escape: 'back' });
+  },
+  showOnlineJoin() {
+    this.show(`<h2>🌐 참가하기 (손님)</h2>
+      <div class="sub">1. 친구가 보낸 <b>초대 코드</b>를 붙여넣고 「응답 코드 만들기」 → 2. 응답 코드를 복사해서 친구에게 보내기 → 3. 친구가 붙여넣으면 자동으로 시작</div>
+      ${this.netBox('net-offer', '친구의 초대 코드 붙여넣기', false)}<div class="row"><button class="btn primary" data-a="answer">응답 코드 만들기</button></div>
+      ${this.netBox('net-answer', '응답 코드 (친구에게 보내기)', true)}<div class="row"><button class="btn" data-a="copy" data-v="net-answer">📋 복사</button></div>
+      <div id="net-st" class="sub" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 뒤로 <kbd>Esc</kbd></button></div>`, {
+      answer: async () => {
+        this.netStatus('응답 코드를 만드는 중… (최대 5초)');
+        try { const code = await Rtc.join(document.getElementById('net-offer').value); document.getElementById('net-answer').value = code; this.netStatus(`응답 코드 준비 완료 (${code.length}자) — 복사해서 보내고 기다리세요`); }
+        catch (e) { this.netStatus('실패: ' + e.message, true); }
+      },
+      copy: d => this.copy(d.v),
+      back: () => { Rtc.close(); this.showOnline(); },
+    }, { Escape: 'back' });
+  },
+  // 연결 끊김: 진행 중이면 안내 화면, 아니면 알림만
+  showNetLost(why) {
+    const playing = Net.role && Game.state === 'play';
+    Net.stop();
+    if (!playing && Game.state !== 'menu') { FX.toast('온라인: ' + why, '#ffb347'); return; }
+    this.show(`<h2>🔌 연결이 끊겼습니다</h2><div class="sub">${esc(why)}</div>
+      <div class="sub" style="margin-top:6px">다시 하려면 방을 새로 만들고 코드를 다시 주고받으세요. 같은 네트워크가 아니라면 설정의 「공개 STUN」이 켜져 있어야 합니다.</div>
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="online">🌐 온라인 대전</button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`,
+      { online: () => this.showOnline(), menu: () => this.showMenu() }, { m: 'menu', Escape: 'menu' });
+  },
   // 온라인 대전 손님: 경기 종료 (점수는 손님 시점)
   showNetEnd() {
     const M = Game.mode, w = M && M.view ? M.view().wins : { p: 0, e: 0 }, win = w.p > w.e;
@@ -288,7 +363,7 @@ const UI = {
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
-      ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('ambient', '환경음(바람·새·귀뚜라미)')}${cb('netPredict', '온라인 대전: 내 캐릭터 이동 예측 (누르자마자 움직이는 것처럼 보임)')}${cb('reduceShake', '화면 흔들림 끄기')}
+      ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('ambient', '환경음(바람·새·귀뚜라미)')}${cb('netPredict', '온라인 대전: 내 캐릭터 이동 예측 (누르자마자 움직이는 것처럼 보임)')}${cb('netStun', '온라인 대전: 공개 STUN 서버 사용 (구글·클라우드플레어) — 다른 공유기 너머 상대와 연결할 때 필요, 끄면 같은 네트워크에서만. 켜면 내 공인 IP가 STUN 서버에 전달됨')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
       <div class="row"><label>게임 속도 <b id="spdv">x${fmt(Settings.gameSpeed, 1)}</b> (느린 연습용)</label><input type="range" min="0.5" max="1.5" step="0.1" value="${Settings.gameSpeed}" data-in="gameSpeed"></div>
       <h3>키 설정 (버튼 클릭 후 새 키 입력, 겹치면 맞바꿈)</h3>
@@ -301,7 +376,7 @@ const UI = {
       weather: d => { Settings.weather = d.v; saveSettings(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
-      'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); }, 'in:ambient': el => { Settings.ambient = el.checked; saveSettings(); }, 'in:netPredict': el => { Settings.netPredict = el.checked; saveSettings(); },
+      'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); }, 'in:ambient': el => { Settings.ambient = el.checked; saveSettings(); }, 'in:netPredict': el => { Settings.netPredict = el.checked; saveSettings(); }, 'in:netStun': el => { Settings.netStun = el.checked; saveSettings(); },
       'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
       'in:camLock': el => { Settings.camLock = el.checked; saveSettings(); },
       'in:vfx3d': el => { Settings.vfx3d = el.checked; saveSettings(); if (!el.checked && typeof VFX3D !== 'undefined') VFX3D.clear(); },
@@ -391,18 +466,25 @@ const UI = {
 };
 
 // ============================== 메인 루프 ==============================
-let lastT = performance.now(), acc = 0, fps = 60, sideT = 0;
+let lastT = performance.now(), simT = lastT, acc = 0, fps = 60, sideT = 0;
+// 게임 계산 진행 (흐른 실제 시간만큼 고정 스텝). 화면 갱신(loop)과 숨겨진 호스트 탭의 메시지 진행(Net.onAck)이 함께 씀
+function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
+  const dt = Math.min(maxDt, Math.max(0, (now - simT) / 1000)); simT = now;
+  if (Net.manual) return;   // 실험실 자동 시험: 바깥에서 직접 진행
+  if (Net.role === 'guest') { Net.guestTick(dt); return; }   // 온라인 손님: 계산 없이 받은 상태를 그림
+  if (Game.state === 'play' && !Game.paused) {
+    // 온라인 대전은 항상 1배속
+    acc += dt * (Net.role ? 1 : Settings.gameSpeed); let n = 0;
+    while (acc >= CONFIG.sim.step && n < maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
+    if (n >= maxSteps) acc = 0;
+  } else acc = 0;
+}
+// 호스트 탭이 숨겨지면 화면 갱신이 멈추므로, 손님의 확인 메시지가 올 때마다 계산을 진행 (네트워크 메시지는 숨겨져도 옴)
+Net.onAck = () => { if (Net.hidden()) advanceSim(performance.now(), 0.5, 60); };
 function loop(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);
-  if (Net.manual) { /* 실험실 자동 시험: 바깥에서 직접 진행 */ }
-  else if (Net.role === 'guest') Net.guestTick(dt);   // 온라인 손님: 계산 없이 받은 상태를 그림
-  else if (Game.state === 'play' && !Game.paused) {
-    // 온라인 대전은 항상 1배속
-    acc += dt * (Net.role ? 1 : Settings.gameSpeed); let n = 0;
-    while (acc >= CONFIG.sim.step && n < CONFIG.sim.maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
-    if (n >= CONFIG.sim.maxSteps) acc = 0;
-  } else acc = 0;
+  advanceSim(now);
   try { Renderer.frame(); } catch (e) { console.error(e); }
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);

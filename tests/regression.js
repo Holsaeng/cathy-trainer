@@ -385,6 +385,19 @@
     T.ok('온라인 중 일시정지 막힘', (() => { Net.role = 'host'; try { Game.togglePause(); return !Game.paused; } finally { Net.role = role0; } })());
   });
 
+  // ---------------- 온라인 연결 (연결 코드·메뉴) — 실제 연결 시험은 ?netlab&rtc&test ----------------
+  G('온라인 연결', () => {
+    reset();
+    T.ok('게임 버전이 빌드 때 채워짐', /^[0-9a-f]{8}$/.test(BUILD_ID), BUILD_ID);
+    UI.showMenu(); click('[data-a="online"]');
+    T.ok('메뉴 → 온라인 대전 화면', /온라인 대전/.test(document.querySelector('#card').innerText) && !!document.querySelector('[data-a="host"]') && !!document.querySelector('[data-a="join"]') && /IP 주소/.test(document.querySelector('#card').innerText));
+    click('[data-a="host"]'); T.ok('방 만들기 화면', !!document.getElementById('net-offer') && !!document.querySelector('[data-a="connect"]'));
+    click('[data-a="opt"][data-k="map"][data-v="jungle"]'); T.ok('방 옵션 선택', UI.netOpts.map === 'jungle' && !!document.querySelector('[data-a="opt"][data-k="map"][data-v="jungle"].sel'));
+    click('[data-a="back"]'); click('[data-a="join"]'); T.ok('참가하기 화면', !!document.getElementById('net-answer') && !!document.querySelector('[data-a="answer"]'));
+    click('[data-a="back"]'); click('[data-a="back"]'); T.ok('메뉴로 돌아감', !!document.querySelector('[data-a="online"]'));
+    T.ok('STUN 기본 켬·끄기 설정', Settings.netStun !== false && Rtc.config().iceServers.length === 1 && (() => { Settings.netStun = false; const n = Rtc.config().iceServers.length; Settings.netStun = true; return n === 0; })());
+  });
+
   // ---------------- 3D 렌더러 ----------------
   G('3D', () => {
     if (!window.THREE) { T.ok('Three.js 로드', false, 'CDN 차단 또는 오프라인'); return; }
