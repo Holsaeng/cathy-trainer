@@ -38,30 +38,30 @@ class DanielPlayer extends Cathy {
     if (k === 'F' || k === 'D') return super.tryCast(k, aim);
     const s = this.skills[k], def = this.skillDef(k);
     if (k === 'R' && this.shadow) { this.shadow.exit = true; return true; }   // R 재사용: 그림자에서 빠져나옴
-    if (!s || s.lv <= 0) { FX.toast(`${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
+    if (!s || s.lv <= 0) { FX.toastFor(this, `${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
     if (!this.canAct()) return false;
-    if (this.silence > 0) { FX.toast('침묵 — 스킬 사용 불가', '#b07cff'); Sfx.play('error'); return false; }
+    if (this.silence > 0) { FX.toastFor(this, '침묵 — 스킬 사용 불가', '#b07cff'); Sfx.playFor(this, 'error'); return false; }
     if (s.cd > 0) { this.cdError(k); return false; }
     if (k === 'Q') return this.castQ(aim);
     if (k === 'W') return this.castW(aim);
-    if (k === 'E') { if (this.root > 0) { FX.toast('속박 중에는 돌진할 수 없습니다'); return false; } this.beginCast('E', aim, DImpl.E, {}); return true; }
+    if (k === 'E') { if (this.root > 0) { FX.toastFor(this, '속박 중에는 돌진할 수 없습니다'); return false; } this.beginCast('E', aim, DImpl.E, {}); return true; }
     if (k === 'R') {
       const t = this.rTarget(aim);
-      if (!t) { Stats.mistake('걸작: 4초 안에 피해를 준 적이 3m 안에 없음'); Sfx.play('error'); FX.toast('걸작: 최근 4초 안에 피해를 준 적에게만 (3m)'); return false; }
+      if (!t) { this.S.mistake('걸작: 4초 안에 피해를 준 적이 3m 안에 없음'); Sfx.playFor(this, 'error'); FX.toastFor(this, '걸작: 최근 4초 안에 피해를 준 적에게만 (3m)'); return false; }
       this.beginCast('R', aim, DImpl.R, { target: t }); return true;
     }
     return false;
   }
   // 걸작 중 R 재사용 = 즉시 탈출 (시전 중이라 선입력으로 미루지 않음)
   cmdSkill(k, aim) {
-    if (k === 'R' && this.shadow && this.shadow.phase !== 'out') { Stats.input(); this.shadow.exit = true; return; }
+    if (k === 'R' && this.shadow && this.shadow.phase !== 'out') { this.S.input(); this.shadow.exit = true; return; }
     super.cmdSkill(k, aim);
   }
   // 캐시의 강화 평타 처리는 쓰지 않음
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
-    c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k); if (c.k !== 'E') Vision.act(this, 'skill');
+    c.data.snap = {}; for (const e of Game.enemies(this)) c.data.snap[e.id] = V.copy(e.pos);
+    this.S.cast(c.k); if (c.k !== 'E') Vision.act(this, 'skill');
     c.impl.fire(this, c);
     Events.emit('action', { k: c.k });
   }
@@ -70,40 +70,40 @@ class DanielPlayer extends Cathy {
   castQ(aim) {
     const K = this.K.Q, d = Math.min(K.range, V.dist(this.pos, aim)), dir = V.dist(aim, this.pos) > 0.05 ? V.norm(V.sub(aim, this.pos)) : V.fromAng(this.facing);
     this.pendingQ.push({ pos: V.add(this.pos, V.mul(dir, d)), dir, t: 0, dur: K.windup, id: ++this.qSeq });
-    this.startCd('Q'); Stats.cast('Q'); Vision.act(this, 'skill'); this.breakStealth();
+    this.startCd('Q'); this.S.cast('Q'); Vision.act(this, 'skill'); this.breakStealth();
     FX.text(this.pos, K.name, this.color, 12, { bold: true }); Sfx.play('throw'); Events.emit('action', { k: 'Q' });
     return true;
   }
   qLand(o) {
     const K = this.K.Q, apex = V.sub(o.pos, V.mul(o.dir, K.front)); let hit = false;
-    for (const u of Game.enemies().concat(Game.units.filter(x => x.kind === 'animal' && !x.dead))) {
+    for (const u of Game.enemies(this).concat(Game.units.filter(x => x.kind === 'animal' && !x.dead))) {
       if (u.dead || u.untargetable > 0 || !Geo.inSector(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
       const center = V.dist(u.pos, o.pos) <= K.centerR + u.r;
-      if (u.kind !== 'animal') { hit = true; Stats.hit('Q', 'dq' + o.id); }
+      if (u.kind !== 'animal') { hit = true; this.S.hit('Q', 'dq' + o.id); }
       Combat.damage(this, u, this.calc(center ? K.center : K, 'Q'), { type: 'skill', source: center ? 'Q 중앙' : 'Q' });
       if (center) u.addSlow(K.slow, K.slowDur);
       Events.emit('skillHit', { k: 'Q', target: u });
     }
-    Stats.resolveShot('Q', hit);
+    this.S.resolveShot('Q', hit);
     FX.slash(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, '#9d6bff', 0.3);
     const rb = Vision.bushAt(o.pos); if (rb >= 0) Vision.rustle(rb, o.pos, 0, true);
     if (hit) { this.qShots = K.asShots; this.qT = K.asDur; this.as = +(this.baseAs * (1 + lv(K.asBuff, this.L('Q')))).toFixed(2); FX.text(this.pos, '공속↑', '#d9a8ff', 12, { bold: true }); }
   }
   // W: 대상 지정 표식
   castW(aim) {
-    const K = this.K.W, t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius);
-    if (!t || t.kind === 'ward') { Stats.mistake('영감: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.play('error'); return false; }
-    if (V.dist(this.pos, t.pos) - t.r > K.range) { FX.toast(`사거리 밖 (${K.range}m)`); Sfx.play('error'); return false; }
+    const K = this.K.W, t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this);
+    if (!t || t.kind === 'ward') { this.S.mistake('영감: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.playFor(this, 'error'); return false; }
+    if (V.dist(this.pos, t.pos) - t.r > K.range) { FX.toastFor(this, `사거리 밖 (${K.range}m)`); Sfx.playFor(this, 'error'); return false; }
     this.mark = { target: t, t: 0, acc: 0 }; t.blindT = K.blind; t.blindR = K.blindR;
-    this.startCd('W'); Stats.cast('W'); Vision.act(this, 'skill'); this.breakStealth();
+    this.startCd('W'); this.S.cast('W'); Vision.act(this, 'skill'); this.breakStealth();
     FX.text(t.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(t.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw'); Events.emit('action', { k: 'W' });
-    Stats.resolveShot('W', true);
+    this.S.resolveShot('W', true);
     return true;
   }
   rTarget(aim) {
     const K = this.K.R, ok = e => !e.dead && e.kind !== 'ward' && Game.time - (this.lastHitOn[e.id] ?? -99) <= K.recent && V.dist(this.pos, e.pos) - e.r - this.r <= K.range;
-    const at = Game.pickEnemyAt(aim, CONFIG.input.pickRadius); if (at && ok(at)) return at;
-    return Game.visibleEnemies().filter(ok).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0] || null;
+    const at = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this); if (at && ok(at)) return at;
+    return Game.visibleEnemies(this).filter(ok).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0] || null;
   }
   // ---------- 피해 훅: 최근 피해(궁 조건)·영감 축적/폭발 ----------
   onDealt(tgt, dmg, o) {
@@ -116,12 +116,12 @@ class DanielPlayer extends Cathy {
       if (!tgt.dead) Combat.damage(this, tgt, this.calc(W, 'W'), { type: 'skill', source: 'W 폭발', markPop: true });
       tgt.addSlow(W.slow, W.slowDur);
       FX.burst(tgt.pos, '#d9a8ff', 24, 7, 0.6); FX.ring(tgt.pos, 0.3, 1.8, '#d9a8ff', 0.4); FX.text(tgt.pos, '영감 폭발 ' + Math.round(acc), '#d9a8ff', 14, { bold: true });
-      Stats.hit('W', 'pop' + Game.time);
+      this.S.hit('W', 'pop' + Game.time);
     } else M.acc += dmg * (lv(W.acc, this.L('W')) + this.bonusAd * W.accBad) / 100;
   }
   // ---------- 평타: 단검 / 그림자 돌진 중이면 대상 건너편으로 순간이동 + 추가 스킬 피해 ----------
   aaHit(t) {
-    const crit = Math.random() < this.critChance, cfg = CONFIG.basicAttack.dagger;
+    const crit = rnd() < this.critChance, cfg = CONFIG.basicAttack.dagger;
     if (this.shadowT > 0) {
       const dir = V.norm(V.sub(t.pos, this.pos)), from = V.copy(this.pos);
       this.pos = Geo.pushOut(V.add(t.pos, V.mul(dir, t.r + this.r + 0.15)), this.r); this.facing = V.ang(V.mul(dir, -1));
@@ -129,10 +129,10 @@ class DanielPlayer extends Cathy {
       this.shadowT = 0; this.breakStealth();
       Combat.damage(this, t, this.ad * (crit ? cfg.critMul : 1) * (1 + this.aaAmp), { type: 'normal', source: 'AA', crit });
       if (!t.dead) Combat.damage(this, t, this.calc(this.K.E, 'E'), { type: 'skill', source: 'E 그림자 평타' });
-      Stats.hit('E', 'aa' + Game.time);
+      this.S.hit('E', 'aa' + Game.time);
     } else Combat.damage(this, t, this.ad * (crit ? cfg.critMul : 1) * (1 + this.aaAmp), { type: 'normal', source: 'AA', crit });
     if (this.qShots > 0 && --this.qShots <= 0) this.as = this.baseAs;
-    Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
+    this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA' });
     FX.slash(this.pos, V.ang(V.sub(t.pos, this.pos)), 1.3, 0.6, this.color, 0.15); FX.burst(t.pos, '#ffffff', 6, 3); Sfx.play('aa');
     Tactical.onAA(this, t);
@@ -182,7 +182,7 @@ class DanielPlayer extends Cathy {
     if (k === 'Q') {
       ring(K.Q.range); const d = Math.min(K.Q.range, V.dist(this.pos, aim)), c = V.add(this.pos, V.mul(dir, d)), apex = V.sub(c, V.mul(dir, K.Q.front)), h = K.Q.angle / 2 * Math.PI / 180;
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.Q.len, ang - h, ang + h); ctx.closePath(); ctx.fill(); Draw.circle(ctx, c.x, c.y, K.Q.centerR); ctx.stroke();
-    } else if (k === 'W') { ring(K.W.range); mark(Game.pickEnemyAt(aim, CONFIG.input.pickRadius)); }
+    } else if (k === 'W') { ring(K.W.range); mark(Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this)); }
     else if (k === 'E') { Draw.oRect(ctx, this.pos, ang, K.E.dist, 0.6); }
     else if (k === 'R') { ring(K.R.range + this.r); mark(this.rTarget(aim)); }
     else { ctx.restore(); return false; }
@@ -225,8 +225,8 @@ const DImpl = {
       const every = K.dur / K.ticks;
       while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); }
       if (S.t >= K.dur || S.exit || u.dead) {
-        if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); Stats.hit('R', 'r' + Game.time); }
-        const dir = V.dist(Input.world, u.pos) > 0.1 ? V.norm(V.sub(Input.world, u.pos)) : V.fromAng(p.facing);   // 커서 쪽으로 빠져나옴
+        if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); p.S.hit('R', 'r' + Game.time); }
+        const cur = p.cursor, dir = cur && V.dist(cur, u.pos) > 0.1 ? V.norm(V.sub(cur, u.pos)) : V.fromAng(p.facing);   // 커서 쪽으로 빠져나옴 (커서 = 마지막 명령 좌표·걸작 중 커서 명령 — 재생해도 같게)
         S.phase = 'out'; S.outT = S.t; S.from = V.copy(p.pos); S.to = V.add(p.pos, V.mul(dir, Geo.clampDash(p.pos, dir, K.exit, p.r)));
         p.untargetable = p.invuln = K.exitTime;
       }

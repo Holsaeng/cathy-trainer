@@ -32,7 +32,7 @@ const Sphere = {
       this.i++; this.t = 0; this.from = { c: V.copy(this.c), r: this.r };
       if (P.type === 'move') this.target = null;
       if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; return; }
-      const N = this.phase(); if (N.label) FX.toast(`크로노 스피어: ${N.label}`, '#9fe0ff');
+      const N = this.phase(); if (N.label) FX.toastAll(`크로노 스피어: ${N.label}`, '#9fe0ff');
     }
     // 차단벽: 모든 유닛을 원 안으로 (이동기·강제 이동 포함)
     for (const u of Game.units) {

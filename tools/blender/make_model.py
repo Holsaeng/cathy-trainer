@@ -5,7 +5,7 @@
 #   "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b -P tools/blender/make_model.py -- daniel
 #   또는: bash tools/blender/run.sh            (전부)
 # 결과:
-#   models/<키>_custom.glb          게임이 자동으로 읽음 (설정 → 그래픽 → <실험체> 3D 모델 → Blender 모델)
+#   local/<키>_custom.glb           게임이 이 PC에서만 자동으로 읽음 (깃 제외) (설정 → 그래픽 → <실험체> 3D 모델 → Blender 모델)
 #   tools/blender/preview_<키>.png  정면·측면·뒷면 미리보기 렌더
 #
 # 설계는 게임과 공용인 src/6_y_designs.js (DESIGNS) 를 그대로 읽음 → 게임의 「직접 만든 모델」과 같은 모양.
@@ -32,7 +32,8 @@ DESIGNS = json.loads(body)
 if KEY not in DESIGNS: sys.exit('설계 없음: ' + KEY)
 D = DESIGNS[KEY]
 SRC = os.path.join(ROOT, 'models', RIG_FILES[D['rig']])
-OUT = os.path.join(ROOT, 'models', KEY + '_custom.glb')
+OUT = os.path.join(ROOT, 'local', KEY + '_custom.glb')   # 깃 제외 — IP 정책 확인 전까지 3D 모델 데이터는 온라인 배포 안 함
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 PREVIEW = os.path.join(HERE, 'preview_' + KEY + '.png')
 
 def srgb_to_linear(c):

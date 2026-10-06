@@ -2,22 +2,27 @@
 // ============================== 게임 ==============================
 const Game = {
   state: 'menu', paused: false, mode: null, modeId: null, opts: null, units: [], projectiles: [], zones: [], player: null,
-  time: 0, freeze: 0, cdMul: 1, buildId: 'late',
+  time: 0, tick: 0, seed: 1, uid0: 0, freeze: 0, cdMul: 1, buildId: 'late',
   start(id, opts = {}) {
     Events.clear(); FX.reset(); Stats.reset();
-    Object.assign(this, { units: [], projectiles: [], zones: [], player: null, time: 0, freeze: 0, cdMul: 1, modeId: id, opts, buildId: opts.build || Settings.build });
+    Object.assign(this, { units: [], projectiles: [], zones: [], player: null, time: 0, freeze: 0, cdMul: 1, modeId: id, opts, buildId: opts.build || Settings.build, demoLock: false });
     this.mode = Modes[id]; Input.reset();
+    // 시드·틱: 같은 시드 + 같은 명령 기록(Cmd.log) = 같은 판 (리플레이·온라인 대전 준비)
+    this.seed = opts.seed !== undefined ? opts.seed >>> 0 : (Math.random() * 4294967296) >>> 0; Rng.seed(this.seed); this.tick = 0; this.uid0 = UID; Cmd.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
     CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = []; Sphere.stop();
-    Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
+    Vision.fogOn = (id === 'duel' || id === 'pvp') && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
-  step(dt) {
+  step(dt) { this._step(dt); Net.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
+  _step(dt) {
+    Cmd.feed(); Net.feed(); this.tick++;
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
     this.time += dt; Stats.tick(dt); Vision.update(dt);
+    Sfx.tick(dt);
     for (const u of this.units.slice()) u.update(dt);
     VisionItems.update(dt); for (const u of this.units) VisionItems.tick(u, dt);
     this.units = this.units.filter(u => !(u.dead && u.kind === 'ward'));   // 파괴·만료된 카메라 제거
@@ -43,19 +48,22 @@ const Game = {
   finish(reason) {
     if (this.state !== 'play') return;
     this.state = 'result';
+    if (Net.role === 'host') Net.flush();   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
   togglePause() {
     if (this.state !== 'play') return;
+    if (Net.role) { FX.toast('온라인 대전 중에는 일시정지할 수 없습니다', '#aaa'); return; }
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  enemies() { return this.units.filter(u => u.team !== 0 && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
-  visibleEnemies() { return this.enemies().filter(e => Vision.visible(this.player, e)); },
-  nearestEnemy(pos, range) { let best = null, bd = range; for (const e of this.visibleEnemies()) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
-  pickEnemyAt(pt, rad) { let best = null, bd = Infinity; const wards = this.units.filter(u => u.kind === 'ward' && !u.dead && u.team !== 0 && Vision.visible(this.player, u));   // 상대 카메라는 평타로 파괴
-    for (const e of this.visibleEnemies().concat(wards)) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
+  // 적 목록은 「누구 기준」인지(of)에 따라 — 기본 내 캐릭터. 온라인 대전에선 상대(팀 1) 캐릭터 기준으로도 부름
+  enemies(of = this.player) { const tm = of ? of.team : 0; return this.units.filter(u => u.team !== tm && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
+  visibleEnemies(of = this.player) { return this.enemies(of).filter(e => Vision.visible(of, e)); },
+  nearestEnemy(pos, range, of = this.player) { let best = null, bd = range; for (const e of this.visibleEnemies(of)) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
+  pickEnemyAt(pt, rad, of = this.player) { let best = null, bd = Infinity; const tm = of ? of.team : 0, wards = this.units.filter(u => u.kind === 'ward' && !u.dead && u.team !== tm && Vision.visible(of, u));   // 상대 카메라는 평타로 파괴
+    for (const e of this.visibleEnemies(of).concat(wards)) { const d = V.dist(pt, e.pos); if (d <= rad + e.r && d < bd) { bd = d; best = e; } } return best; },
 };
 
 // ============================== 등급/기록 ==============================
@@ -107,10 +115,12 @@ const Input = {
   rightCmd(hold) {
     const p = Game.player, w = this.world; if (!p) return;
     const t = Game.pickEnemyAt(w, 0.35);
-    if (t) { if (p.attackTarget !== t) p.cmdAttack(t); } else if (!hold || !p.attackTarget) p.cmdMove(w);
+    if (t) { if (p.attackTarget !== t) Cmd.attack(t); } else if (!hold || !p.attackTarget) Cmd.move(w);
   },
-  tick() {   // 매 프레임: 우클릭 유지 이동
-    if (!this.rDown || Game.state !== 'play' || Game.paused || !Game.player) return;
+  tick() {   // 매 프레임: 우클릭 유지 이동 · 걸작 중 커서 위치 전달
+    const p = Game.player;
+    if (p && p.shadow && Game.state === 'play' && !Game.paused && !Game.demoLock && (!p.cursor || V.dist(p.cursor, this.world) > 0.25) && performance.now() - (this.curLast || 0) > 80) { this.curLast = performance.now(); Cmd.cursor(this.world); }
+    if (!this.rDown || Game.state !== 'play' || Game.paused || !Game.player || Game.demoLock) return;
     const now = performance.now(); if (now - this.rLast < 90) return;
     this.rLast = now; this.rightCmd(true);
   },
@@ -137,12 +147,12 @@ const Input = {
     cv.addEventListener('mousedown', e => {
       Sfx.init(); if (!this.locked) this.setPos(e.clientX, e.clientY);
       if (e.button === 2) block(e);
-      if (Game.state !== 'play' || Game.paused || !Game.player) return;
+      if (Game.state !== 'play' || Game.paused || !Game.player || Game.demoLock) return;
       this.lock(cv);
       const p = Game.player;
       const w = this.world, mb = this.moveBtn();
       if (e.button === 0 && (this.aiming || this.amove)) {   // 스킬 조준·공격 이동 확정은 항상 좌클릭
-        if (this.aiming) { p.cmdSkill(this.aiming, w); this.aiming = null; } else { p.cmdAttackMove(w); this.amove = false; }
+        if (this.aiming) { Cmd.skill(this.aiming, w); this.aiming = null; } else { Cmd.amove(w); this.amove = false; }
       } else if (e.button === mb) {   // 이동/공격 (누르고 있으면 계속 따라감)
         this.aiming = null; this.amove = false; this.rDown = true; this.rLast = performance.now();
         this.rightCmd(false);
@@ -172,23 +182,25 @@ const Input = {
     }
     if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
     if (Game.state !== 'play' || Game.paused || e.repeat || !Game.player) return;
+    if (Game.modeId === 'combo' && e.key.toLowerCase() === 'g' && !Object.values(Settings.keys).includes('g')) { e.preventDefault(); Modes.combo.startDemo(); return; }   // 콤보 시범 보기
+    if (Game.demoLock) return;   // 시범 중엔 입력 막음
     const k = e.key.toLowerCase(), act = Object.keys(Settings.keys).find(a => Settings.keys[a] === k);
     if (!act) return;
     e.preventDefault(); Sfx.init();
     const p = Game.player, w = this.world;
-    if (act === 'S') { p.cmdStop(); this.aiming = null; return; }
-    if (act === 'X') { this.aiming = null; this.amove = false; if (p.rest) Rest.stop(p, null, true); else Rest.start(p); return; }   // 휴식 (다시 누르면 일어남)
-    if (act === 'C') { VisionItems.camera(p, w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
-    if (act === 'V') { VisionItems.drone(p, w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
+    if (act === 'S') { Cmd.stop(); this.aiming = null; return; }
+    if (act === 'X') { this.aiming = null; this.amove = false; Cmd.rest(); return; }   // 휴식 (다시 누르면 일어남)
+    if (act === 'C') { Cmd.camera(w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
+    if (act === 'V') { Cmd.drone(w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
     if (act === 'Y') { Settings.camLock = Settings.camLock === false; saveSettings(); FX.toast(Settings.camLock ? '카메라 잠금' : '카메라 잠금 해제 — 화면 가장자리로 이동, 스페이스로 내 캐릭터', '#9fd8ff'); return; }   // 이터널 리턴과 같은 카메라 잠금 전환
-    if (act === 'R' && p.shadow) { p.cmdSkill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
+    if (act === 'R' && p.shadow) { Cmd.skill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
-    if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { p.cmdSkill('D', w); return; }
+    if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { Cmd.skill('D', w); return; }
     const mode = castModeOf(act);
-    if (mode === 'smart') { p.cmdSkill(act, w); this.aiming = null; return; }           // 누르면 즉시 발동
+    if (mode === 'smart') { Cmd.skill(act, w); this.aiming = null; return; }           // 누르면 즉시 발동
     if (mode === 'release') { this.aiming = act; this.amove = false; this.holdKey = act; return; }   // 떼면 발동
-    if (this.aiming === act) { p.cmdSkill(act, w); this.aiming = null; return; }   // 같은 키 두 번 = 시전
+    if (this.aiming === act) { Cmd.skill(act, w); this.aiming = null; return; }   // 같은 키 두 번 = 시전
     this.aiming = act; this.amove = false;
   },
   onKeyUp(e) {
@@ -197,7 +209,7 @@ const Input = {
     const act = Object.keys(Settings.keys).find(a => Settings.keys[a] === e.key.toLowerCase());
     if (act !== this.holdKey) return;
     this.holdKey = null;
-    if (this.aiming === act) { Game.player.cmdSkill(act, this.world); this.aiming = null; }
+    if (this.aiming === act) { Cmd.skill(act, this.world); this.aiming = null; }
   },
 };
 
@@ -292,19 +304,20 @@ const Render = {
     if (Game.state === 'menu') return;
     this.drawIndicators(ctx, T);
     for (const m of FX.marks) { const k = m.life / m.max; ctx.strokeStyle = m.color; ctx.globalAlpha = k; ctx.lineWidth = 0.05; Draw.circle(ctx, m.x, m.y, 0.15 + (1 - k) * 0.4); ctx.stroke(); ctx.globalAlpha = 1; }
-    for (const t of FX.trails) { ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
+    const fx3 = !all && typeof VFX3D !== 'undefined' && VFX3D.on();   // 3D 스킬 이펙트가 켜져 있으면 베기·궤적·파티클은 3D로만
+    for (const t of FX.trails) { if (fx3 && t.width <= VFX3D.WIDE) continue; ctx.globalAlpha = (t.life / t.max) * 0.5; ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(t.a.x, t.a.y); ctx.lineTo(t.b.x, t.b.y); ctx.stroke(); }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
     for (const u of Game.units.slice().sort((a, b) => a.pos.y - b.pos.y)) this.drawUnit(ctx, u, T, !all);
-    for (const u of Game.units) if (u.rest && !u.dead && (u.team === 0 || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
+    for (const u of Game.units) if (u.rest && !u.dead && (u.team === myTeam() || Vision.visible(Game.player, u))) Rest.draw(ctx, u);
     if (Game.player && Game.player.drawExtra && Game.state !== 'menu') Game.player.drawExtra(ctx);
     if (Game.player && Game.state !== 'menu') Tactical.draw(ctx, Game.player);
     if (all) { this.drawBushes(ctx); for (const pr of Game.projectiles) this.drawProjectile(ctx, pr, T); }
-    for (const s of FX.slashes) {
+    if (!fx3) for (const s of FX.slashes) {
       const k = s.life / s.max; ctx.globalAlpha = k * 0.55; ctx.fillStyle = s.color;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.R, s.ang - s.half, s.ang + s.half); ctx.arc(s.x, s.y, s.inner || 0, s.ang + s.half, s.ang - s.half, true); ctx.closePath(); ctx.fill();
       if (s.inner) { ctx.globalAlpha = k * 0.9; ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.arc(s.x, s.y, s.inner, s.ang - s.half, s.ang + s.half); ctx.stroke(); }
     }
-    for (const a of FX.arcs) {
+    if (!fx3) for (const a of FX.arcs) {
       const k = a.life / a.max, end = V.add(a.a, V.mul(a.dir, a.len)), ctrl = V.add(V.add(a.a, V.mul(a.dir, a.len * 0.5)), V.mul(V.perp(a.dir), a.bend));
       ctx.lineCap = 'round';
       for (const [col, w, al] of [[a.color, a.width, 0.6], ['#ffffff', a.width * 0.25, 0.9]]) {
@@ -315,7 +328,7 @@ const Render = {
     }
     ctx.globalAlpha = 1;
     for (const r of FX.rings) { const k = 1 - r.life / r.max; ctx.globalAlpha = 1 - k; ctx.strokeStyle = r.color; ctx.lineWidth = r.width; Draw.circle(ctx, r.x, r.y, lerp(r.r0, r.r1, k)); ctx.stroke(); }
-    for (const p of FX.parts) { ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
+    if (!fx3) for (const p of FX.parts) { ctx.globalAlpha = p.life / p.max; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size); }
     ctx.globalAlpha = 1;
     if (Vision.fogOn && Game.player) this.drawFog(ctx);
   },
@@ -429,7 +442,7 @@ const Render = {
   drawBushes(ctx) {
     (CONFIG.bushes || []).forEach((b, bi) => {
       // 흔들림: 내 시야(또는 아군 시야) 안의 부쉬에 누가 들어가거나 스킬이 지나가면 흔들림 — 시야 밖이면 안 보임
-      const R = Vision.rustles.find(r => r.b === bi && (r.team !== 0 || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.06 * (R.t / CONFIG.vision.rustle) : 0;
+      const R = Vision.rustles.find(r => r.b === bi && (r.team !== myTeam() || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.06 * (R.t / CONFIG.vision.rustle) : 0;
       ctx.save(); ctx.fillStyle = R ? 'rgba(70,140,80,.62)' : 'rgba(46,110,62,.55)'; Draw.rr(ctx, b.x, b.y, b.w, b.h, 0.35); ctx.fill(); ctx.strokeStyle = 'rgba(120,200,120,.5)'; ctx.lineWidth = 0.05; ctx.stroke();
       ctx.fillStyle = R ? 'rgba(150,220,140,.6)' : 'rgba(90,170,90,.45)';
       for (let i = 0; i < b.w * b.h * 2.2; i++) { const x = b.x + ((i * 0.618034) % 1) * b.w + sh * Math.sin(i), y = b.y + ((i * 0.381966 * 1.7) % 1) * b.h; ctx.beginPath(); ctx.ellipse(x, y, 0.22, 0.12, i + sh * 4, 0, Math.PI * 2); ctx.fill(); }
@@ -438,15 +451,15 @@ const Render = {
   },
   drawUnit(ctx, u, T, decal) {
     if (u.dead) return;
-    if (u.team !== 0 && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
+    if (u.team !== myTeam() && !Vision.visible(Game.player, u)) return;   // 부쉬 속 적은 안 보임
     if (u.kind === 'ward') {   // 망원 카메라: 삼각대 + 남은 시간 링 (내 카메라는 시야 반경 점선)
-      if (decal) { if (u.team === 0 && Settings.showRange) KU.ring(ctx, u.pos, u.sightR(), u.color, 0.18, true); return; }
+      if (decal) { if (u.team === myTeam() && Settings.showRange) KU.ring(ctx, u.pos, u.sightR(), u.color, 0.18, true); return; }
       const k = clamp(u.life / CONFIG.vision.camera.dur, 0, 1);
       ctx.save(); ctx.strokeStyle = u.color; ctx.lineWidth = 0.05;
       ctx.beginPath(); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x - 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x + 0.2, u.pos.y + 0.25); ctx.moveTo(u.pos.x, u.pos.y - 0.05); ctx.lineTo(u.pos.x, u.pos.y + 0.28); ctx.stroke();
       ctx.fillStyle = u.color; ctx.fillRect(u.pos.x - 0.16, u.pos.y - 0.24, 0.32, 0.2);
       ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
-      if (u.team === 0 && Settings.showRange) { ctx.globalAlpha = 0.18; ctx.setLineDash([0.3, 0.25]); Draw.circle(ctx, u.pos.x, u.pos.y, u.sightR()); ctx.stroke(); }
+      if (u.team === myTeam() && Settings.showRange) { ctx.globalAlpha = 0.18; ctx.setLineDash([0.3, 0.25]); Draw.circle(ctx, u.pos.x, u.pos.y, u.sightR()); ctx.stroke(); }
       ctx.restore(); return;
     }
     ctx.save();
@@ -490,7 +503,7 @@ const Render = {
     ctx.restore();
     if (u.kind === 'player' && u.daggerReady > 0) {
       ctx.strokeStyle = 'rgba(120,180,255,.9)'; ctx.lineWidth = 0.03;
-      for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2, r0 = u.r * 0.6, x0 = u.pos.x + Math.cos(a) * r0, y0 = u.pos.y + u.r * 0.4 + Math.sin(a) * r0 * 0.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + rand(-0.2, 0.2), y0 + rand(-0.2, 0.1)); ctx.lineTo(x0 + rand(-0.25, 0.25), y0 + rand(-0.3, 0.15)); ctx.stroke(); }
+      for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2, r0 = u.r * 0.6, x0 = u.pos.x + Math.cos(a) * r0, y0 = u.pos.y + u.r * 0.4 + Math.sin(a) * r0 * 0.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + vrand(-0.2, 0.2), y0 + vrand(-0.2, 0.1)); ctx.lineTo(x0 + vrand(-0.25, 0.25), y0 + vrand(-0.3, 0.15)); ctx.stroke(); }
     }
     if (u.flash > 0) { ctx.globalAlpha = Math.min(1, u.flash / 0.12) * 0.8; ctx.fillStyle = '#fff'; Draw.circle(ctx, u.pos.x, u.pos.y, u.r); ctx.fill(); ctx.globalAlpha = 1; }
     if (u.shield > 0) {
@@ -516,7 +529,7 @@ const Render = {
   // 머리 위 표시 위치(2D): 몸 원 위
   overhead(u) { const s = this.toScreen(u.pos), R = u.r * this.L.ppm; return { x: s.x, top: s.y - R - 16, bottom: s.y + R + 13 }; },
   drawProjectile(ctx, pr, T) {
-    if (pr.team !== 0 && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
+    if (pr.team !== myTeam() && !Vision.pointVisible(pr.pos)) return;   // 시야 밖 적 투사체는 안 보임
     ctx.save();
     if (pr.kind === 'needle') {
       if (pr.owner && !pr.owner.dead) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(pr.owner.pos.x, pr.owner.pos.y); ctx.lineTo(pr.pos.x, pr.pos.y); ctx.stroke(); }   // 실
@@ -549,15 +562,15 @@ const ScreenLayer = {
   // 머리 위 체력바/외상 중첩/상태
   drawOverheads(ctx) {
     for (const u of Game.units) {
-      if (u.dead || u.kind === 'ward' || (u.team !== 0 && !Vision.visible(Game.player, u))) continue;
+      if (u.dead || u.kind === 'ward' || (u.team !== myTeam() && !Vision.visible(Game.player, u))) continue;
       const o = Renderer.overhead(u), s = { x: o.x }, R = u.r * Renderer.pxPerMeter(u.pos), bw = clamp(R * 2.6, 44, 110), bh = 6, x = o.x - bw / 2, y = o.top;
       ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(x - 1, y - 1, bw + 2, bh + 2);
       const total = Math.max(u.maxHp, u.hp + u.shield);
-      ctx.fillStyle = u.team === 0 ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);
+      ctx.fillStyle = u.team === myTeam() ? '#3fd07a' : '#e5484d'; ctx.fillRect(x, y, bw * Math.max(0, u.hp) / total, bh);
       if (u.shield > 0) { ctx.fillStyle = '#e9eef7'; ctx.fillRect(x + bw * Math.max(0, u.hp) / total, y, bw * u.shield / total, bh); }
       if (u.healRed > 0) { ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 1; ctx.strokeRect(x - 1, y - 1, bw + 2, bh + 2); }
       Draw.text(ctx, u.kind === 'player' ? `${u.name || '캐시'} Lv${u.build.level}` : u.name + (u.infinite ? ' ∞' : ''), s.x, y - 7, { size: 11, align: 'center', color: '#c9cfdb', stroke: true });
-      if (u.team !== 0) {
+      if (u.team !== myTeam()) {
         if (u.crit > 0) {
           Draw.rr(ctx, s.x - 46, y - 33, 92, 17, 8); ctx.fillStyle = 'rgba(255,59,92,.9)'; ctx.fill();
           Draw.text(ctx, `치명적 외상 ${fmt(u.crit, 1)}`, s.x, y - 24.5, { size: 11, bold: true, align: 'center', color: '#fff' });

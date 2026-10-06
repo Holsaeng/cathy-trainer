@@ -40,6 +40,10 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:5px 8px;b
 .stat{background:#1b2030;border-radius:8px;padding:9px 11px}.stat span{display:block;color:var(--muted);font-size:11px}.stat b{font-size:18px}
 .grade{font-size:70px;font-weight:900;line-height:1}
 .mist li{margin:3px 0 3px 18px;font-size:13px}
+.coach{background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:10px 12px;margin:8px 0}
+.coach-h{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}.coach-h span{color:#ffb347;font-weight:700;white-space:nowrap}
+.coach-tip{margin:6px 0 8px;font-size:13px;color:#cfe8ff}.coach .btn{padding:5px 10px;font-size:12px}
+.coach-good{margin:8px 0;padding:8px 12px;border-radius:10px;background:#2fd18a14;border:1px solid #2fd18a33;color:#bff3d8;font-size:13px;line-height:1.7}
 canvas.chart{width:100%;display:block;background:#0f131b;border-radius:8px;margin:6px 0}
 #side{position:fixed;top:12px;right:12px;width:240px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:12px;z-index:5;display:none;pointer-events:none}
 #side.show{display:block}#side h4{font-size:13px;margin-bottom:6px;color:var(--accent2)}#side h5{font-size:11px;color:var(--muted);margin:8px 0 4px;font-weight:400}
@@ -53,6 +57,7 @@ kbd{background:#222a3b;border:1px solid var(--line);border-radius:4px;padding:1p
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="window.__noThree=true"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/effects/OutlineEffect.js"></script>
 </head>
 <body>
 <canvas id="game3d"></canvas>

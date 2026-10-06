@@ -2,6 +2,8 @@
 // ============================== 엔티티: 기본 유닛 ==============================
 let UID = 0;
 class Unit {
+  // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(온라인 대전 상대 캐릭터 등)은 버림
+  get S() { return this === Game.player ? Stats : (this.rstats || NullStats); }   // rstats: 온라인 손님 캐릭터 전용 통계(호스트에서)
   constructor(o) {
     this.id = ++UID; this.team = o.team ?? 1; this.name = o.name || ''; this.kind = o.kind || 'unit';
     this.pos = { x: o.x, y: o.y }; this.spawn = { x: o.x, y: o.y }; this.r = o.r || 0.5;
@@ -105,18 +107,18 @@ class Cathy extends Unit {
   aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가
   atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1); }                                                     // 라이트 윙: 공속 20%
   aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.atkSpd()) : this.aaCfg().windupRatio / this.atkSpd(); }
-  validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === 0 || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
+  validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === this.team || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
-    Stats.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this, null, true);
     this.attackTarget = null; this.attackMove = null;
     const dest = Geo.pushOut(V.copy(pt), this.r);
     if (this.cast) {
       const c = this.cast;
       if (c.phase === 'windup') {
         const def = this.skillDef(c.k);
-        if (def.channel) { FX.toast('정신집중 중에는 움직일 수 없습니다', '#8a93a6'); return; }   // R: 이동 입력 무시
+        if (def.channel) { FX.toastFor(this, '정신집중 중에는 움직일 수 없습니다', '#8a93a6'); return; }   // R: 이동 입력 무시
         const canCancel = CONFIG.input.moveCancelsWindup && def.moveCancel !== false;
         if (canCancel) { this.cancelCast(true); this.moveTarget = dest; } else this.pendingMove = dest;   // 수쳐 등 발사형은 끊기지 않고 발사 후 이동
         return;
@@ -128,60 +130,60 @@ class Cathy extends Unit {
     this.moveTarget = dest;
   }
   cmdAttack(t) {
-    Stats.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     if (this.attackTarget !== t && this.aa.phase === 'windup') this.aa.phase = 'none';
     this.attackTarget = t; this.attackMove = null; this.moveTarget = null;
   }
   cmdAttackMove(pt) {
-    Stats.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     this.breakAA(false);
     this.attackTarget = null; this.attackMove = Geo.pushOut(V.copy(pt), this.r); this.moveTarget = V.copy(this.attackMove);
   }
   cmdStop() {
-    Stats.input();
+    this.S.input();
     this.moveTarget = null; this.attackTarget = null; this.attackMove = null;
     this.breakAA(false);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
   }
   cmdSkill(k, aim) {
-    Stats.input();
+    this.S.input();
     if (this.dead) return;
     if (this.rest) Rest.stop(this, null, true);
     const busy = (this.cast && this.cast.phase !== 'recovery') || this.forced || this.stun > 0;
-    if (busy) { this.buffer = { k, aim: V.copy(aim), time: performance.now() }; return; }
+    if (busy) { this.buffer = { k, aim: V.copy(aim), time: Game.time }; return; }
     this.tryCast(k, aim);
   }
   // 평타 모션 중단: 선딜(windup) 중 이동하면 평타가 취소됨
   breakAA(countMistake) {
-    if (this.aa.phase === 'windup' && countMistake && this.aa.t > this.aa.dur * 0.35) Stats.mistake('평타 선딜 중 이동 → 평타 취소');
+    if (this.aa.phase === 'windup' && countMistake && this.aa.t > this.aa.dur * 0.35) this.S.mistake('평타 선딜 중 이동 → 평타 취소');
     this.aa.phase = 'none';
   }
 
   // ---------- 시전 ----------
   tryCast(k, aim) {
     const s = this.skills[k], def = this.skillDef(k);
-    if (!s || s.lv <= 0) { FX.toast(`${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
+    if (!s || s.lv <= 0) { FX.toastFor(this, `${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
     if (!this.canAct()) return false;
     if (k === 'F') { if (s.cd > 0) { this.cdError(k); return false; } return Tactical.use(this, aim); }   // 전술 스킬 (메뉴에서 선택)
-    if (this.silence > 0) { FX.toast('침묵 — 스킬 사용 불가', '#b07cff'); Sfx.play('error'); return false; }
+    if (this.silence > 0) { FX.toastFor(this, '침묵 — 스킬 사용 불가', '#b07cff'); Sfx.playFor(this, 'error'); return false; }
     if (k === 'D') return this.tryWeapon(aim);
     if (s.cd > 0) { this.cdError(k); return false; }
-    if ((k === 'Q' || k === 'R') && this.root > 0) { FX.toast('속박 중에는 돌진할 수 없습니다'); return false; }
-    const cost = def.stamina || 0; if (this.st < cost) { FX.toast('스태미나 부족', '#4aa3ff'); return false; }
+    if ((k === 'Q' || k === 'R') && this.root > 0) { FX.toastFor(this, '속박 중에는 돌진할 수 없습니다'); return false; }
+    const cost = def.stamina || 0; if (this.st < cost) { FX.toastFor(this, '스태미나 부족', '#4aa3ff'); return false; }
     this.st -= cost;
     this.beginCast(k, aim, Impl[k], { cost });
     return true;
   }
-  cdError(k) { Sfx.play('error'); HUD.flash(k); }
+  cdError(k) { Sfx.playFor(this, 'error'); if (this === Game.player) HUD.flash(k); }
   tryWeapon(aim) {
     const s = this.skills.D, def = this.skillDef('D');
     if (this.weapon === 'dagger') {
       if (this.daggerReady > 0) {   // 2차: 대상 지정 이동
-        const t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius);
-        if (!t) { Stats.mistake('단검 D: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.play('error'); return false; }
-        if (V.dist(this.pos, t.pos) - t.r > def.range) { Stats.mistake('단검 D: 사거리 밖 시전'); Sfx.play('error'); FX.toast('사거리 밖 (2.5m)'); return false; }
+        const t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this);
+        if (!t) { this.S.mistake('단검 D: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.playFor(this, 'error'); return false; }
+        if (V.dist(this.pos, t.pos) - t.r > def.range) { this.S.mistake('단검 D: 사거리 밖 시전'); Sfx.playFor(this, 'error'); FX.toastFor(this, '사거리 밖 (2.5m)'); return false; }
         this.beginCast('D', t.pos, Impl.Ddagger, { target: t }); return true;
       }
       if (s.cd > 0) { this.cdError('D'); return false; }
@@ -219,17 +221,17 @@ class Cathy extends Unit {
   }
   fireCast() {
     const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
-    c.data.snap = {}; for (const e of Game.enemies()) c.data.snap[e.id] = V.copy(e.pos);
-    Stats.cast(c.k); Vision.act(this, 'skill');   // 부쉬 노출 + 시야 밖 상대에겐 '!' 소음
+    c.data.snap = {}; for (const e of Game.enemies(this)) c.data.snap[e.id] = V.copy(e.pos);
+    this.S.cast(c.k); Vision.act(this, 'skill');   // 부쉬 노출 + 시야 밖 상대에겐 '!' 소음
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
-    if (qwer && this.enhanced > 0) Stats.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
+    if (qwer && this.enhanced > 0) this.S.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
     if (qwer) this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // Q 지속 효과: 스킬 사용 후 다음 평타 강화
     Events.emit('action', { k: c.impl.action || c.k });
   }
   cancelCast(mistake) {
     const c = this.cast; if (!c) return;
-    if (mistake) Stats.mistake(`${this.skillLabel(c.k)} 선딜 중 이동 입력으로 캔슬됨`);
+    if (mistake) this.S.mistake(`${this.skillLabel(c.k)} 선딜 중 이동 입력으로 캔슬됨`);
     this.st = Math.min(this.maxSt, this.st + c.cost); this.cast = null;
   }
   endCast() {
@@ -259,7 +261,7 @@ class Cathy extends Unit {
     }
     if (a.phase === 'back') { a.t += dt; if (a.t >= a.dur) a.phase = 'none'; else return true; }
     if (this.attackMove && !this.validTarget(this.attackTarget)) {
-      const e = Game.nearestEnemy(this.pos, CONFIG.input.attackMoveAcquire); if (e) this.attackTarget = e;
+      const e = Game.nearestEnemy(this.pos, CONFIG.input.attackMoveAcquire, this); if (e) this.attackTarget = e;
     }
     const t = this.attackTarget;
     if (this.validTarget(t)) {
@@ -276,7 +278,7 @@ class Cathy extends Unit {
     return false;
   }
   aaHit(t) {
-    const cfg = this.aaCfg(), crit = Math.random() < this.critChance, enh = this.enhanced > 0, Q = CONFIG.skills.Q;
+    const cfg = this.aaCfg(), crit = rnd() < this.critChance, enh = this.enhanced > 0, Q = CONFIG.skills.Q;
     if (enh) {   // 강화 평타: 1회 (쌍검은 공격력 110%)
       Combat.damage(this, t, this.ad * (this.weapon === 'dual' ? Q.dualEnhAd : 1) * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit });
     } else {     // 일반 평타: 쌍검은 공격력 80% × 2회 (2타는 잠시 뒤)
@@ -286,10 +288,10 @@ class Cathy extends Unit {
     if (enh) {
       this.enhanced = 0;
       if (!t.dead) Combat.damage(this, t, Math.max(Q.enhMin, this.sp * Q.enhSp), { type: 'skill', source: 'AA+', trauma: true, min: Q.enhMin });
-      Stats.enhAA++; Events.emit('enhAA');
+      this.S.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
-    Stats.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
+    this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
     Tactical.onAA(this, t);
@@ -309,7 +311,7 @@ class Cathy extends Unit {
       if ((h.t -= dt) > 0) continue; h.done = true;
       const t = h.target, cfg = this.aaCfg();
       if (!t || t.dead || this.dead || V.dist(this.pos, t.pos) - t.r - this.r > cfg.range + 0.6) continue;
-      const crit = Math.random() < this.critChance;
+      const crit = rnd() < this.critChance;
       Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit, noShake: true });
       FX.burst(t.pos, '#ffffff', 4, 3); Sfx.play('aa');
     }
@@ -323,7 +325,7 @@ class Cathy extends Unit {
       if (this.dualRecast <= 0 && !(this.cast && this.cast.impl === Impl.Ddual2)) { this.dualRecast = 0; this.startCd('D'); }
     }
     if (this.dead) return;
-    Stats.trackWaste(this, dt);
+    this.S.trackWaste(this, dt);
     this.passiveMoveBoost();
     if (this.forced) return;
     if (this.stasis) { this.vel = { x: 0, y: 0 }; return; }   // 아티팩트 경직: 행동 불가
@@ -337,8 +339,8 @@ class Cathy extends Unit {
     if (this.cast) { this.updateCast(dt); if (this.cast) return; }
     if (this.buffer) {   // 선입력 처리
       const b = this.buffer; this.buffer = null;
-      if (performance.now() - b.time <= CONFIG.input.bufferMs) this.tryCast(b.k, b.aim);
-      else Stats.mistake('너무 이른 선입력 (입력 씹힘)');
+      if ((Game.time - b.time) * 1000 <= CONFIG.input.bufferMs + 1e-6) this.tryCast(b.k, b.aim);
+      else this.S.mistake('너무 이른 선입력 (입력 씹힘)');
       if (this.cast) return;
     }
     if (this.updateAA()) return;
@@ -351,9 +353,9 @@ class Cathy extends Unit {
     if (this.shield <= 0) return;
     if (this.shieldBoostUsed || !this.moveTarget) return;
     const md = V.norm(V.sub(this.moveTarget, this.pos)), cosA = Math.cos(P.moveBoostAngle * Math.PI / 180);
-    for (const e of Game.enemies()) {
+    for (const e of Game.enemies(this)) {
       if ((e.trauma > 0 || e.crit > 0) && V.dist(e.pos, this.pos) < 10 && V.dot(md, V.norm(V.sub(e.pos, this.pos))) > cosA) {
-        this.addMsBuff(lv(P.moveBoost, Passive.lvl()), P.moveBoostDur, true, 'pboost'); this.shieldBoostUsed = true;
+        this.addMsBuff(lv(P.moveBoost, Passive.lvl(this)), P.moveBoostDur, true, 'pboost'); this.shieldBoostUsed = true;
         FX.text(this.pos, '이속↑', CONFIG.theme.accent2, 12); break;
       }
     }
@@ -364,12 +366,12 @@ class Cathy extends Unit {
 function skillHit(p, c, e, amount, o = {}) {
   if (e.dead) return;
   c.hitAny = true;
-  const first = Stats.hit(c.k, c.id);
+  const first = p.S.hit(c.k, c.id);
   // 예측샷 판정: 움직이는 대상에게 '현재 위치가 아닌 곳'을 노려 맞췄는가
   if (first && c.data.snap && V.len(e.vel) > 0.6) {
-    Stats.movingHits++;
+    p.S.movingHits++;
     const s0 = c.data.snap[e.id];
-    if (s0 && V.dist(s0, c.origin) > 1.5 && Math.abs(angDiff(V.ang(V.sub(s0, c.origin)), c.ang)) > 0.1) Stats.leadHits++;
+    if (s0 && V.dist(s0, c.origin) > 1.5 && Math.abs(angDiff(V.ang(V.sub(s0, c.origin)), c.ang)) > 0.1) p.S.leadHits++;
   }
   const trauma = o.trauma !== false && !c.traumaSet.has(e.id);   // 외상은 시전당 대상 1회
   if (trauma) c.traumaSet.add(e.id);
@@ -393,7 +395,7 @@ const Impl = {
     tick(p, c, dt) {
       const d = c.data; d.t += dt; const k = Math.min(1, d.t / d.dur), prev = V.copy(p.pos);
       p.pos = V.lerp(d.from, d.to, k); FX.trail(prev, p.pos, CONFIG.theme.accent, 0.42, 0.6); FX.trail(prev, p.pos, '#ffe0e6', 0.08, 0.35);
-      for (const e of Game.enemies()) {
+      for (const e of Game.enemies(p)) {
         if (d.hit.has(e.id)) continue;
         if (Geo.segDist(e.pos, d.from, p.pos) <= e.r + S.Q.hitWidth / 2) {
           d.hit.add(e.id);
@@ -403,7 +405,7 @@ const Impl = {
       }
       return k >= 1;
     },
-    end(p, c) { Stats.resolveShot('Q', c.hitAny); },
+    end(p, c) { p.S.resolveShot('Q', c.hitAny); },
   },
   W: {
     windup: () => S.W.windup, recovery: () => S.W.recovery,
@@ -413,13 +415,13 @@ const Impl = {
       FX.slash(p.pos, c.ang, S.W.range, half, CONFIG.theme.accent, 0.6, S.W.innerRange);
       FX.slash(p.pos, c.ang, S.W.innerRange, half * 0.9, '#e8edf5', 0.22, 0.6);
       let inner = 0, outer = 0;
-      for (const e of Game.enemies()) {
+      for (const e of Game.enemies(p)) {
         if (!Geo.inSector(p.pos, c.ang, S.W.range, half, e.pos, e.r)) continue;
         if (V.dist(p.pos, e.pos) + e.r <= S.W.innerRange) { /* 완전히 안쪽일 때만 안쪽 판정 */ skillHit(p, c, e, lv(S.W.innerDmg, l) + p.sp * S.W.innerSp, { trauma: false }); inner++; FX.trail(V.add(e.pos, V.fromAng(c.ang + 2.2)), V.add(e.pos, V.fromAng(c.ang - 0.9)), '#9fb4ff', 0.08, 0.3); }
         else { skillHit(p, c, e, lv(S.W.outerDmg, l) + p.sp * S.W.outerSp); e.addSlow(S.W.slow, S.W.slowDur); outer++; FX.text(e.pos, '바깥 적중', CONFIG.theme.accent2, 12, { bold: true }); }
       }
-      if (inner > 0 && outer === 0) Stats.mistake('W 안쪽 범위만 적중 (외상·둔화 미적용)');
-      Stats.resolveShot('W', inner + outer > 0);
+      if (inner > 0 && outer === 0) p.S.mistake('W 안쪽 범위만 적중 (외상·둔화 미적용)');
+      p.S.resolveShot('W', inner + outer > 0);
     },
   },
   E: {
@@ -427,16 +429,16 @@ const Impl = {
     fire(p, c) {
       p.startCd('E'); Sfx.play('throw');
       const l = p.skills.E.lv, dmg = lv(S.E.dmg, l) + p.sp * S.E.sp;
-      const near = Game.pickEnemyAt(c.aim, 1.6), oor = near && V.dist(p.pos, near.pos) - near.r > S.E.range;
+      const near = Game.pickEnemyAt(c.aim, 1.6, p), oor = near && V.dist(p.pos, near.pos) - near.r > S.E.range;
       Game.projectiles.push(new Projectile({
-        team: 0, owner: p, kind: 'needle', pos: V.copy(p.pos), dir: c.dir, speed: S.E.speed, range: S.E.range, width: S.E.width, assist: S.E.hitAssist,
+        team: p.team, owner: p, kind: 'needle', pos: V.copy(p.pos), dir: c.dir, speed: S.E.speed, range: S.E.range, width: S.E.width, assist: S.E.hitAssist,
         onUnit: (pr, u) => {
           if (!pr.first) {
             pr.first = u; skillHit(p, c, u, dmg); u.applyCC('root', S.E.root); FX.burst(u.pos, CONFIG.theme.accent2, 8, 4);
             pr.assist = S.E.pierceAssist; pr.wallPad = S.E.wallAssist * 0.5; pr.range += S.E.wallAssist;   // 관통 후 판정은 널널
             // 유도: 진행 방향 기준 각도·거리 안의 가장 가까운 적을 두 번째 대상으로
             const left = pr.range - pr.traveled; let best = null, bd = Infinity;
-            for (const e2 of Game.enemies()) {
+            for (const e2 of Game.enemies(p)) {
               if (e2 === u) continue;
               const d2 = V.dist(u.pos, e2.pos); if (d2 > S.E.homingRange || d2 > left + e2.r + 0.5) continue;
               if (Math.abs(angDiff(V.ang(V.sub(e2.pos, u.pos)), V.ang(pr.dir))) > S.E.homingAngle * Math.PI / 180) continue;
@@ -448,7 +450,7 @@ const Impl = {
           skillHit(p, c, u, dmg); Impl.E.pull(p, pr.first, u.pos, u, pr.dir); return 'stop';   // 관통: 최대 1명 추가
         },
         onWall: (pr, pt) => { if (pr.first) Impl.E.pull(p, pr.first, pt, null, pr.dir); },
-        onDone: pr => { Stats.resolveShot('E', !!pr.first); if (!pr.first && oor) Stats.mistake('E 사거리 밖 시전'); },
+        onDone: pr => { p.S.resolveShot('E', !!pr.first); if (!pr.first && oor) p.S.mistake('E 사거리 밖 시전'); },
       }));
     },
     // 먼저 맞은 적을 나중에 맞은 쪽(적/벽)으로 끌어 충돌 → 추가 피해 + 기절 (외상 없음)
@@ -459,8 +461,8 @@ const Impl = {
       const impact = () => {
         for (const u of [first, second]) { if (!u || u.dead) continue; Combat.damage(p, u, bonus, { type: 'skill', source: 'E충돌' }); u.applyCC('stun', S.E.stun); }
         FX.blood(first.pos); FX.addShake(9); Sfx.play('stun');
-        if (second) { Stats.eDouble++; Events.emit('eDouble'); FX.text(first.pos, '2인 수쳐!', CONFIG.theme.gold, 19, { bold: true }); }
-        else { Stats.eWall++; Events.emit('eWall'); FX.text(first.pos, '벽 충돌!', CONFIG.theme.gold, 17, { bold: true }); }
+        if (second) { p.S.eDouble++; Events.emit('eDouble'); FX.text(first.pos, '2인 수쳐!', CONFIG.theme.gold, 19, { bold: true }); }
+        else { p.S.eWall++; Events.emit('eWall'); FX.text(first.pos, '벽 충돌!', CONFIG.theme.gold, 17, { bold: true }); }
       };
       if (first.unstoppable > 0) { impact(); return; }
       first.root = 0;
@@ -487,15 +489,15 @@ const Impl = {
       const d = c.data; d.t += dt; const k = Math.min(1, d.t / d.dur), prev = V.copy(p.pos);
       p.pos = V.lerp(d.from, d.to, k); FX.trail(prev, p.pos, CONFIG.theme.accent, S.R.width * 0.9, 0.5); FX.trail(prev, p.pos, '#ffd0d8', 0.12, 0.4);
       const l = p.skills.R.lv;
-      for (const e of Game.enemies()) {
+      for (const e of Game.enemies(p)) {
         if (d.hit.has(e.id) || !Geo.inORect(d.from, c.dir, d.len * k, S.R.width / 2, e.pos, e.r)) continue;
         d.hit.add(e.id);
         const ratio = e.hp / e.maxHp, t = clamp((1 - ratio) / (1 - S.R.maxHpThreshold), 0, 1);   // 잃은 체력 비례
         const amt = lerp(lv(S.R.minDmg, l), lv(S.R.maxDmg, l), t) + p.sp * lerp(S.R.minSp, S.R.maxSp, t);
         if (ratio <= S.R.maxHpThreshold) { e.rMaxMark = Game.time; FX.text(e.pos, '최대 피해!', CONFIG.theme.accent, 17, { bold: true }); }
-        if (ratio > 0.7) Stats.mistake('R을 체력 70% 이상 대상에게 사용 (최소 피해 구간)');
+        if (ratio > 0.7) p.S.mistake('R을 체력 70% 이상 대상에게 사용 (최소 피해 구간)');
         skillHit(p, c, e, amt, { trauma: false });
-        if (!e.dead) Passive.critical(e, 'R');
+        if (!e.dead) Passive.critical(e, 'R', p);
         FX.xslash(e.pos); FX.burst(e.pos, CONFIG.theme.accent, 20, 7);
       }
       return k >= 1;
@@ -504,9 +506,9 @@ const Impl = {
       const d = c.data;
       Game.zones.push({ type: 'heal', from: d.from, dir: c.dir, len: d.len, width: S.R.width, t: S.R.zoneDur, max: S.R.zoneDur, acc: 0, accT: 0 });
       // 나무위키: 자동 공격 시 궁극기 직후 딜레이 없이 바로 강화 기본 공격
-      if (!p.validTarget(p.attackTarget)) { const e = Game.nearestEnemy(p.pos, p.aaCfg().range + p.r + 0.6); if (e) p.attackTarget = e; }
+      if (!p.validTarget(p.attackTarget)) { const e = Game.nearestEnemy(p.pos, p.aaCfg().range + p.r + 0.6, p); if (e) p.attackTarget = e; }
       if (p.validTarget(p.attackTarget)) { p.instantAA = 0.6; p.aaCd = 0; c.recovery = 0; }
-      Stats.resolveShot('R', c.hitAny);
+      p.S.resolveShot('R', c.hitAny);
     },
   },
   Ddagger: {
@@ -541,7 +543,7 @@ const Impl = {
       const want = Math.min(def.hits1, Math.floor(k * def.hits1 + 1e-6));
       while (d.ticks < want) {
         d.ticks++;
-        for (const e of Game.enemies()) if (Geo.segDist(e.pos, d.from, p.pos) <= e.r + def.hitWidth / 2) {
+        for (const e of Game.enemies(p)) if (Geo.segDist(e.pos, d.from, p.pos) <= e.r + def.hitWidth / 2) {
           skillHit(p, c, e, lv(def.dmg1, l) + p.bonusAd * lv(def.ad1, l) + p.sp * lv(def.sp1, l)); FX.burst(e.pos, '#ff5d3b', 6, 4);
         }
         const a = d.ticks * 2.3 + Math.random() * 0.6;
@@ -550,7 +552,7 @@ const Impl = {
       }
       return k >= 1;
     },
-    end(p, c) { if (c.hitAny) { p.dualRecast = S.D_dual.recastWindow; FX.toast('쌍검 2식 사용 가능 (5초)', '#ff8fa3'); } else p.startCd('D'); },
+    end(p, c) { if (c.hitAny) { p.dualRecast = S.D_dual.recastWindow; FX.toastFor(p, '쌍검 2식 사용 가능 (5초)', '#ff8fa3'); } else p.startCd('D'); },
   },
   Ddual2: {
     action: 'D2', windup: () => 0, recovery: () => S.D_dual.recovery,
@@ -565,7 +567,7 @@ const Impl = {
       const k = Math.min(1, d.t / d.dur), prev = V.copy(p.pos);
       p.pos = V.lerp(d.from, d.to, k); FX.trail(prev, p.pos, '#ff8f3b', 0.9, 0.35);
       FX.slash(p.pos, c.ang, 1.8, 1.1, '#ffb347', 0.12, 1.3);
-      for (const e of Game.enemies()) {
+      for (const e of Game.enemies(p)) {
         if (d.hit.has(e.id) || Geo.segDist(e.pos, d.from, p.pos) > e.r + def.hitWidth / 2) continue;
         d.hit.add(e.id); skillHit(p, c, e, lv(def.dmg2, l) + p.bonusAd * lv(def.ad2, l) + p.sp * lv(def.sp2, l)); FX.burst(e.pos, '#ff8f3b', 20, 7); FX.ring(e.pos, 0.2, 1.4, '#ffc857', 0.35, 0.12); FX.addShake(6);
       }
@@ -577,7 +579,7 @@ const Impl = {
 
 // ============================== 투사체 ==============================
 class Projectile {
-  constructor(o) { Object.assign(this, o); this.traveled = 0; this.hit = new Set(); this.seen = new Set(); this.dead = false; this.start = V.copy(o.pos); }
+  constructor(o) { Object.assign(this, o); this.pid = ++Projectile.seq; this.traveled = 0; this.hit = new Set(); this.seen = new Set(); this.dead = false; this.start = V.copy(o.pos); }   // pid: 스냅샷에서 같은 투사체 찾기용
   finish() { if (!this.dead) { this.dead = true; if (this.onDone) this.onDone(this); } }
   update(dt) {
     if (this.homeTarget && !this.homeTarget.dead) {   // 유도: 목표 방향으로 회전
@@ -585,7 +587,7 @@ class Projectile {
       this.dir = V.fromAng(cur + clamp(d, -mx, mx));
     }
     const prev = V.copy(this.pos), move = Math.min(this.speed * dt, this.range - this.traveled);
-    const tw = this.homeTarget && this.owner && this.owner.team === 1 ? Infinity : Geo.rayHit(prev, this.dir, move, this.width / 2 + (this.wallPad || 0)), segEnd = tw < Infinity ? tw : move;
+    const tw = this.homeTarget && this.owner && this.owner.team === 1 && !(this.owner instanceof Cathy) ? Infinity : Geo.rayHit(prev, this.dir, move, this.width / 2 + (this.wallPad || 0)), segEnd = tw < Infinity ? tw : move;
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {
@@ -604,3 +606,4 @@ class Projectile {
     if (this.traveled >= this.range - 1e-6) this.finish();
   }
 }
+Projectile.seq = 0;

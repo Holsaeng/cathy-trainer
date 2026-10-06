@@ -19,7 +19,7 @@ const KU = {
 };
 
 // 부쉬 체크용: 추정 지점 방향(약간의 오차)
-KU.aimAt = (ai, pt) => V.fromAng(V.ang(V.sub(pt, ai.pos)) + (Math.random() - 0.5) * 2 * ai.diff.aimErr);
+KU.aimAt = (ai, pt) => V.fromAng(V.ang(V.sub(pt, ai.pos)) + (rnd() - 0.5) * 2 * ai.diff.aimErr);
 
 const Kits = {
   // ---------------- 카티야 (저격총) ----------------

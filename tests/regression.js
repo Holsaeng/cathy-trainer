@@ -165,6 +165,226 @@
     T.ok('AI 매치업 정상 종료', done === n, done + '/' + n);
   });
 
+  // ---------------- 결과 화면 코칭 ----------------
+  G('코칭', () => {
+    reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
+    Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });
+    const A = Coach.analyze(Stats);
+    T.ok('코칭: 개선점 3개(무게순)', A.top.length === 3 && A.top[0].id === 'enhSkip' && A.top.every(x => x.tip && x.drill && x.drill.label), A.top.map(x => x.id).join(','));
+    T.ok('코칭: 통계 기반 항목(E 적중률)', Coach.metrics(Stats).some(x => x.id === 'eAim'));
+    T.ok('코칭: 잘한 점', A.good.some(g => g.includes('치명적 외상')));
+    Game.finish('test'); T.ok('코칭: 결과 화면 표시', document.querySelectorAll('.coach').length === 3 && !!document.querySelector('[data-a="drill"]'));
+    click('[data-a="drill"][data-v="0"]'); T.ok('코칭: 연습하기 → 기본 콤보', Game.state === 'play' && Game.modeId === 'combo' && Modes.combo.combo && Modes.combo.combo.id === 'basic');
+    Stats.reset(); T.ok('코칭: 실수 없으면 빈 목록', Coach.analyze(Stats).top.length === 0);
+  });
+
+  // ---------------- 콤보 시범(모범 간격) ----------------
+  G('콤보 시범', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
+    const combo = UI.allCombos().find(c => c.id === 'basic');
+    Game.start('combo', { combo, diff: 'intro' }); run(10);
+    const M = Modes.combo, att0 = Stats.comboAtt;
+    M.startDemo(); T.ok('시범: 시작하면 입력 잠금', !!M.demo && Game.demoLock === true);
+    let n = 0; while (n++ < 1500 && M.demo) step();
+    T.ok('시범: 성공으로 끝남', !M.demo && M.state === 'result' && /시범/.test(M.msg), M.msg);
+    T.ok('시범: 모범 간격 기록', Array.isArray(M.ideal) && M.ideal.length === M.steps.length && M.ideal.slice(1).every(g => g > 0 && g < 3), JSON.stringify(M.ideal));
+    const saved = Store.get('comboIdeal', {})[combo.id + ':dagger'];
+    T.ok('시범: 모범 간격 저장', Array.isArray(saved) && saved.length === M.ideal.length);
+    T.ok('시범: 통계는 시범 전으로 복원', Stats.comboAtt === att0, `${att0} → ${Stats.comboAtt}`);
+    T.ok('시범: 끝나면 입력 잠금 해제', !Game.demoLock);
+    Game.start('combo', { combo, diff: 'intro' }); T.ok('시범: 다시 시작해도 모범 유지', Array.isArray(M.ideal) && !M.demo);
+  });
+
+  // ---------------- 사운드 ----------------
+  G('사운드', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.sound = true; Settings.ambient = true;
+    Game.start('dummy', { count: 1, hp: 3000, def: 0 }); run(5);
+    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy');
+    const R = Sfx.spatial({ x: p.pos.x + 6, y: p.pos.y }), L = Sfx.spatial({ x: p.pos.x - 6, y: p.pos.y }), F = Sfx.spatial({ x: p.pos.x, y: p.pos.y + 30 });
+    T.ok('사운드: 오른쪽 소리는 오른쪽 스피커', R.pan > 0.5 && L.pan < -0.5, `${R.pan} / ${L.pan}`);
+    T.ok('사운드: 멀수록 작게(최소 30%)', F.vol === 0.3 && R.vol > 0.9 && Sfx.spatial({ x: p.pos.x + 3, y: p.pos.y }).vol === 1 && Sfx.spatial(null).pan === 0);
+    const aya = { motif: CONFIG.rangedMotifs.aya }, rio = { motif: CONFIG.rangedMotifs.rio };
+    p.weapon = 'dual'; const twin = Sfx.hitKind(p, 'normal'); p.weapon = 'dagger';
+    T.ok('사운드: 무기별 타격음', Sfx.hitKind(p, 'normal') === 'hitBlade' && twin === 'hitTwin' && Sfx.hitKind(aya, 'normal') === 'hitGun' && Sfx.hitKind(rio, 'normal') === 'hitArrow' && Sfx.hitKind({ charKey: 'daniel' }, 'normal') === 'hitShadow');
+    T.ok('사운드: 치명타·스킬·고정 피해 구분', Sfx.hitKind(p, 'normal', { crit: true }) === 'hitCrit' && Sfx.hitKind(p, 'skill') === 'hitSkill' && Sfx.hitKind(p, 'true') === null);
+    Sfx.init();
+    if (!Sfx.ctx) { T.ok('사운드: 오디오 장치', true, '오디오 없음 — 재생 테스트 생략'); return; }
+    Sfx.last = {}; Combat.damage(p, d, 10, { type: 'normal' });
+    T.ok('사운드: 타격음이 대상 위치에서', Sfx.lastPlay && Sfx.lastPlay.n === 'hitBlade' && Math.abs(Sfx.lastPlay.pan - clamp((d.pos.x - p.pos.x) / 9, -0.85, 0.85)) < 1e-6, JSON.stringify(Sfx.lastPlay));
+    Sfx.last = {}; Combat.damage(p, d, 99999, { type: 'true' }); T.ok('사운드: 처치음', d.dead && Sfx.lastPlay.n === 'kill');
+    Vision.setTime('day'); Sfx.tick(0.016); const day = Sfx.ambLevel;
+    Vision.setTime('night'); Sfx.tick(0.016); const night = Sfx.ambLevel;
+    T.ok('사운드: 낮밤 환경음', day > 0 && night > 0 && Sfx.ambF && Math.abs(day - night) > 0.003, `${day.toFixed(3)} / ${night.toFixed(3)}`);
+    Settings.ambient = false; Sfx.tick(0.016); T.ok('사운드: 환경음 끄기', Sfx.ambLevel === 0);
+    Settings.ambient = true; Vision.setTime('day');
+  });
+
+  // ---------------- 명령 계층·결정성 (리플레이·온라인 대전 준비) ----------------
+  G('명령·결정성', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.fog = true;
+    const opts = { diff: 'normal', motif: 'aya', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'night', seed: 777 };
+    // 정해진 규칙으로 명령을 보내는 봇 (Cmd 경유 = 실제 입력과 같은 길)
+    const bot = () => {
+      const p = Game.player, e = Modes.duel.enemy, t = Game.tick; if (!p || !e || p.dead) return;
+      if (t % 60 === 0) Cmd.move({ x: e.pos.x + Math.sin(t * 0.013) * 4, y: e.pos.y + Math.cos(t * 0.017) * 3 });
+      if (t % 150 === 30) Cmd.skill(['Q', 'W', 'E'][(t / 150 | 0) % 3], e.pos);
+      if (t % 200 === 100) Cmd.attack(e);
+      if (t === 1500) Cmd.camera({ x: p.pos.x + 3, y: p.pos.y });
+    };
+    const N = 120 * 25;
+    Game.start('duel', opts); for (let i = 0; i < N; i++) { bot(); step(); }
+    const rec = Cmd.record(), hA = Cmd.hash(), stA = JSON.stringify([Stats.casts, Stats.hits]);
+    T.ok('명령: 입력이 틱과 함께 기록', rec.log.length > 30 && rec.log.every(c => Number.isInteger(c.k) && c.t) && rec.log.some(c => c.t === 'atk' && c.id !== null) && rec.seed === 777, `${rec.log.length}개`);
+    T.ok('명령: 스킬이 실제로 나감', (Stats.casts.Q || 0) + (Stats.casts.W || 0) + (Stats.casts.E || 0) >= 5, stA);
+    Game.start('duel', opts); Cmd.replay(rec.log); run(N);
+    T.ok('결정성: 같은 시드 + 같은 명령 = 같은 결과', Cmd.hash() === hA && JSON.stringify([Stats.casts, Stats.hits]) === stA, `${hA} / ${Cmd.hash()}`);
+    T.ok('결정성: 재생 기록도 같음', Cmd.log.length === rec.log.length);
+    Game.start('duel', Object.assign({}, opts, { seed: 778 })); Cmd.replay(rec.log); run(N);
+    T.ok('결정성: 시드가 다르면 결과가 달라짐(검사가 유효함)', Cmd.hash() !== hA);
+    Game.start('duel', opts); Cmd.replay(rec.log); Cmd.stop(); T.ok('재생 중엔 실제 입력 무시', Cmd.log.length === 0);
+    // 실제 키·마우스 입력 → 명령
+    Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(5);
+    key(Settings.keys.S); key(Settings.keys.X);
+    T.ok('키 입력 → 명령(정지·휴식)', Cmd.log.some(c => c.t === 'stop') && Cmd.log.some(c => c.t === 'rest') && !!Game.player.rest);
+    const ticks0 = Game.tick; run(3); T.ok('틱 카운터', Game.tick === ticks0 + 3);
+    // 선입력 버퍼는 게임 시간 기준 (게임 속도와 무관)
+    const p = Game.player; key(Settings.keys.X); run(2); p.buffer = { k: 'Q', aim: V.copy(p.pos), time: Game.time - CONFIG.input.bufferMs / 1000 * 2 };
+    p.cast = null; const m0 = Stats.mistakes['너무 이른 선입력 (입력 씹힘)'] || 0; step();
+    T.ok('선입력 버퍼: 게임 시간 기준', (Stats.mistakes['너무 이른 선입력 (입력 씹힘)'] || 0) === m0 + 1);
+    // 그리기(2D·3D)는 판정 난수를 쓰지 않음 — 쓰면 화면을 켜고 끄는 것만으로 결과가 달라짐
+    const mode0 = Renderer.mode; let bad = '';
+    Game.start('duel', opts); run(240);
+    for (const m of ['2d'].concat(window.THREE && Render3D.ready !== false ? ['3d'] : [])) {
+      if (!Renderer.setMode(m, true) && m === '3d') continue;
+      for (let i = 0; i < 6; i++) { run(40); const s1 = Rng.s; Renderer.frame(); if (Rng.s !== s1) bad += m + ' '; }
+    }
+    Renderer.setMode(mode0 === '3d' ? '3d' : '2d', true);
+    T.ok('그리기는 판정 난수를 쓰지 않음', !bad, bad);
+    // 다니엘 플레이어: 걸작(R) 탈출 방향(커서)까지 재생이 같아야 함
+    Settings.character = 'daniel';
+    const dop = { diff: 'normal', motif: 'rio', enemyBuild: 'mid', map: 'basic', rounds: 3, animals: false, sphere: false, time: 'day', seed: 99 };
+    const dbot = () => {
+      const p = Game.player, e = Modes.duel.enemy, t = Game.tick; if (!p || !e || p.dead || e.dead) return;
+      if (p.shadow) { if (t % 20 === 0) Cmd.cursor({ x: e.pos.x - 3 + (t % 7), y: e.pos.y - 2 }); return; }
+      if (t % 45 === 0) Cmd.move({ x: e.pos.x + Math.sin(t * 0.02) * 1.2, y: e.pos.y + 1.0 });
+      if (t % 130 === 10) Cmd.skill(['Q', 'W', 'E'][(t / 130 | 0) % 3], e.pos);
+      if (t % 170 === 60) Cmd.attack(e);
+      if (t % 30 === 0 && p.skills.R.cd <= 0 && p.skills.R.lv > 0 && V.dist(p.pos, e.pos) < 2.8) Cmd.skill('R', e.pos);   // 상태는 읽기만(직접 바꾸면 재생 때 안 일어남)
+    };
+    Game.start('duel', dop); for (let i = 0; i < 120 * 20; i++) { dbot(); step(); }
+    const drec = Cmd.record(), dh = Cmd.hash();
+    Game.start('duel', dop); Cmd.replay(drec.log); run(120 * 20);
+    T.ok('결정성: 다니엘(걸작 탈출 커서 포함)', Cmd.hash() === dh && drec.log.some(c => c.t === 'cur') && (Stats.casts.R || 0) >= 1, `${drec.log.filter(c => c.t === 'cur').length}개 커서 명령`);
+    Settings.character = 'cathy';
+  });
+
+  // ---------------- 상대 팀 사람 캐릭터 (온라인 대전 준비) ----------------
+  //   팀 1에 두 번째 캐시를 세우고 명령(Cmd.apply)으로 조종 → 내 캐릭터를 맞히고, 자기·자기 편은 안 맞고, 외상은 그 캐시 기준, 내 통계엔 안 섞임
+  G('상대 팀 캐릭터', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
+    Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(5);
+    const p = Game.player, u2 = new Cathy(p.pos.x + 2.5, p.pos.y), d = Game.units.find(u => u.kind === 'dummy');
+    u2.team = 1; u2.name = '상대 캐시'; Game.units.push(u2); d.pos = { x: p.pos.x - 7, y: p.pos.y };
+    const hit = [], o0 = Combat.damage; Combat.damage = function (src, tgt) { if (src === u2) hit.push(tgt === p ? 'me' : tgt === u2 ? 'self' : tgt.kind); return o0.apply(this, arguments); };
+    const st0 = JSON.stringify([Stats.casts, Stats.mistakes, Stats.inputs]);
+    try {
+      for (const k of ['Q', 'W', 'E']) { u2.skills[k].cd = 0; Cmd.apply(u2, { t: 'sk', s: k, x: p.pos.x, y: p.pos.y }); run(120); }
+      Cmd.apply(u2, { t: 'atk', id: Cmd.rel(p) }); run(150);
+    } finally { Combat.damage = o0; }
+    T.ok('상대 캐시: 스킬·평타가 나를 맞힘', hit.filter(h => h === 'me').length >= 4, hit.join(','));
+    T.ok('상대 캐시: 자기·자기 편은 안 맞음', !hit.includes('self') && !hit.includes('dummy'));
+    T.ok('상대 캐시: 외상 주인은 상대 캐시', (p.bleeds || []).length > 0 && p.bleeds.every(b => b.src === u2) || p.crit > 0, `외상 ${p.trauma}`);
+    T.ok('상대 캐시: 내 통계에 안 섞임', JSON.stringify([Stats.casts, Stats.mistakes, Stats.inputs]) === st0);
+    T.ok('적 목록은 기준 유닛에 따라', Game.enemies(u2).includes(p) && !Game.enemies(u2).includes(d) && Game.enemies(p).includes(u2) && Game.enemies().includes(d));
+  });
+
+  // ---------------- 상태 스냅샷 (온라인 대전 2단계) ----------------
+  //   호스트 판을 진행하며 스냅샷 → 같은 옵션으로 새로 시작한 판(손님 역할)에 적용 → 상태 요약이 같아야 함
+  G('스냅샷', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.fog = true;
+    const opts = { diff: 'hard', motif: 'nadine', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'night', seed: 5 };
+    const bot = () => {
+      const p = Game.player, e = Modes.duel.enemy, t = Game.tick; if (!p || !e || p.dead) return;
+      if (t % 60 === 0) Cmd.move({ x: e.pos.x + Math.sin(t * 0.01) * 3, y: e.pos.y + 2 });
+      if (t % 120 === 30) Cmd.skill(['Q', 'W', 'E', 'D'][(t / 120 | 0) % 4], e.pos);
+      if (t % 170 === 90) Cmd.attack(e);
+      if (t === 900) Cmd.camera({ x: p.pos.x + 3, y: p.pos.y });
+      if (t === 1300) Cmd.drone({ x: e.pos.x, y: e.pos.y });
+    };
+    Game.start('duel', opts); const shots = [];
+    for (let i = 0; i < 120 * 60; i++) { bot(); step(); const last = shots[shots.length - 1]; if (i % 240 === 0 || !last || last.n !== Game.units.length || last.round !== Modes.duel.round || (Game.projectiles.length && !shots.some(s => s.np))) shots.push({ s: Snap.pack(), h: Cmd.hash(), np: Game.projectiles.length, n: Game.units.length, round: Modes.duel.round }); }
+    T.ok('스냅샷: 여러 상황 포함(라운드 변화·유닛 수 변화·투사체)', new Set(shots.map(s => s.round)).size >= 2 && new Set(shots.map(s => s.n)).size >= 2 && shots.some(s => s.np > 0), `${shots.length}개`);
+    Game.start('duel', opts); let bad = [], err = '';
+    for (const [i, sh] of shots.entries()) { try { Snap.unpack(sh.s); if (Cmd.hash() !== sh.h) bad.push(i); } catch (x) { err = x.message; break; } }
+    T.ok('스냅샷: 손님 상태 = 호스트 상태', !bad.length && !err, err || bad.join(','));
+    const big = Math.max(...shots.map(s => s.s.length));
+    T.ok('스냅샷: 크기(20KB 이하)', big < 20000, `${big}B`);
+    // 투사체·참조·설정 객체 복원
+    const ps = shots.find(s => s.np > 0); Snap.unpack(ps.s); const pr = Game.projectiles[0], E = Modes.duel.enemy;
+    T.ok('스냅샷: 투사체 복원', pr instanceof Projectile && pr.hit instanceof Set && Game.units.includes(pr.owner));
+    T.ok('스냅샷: 유닛 참조', Game.units.includes(E) && E instanceof RangedDuelist && Game.player instanceof Cathy && Game.units.includes(Game.player));
+    T.ok('스냅샷: 설정 객체는 같은 객체로', E.kit === Kits[E.motifKey] && E.motif === CONFIG.rangedMotifs[E.motifKey] && Game.player.build === CONFIG.builds[Game.buildId]);
+    const u1 = Game.units[1]; Snap.unpack(ps.s); T.ok('스냅샷: 다시 적용하면 같은 객체 재사용', Game.units[1] === u1 && Game.projectiles[0] === pr);
+    let rerr = ''; try { Renderer.frame(); } catch (x) { rerr = x.message; }
+    T.ok('스냅샷: 적용 후 그리기', !rerr, rerr);
+    let ferr = ''; try { Snap.apply({ v: 999 }); } catch (x) { ferr = x.message; } T.ok('스냅샷: 형식이 다르면 거부', !!ferr);
+  });
+
+  // ---------------- 온라인 대전: 델타·명령 검사·시점 이벤트·대전 모드 (두 창 시험은 ?netlab&test) ----------------
+  G('온라인 대전', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
+    // 델타 왕복
+    const A = { a: 1, b: { c: [1, 2], d: { $u: 3 } }, e: 'x', n: NaN, gone: 5 }, B = { a: 2, b: { c: [1, 2, 3], d: { x: 1, y: 2 } }, e: { v: 1 }, n: NaN, add: null };
+    const P = Snap.patch(A, JSON.parse(JSON.stringify(Snap.diff(A, B))));
+    T.ok('델타: 바뀐 값만 보내고 그대로 복원', JSON.stringify(P) === JSON.stringify(B) && Snap.diff(B, B) === undefined && !('gone' in P), JSON.stringify(P));
+    // 명령 검사
+    T.ok('명령 검사', Net.validCmd({ t: 'sk', s: 'Q', x: 1, y: 2 }) && Net.validCmd({ t: 'atk', id: 2 }) && !Net.validCmd({ t: 'sk', s: 'Z', x: 1, y: 2 }) && !Net.validCmd({ t: 'move', x: NaN, y: 1 }) && !Net.validCmd({ t: 'hack' }) && !Net.validCmd({ t: 'move' }) && !Net.validCmd(null));
+    // 대전 모드 구성
+    Net.init(); const role0 = Net.role;
+    Game.start('pvp', { seed: 7, guestWeapon: 'dual', hostWeapon: 'dagger', build: 'late', map: 'basic', rounds: 3 }); run(5);
+    const M = Game.mode, me = Game.player, op = M.remote();
+    T.ok('대전 모드: 캐시 두 명(팀 0·1), 옵션대로 무기', me instanceof Cathy && op instanceof Cathy && me.team === 0 && op.team === 1 && me.weapon === 'dagger' && op.weapon === 'dual' && Vision.fogOn);
+    T.ok('대전 모드: 상대 기준 적 목록', Game.enemies(op).includes(me) && Game.enemies(me).includes(op));
+    // 시점 이벤트: 호스트에서 손님 캐릭터가 맞으면 「아픈 소리」는 손님에게만
+    try {
+      Net.role = 'host'; Net.ev = []; let fr = 0; while (Game.freeze > 0 && fr++ < 400) step();
+      Combat.damage(me, op, 10, { type: 'normal' }); op.skills.Q.cd = 5; op.tryCast && op.cdError && op.cdError('Q');
+      const ev = Net.ev, rid = op.id - Game.uid0;
+      T.ok('시점 이벤트: 맞은 소리는 맞은 사람 표시', ev.some(e => e.k === 'sfor' && e.a[0] === 'hurt' && e.f === rid) && ev.some(e => e.k === 'fx:text'), ev.map(e => e.k).join(','));
+      T.ok('시점 이벤트: 상대의 오류음은 상대에게만', ev.some(e => e.k === 'sfor' && e.a[0] === 'error' && e.f === rid));
+      Net.role = 'guest'; const v = M.view(); M.wins = { p: 2, e: 1 };
+      T.ok('손님 시점: 점수 뒤집기', M.view().wins.p === 1 && M.view().wins.e === 2 && v !== M);
+      M.wins = { p: 0, e: 0 };
+    } finally { Net.role = role0; Net.ev = []; }
+    T.ok('내 편 색: 내 캐릭터 팀 기준', myTeam() === 0);
+    // 손님 캐릭터 전용 통계: 기록은 하되 호스트 화면엔 알림 없음, 스냅샷엔 안 실림
+    const rs = M.rs, t0 = FX.toasts.length;
+    op.S.mistake('테스트 실수'); op.S.cast('Q');
+    T.ok('손님 통계: 따로 기록·호스트 알림 없음', op.S === rs && rs.mistakes['테스트 실수'] === 1 && rs.casts.Q >= 1 && !Stats.mistakes['테스트 실수'] && FX.toasts.length === t0);
+    T.ok('손님 통계: 스냅샷에 안 실림', !JSON.stringify(Snap.capture()).includes('테스트 실수'));
+    // 보는 사람 기준 색·글자
+    const w = new Ward(op.pos.x, op.pos.y, op), w2 = new Ward(me.pos.x, me.pos.y, me);
+    T.ok('카메라 색: 보는 사람 기준', w.color === '#ff8a8a' && w2.color === '#7fd1ff' && !Object.keys(w).includes('color'));
+    T.ok('글자 보이기 규칙', FX.canSee(op, 'all', me) && !FX.canSee(op, 'owner', me) && FX.canSee(me, 'owner', me) && FX.teamColor('team', me) === '#7fd1ff' && FX.teamColor('#123', me) === '#123');
+    // 손님 명령이 섞인 대전도 같은 시드 + 같은 기록이면 같은 결과
+    const o = { seed: 11, guestWeapon: 'dagger', hostWeapon: 'dual', build: 'late', map: 'jungle', rounds: 3 };
+    Game.start('pvp', o);
+    try {
+      Net.role = 'host'; Net.link = null; Net.inbox = []; Net.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: Game.opts };
+      for (let i = 0; i < 120 * 15; i++) {
+        const p = Game.player, e = Game.mode.enemy, t = Game.tick;
+        if (t % 70 === 0) Net.inbox.push({ t: 'move', x: p.pos.x + 2, y: p.pos.y + 1 });
+        if (t % 150 === 40) Net.inbox.push({ t: 'sk', s: ['Q', 'W', 'E'][(t / 150 | 0) % 3], x: p.pos.x, y: p.pos.y });
+        if (t % 90 === 20) Cmd.move({ x: e.pos.x - 2, y: e.pos.y });
+        step();
+      }
+    } finally { Net.role = role0; Net.inbox = []; }
+    const rec = Cmd.record(), h = Cmd.hash();
+    Game.start('pvp', o); Cmd.replay(rec.log); run(120 * 15);
+    T.ok('결정성: 손님 명령이 섞인 대전 재생', Cmd.hash() === h && rec.log.some(c => c.p === 1) && rec.log.some(c => !c.p), `${rec.log.filter(c => c.p).length}개 손님 명령`);
+    T.ok('온라인 중 일시정지 막힘', (() => { Net.role = 'host'; try { Game.togglePause(); return !Game.paused; } finally { Net.role = role0; } })());
+  });
+
   // ---------------- 3D 렌더러 ----------------
   G('3D', () => {
     if (!window.THREE) { T.ok('Three.js 로드', false, 'CDN 차단 또는 오프라인'); return; }
@@ -247,6 +467,48 @@
       Settings.models3d = false; Render3D.refreshModels(); Renderer.frame(); T.ok('모델 끄기 → 인형', !rigOf(Game.player));
       Settings.models3d = true; Render3D.refreshModels();
     } else T.ok('모델 ' + Models.state + ' → 인형 대체', !rigOf(Game.player) && Render3D.unitMeshes.get(Game.player.id).userData.body.children.length > 5);
+    // 카툰 렌더링: 캐릭터·벽은 툰 재질 + 외곽선, 바닥·데칼·팀 링은 외곽선 제외 / 끄면 원래 재질
+    { const t0 = Settings.toon; Settings.toon = true; Render3D.rebuildUnits(); Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2); Renderer.frame();
+      const mats = []; Render3D.unitMeshes.get(Game.player.id).traverse(o => { if (o.material && !o.material.isMeshBasicMaterial) mats.push(o.material); });
+      T.ok('카툰: 캐릭터 툰 재질', mats.length > 3 && mats.every(m => m.isMeshToonMaterial && m.gradientMap), (() => { const b = []; Render3D.unitMeshes.get(Game.player.id).traverse(o => { if (o.material && !o.material.isMeshBasicMaterial && !o.material.isMeshToonMaterial) b.push(o.type + ':' + o.name + '<' + (o.parent && o.parent.name) + '/' + (o.parent && o.parent.parent && o.parent.parent.name)); }); return b.join(','); })());
+      let ground = null, wall = null; Render3D.mapGroup.traverse(o => { if (o.isMesh && o.material.map && !ground) ground = o.material; if (o.isMesh && o.material.isMeshToonMaterial && !wall) wall = o.material; });
+      T.ok('카툰: 벽 툰 재질 + 바닥 외곽선 제외', !!wall && !!ground && ground.userData.outlineParameters && ground.userData.outlineParameters.visible === false);
+      T.ok('카툰: 외곽선 효과 준비', !window.THREE.OutlineEffect || !!Render3D.outline);
+      Settings.toon = false; Render3D.rebuildUnits(); Renderer.frame(); const m2 = []; Render3D.unitMeshes.get(Game.player.id).traverse(o => { if (o.material && !o.material.isMeshBasicMaterial) m2.push(o.material); });
+      T.ok('카툰 끄면 원래 재질', m2.length > 3 && m2.every(m => !m.isMeshToonMaterial));
+      Settings.toon = t0; Render3D.rebuildUnits(); Renderer.frame(); }
+    // 3D 스킬 이펙트: FX 데이터 → 3D 메시(베기·좁은 궤적), 넓은 궤적(범위 표시)은 바닥, 끄면 3D 없음
+    { const v0 = Settings.vfx3d; Settings.vfx3d = true; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2); Renderer.frame();
+      const P = Game.player.pos; FX.slash(P, 0, 2, 0.6, '#ff5577', 0.5); FX.trail(P, { x: P.x + 2, y: P.y }, '#ffffff', 0.2, 0.5); FX.trail(P, { x: P.x + 3, y: P.y }, '#ff0000', 2.5, 0.5); FX.burst(P, '#ffcc00', 8, 3, 0.5); Renderer.frame();
+      const ks = [...VFX3D.meshes.keys()];
+      T.ok('3D 이펙트: 베기·좁은 궤적 3D, 넓은 궤적은 바닥', VFX3D.on() && ks.some(k => k.R === 2) && ks.some(k => k.width === 0.2) && !ks.some(k => k.width === 2.5));
+      T.ok('3D 이펙트: 파티클 높이', FX.parts.length >= 8 && FX.parts.every(p => p.h > 0) && VFX3D.points.geometry.drawRange.count >= 8);
+      const rg = Render3D.unitMeshes.get(Game.player.id).userData.body.userData.rig;
+      T.ok('3D 이펙트: 칼 궤적 준비(무기 날)', !rg || (rg.blades.length >= 1 && VFX3D.blades.has(Game.player.id)));
+      Settings.vfx3d = false; VFX3D.clear(); Renderer.frame(); T.ok('3D 이펙트 끄기', !VFX3D.on() && VFX3D.meshes.size === 0 && !VFX3D.group.visible);
+      Settings.vfx3d = v0; FX.reset(); Renderer.frame(); }
+    // 환경 연출: 낮밤 전환·스피어 벽·날씨
+    if (Render3D.ready) {
+      const w0 = Settings.weather;
+      Game.start('duel', { diff: 'normal', motif: 'aya', enemyBuild: 'mid', map: 'basic', rounds: 3, animals: false, sphere: true, time: 'day' }); run(5); Renderer.frame(); Env3D.frame(0.016);
+      T.ok('환경: 낮 조명', Env3D.k === 1 && Math.abs(Render3D.hemi.intensity - 0.6) < 0.01);
+      Vision.night = true; Env3D.frame(0.5); const mid = Env3D.k, sunY = Render3D.sun.position.y;
+      T.ok('환경: 낮→밤은 천천히(노을)', mid > 0.7 && mid < 0.95 && sunY < 22, `k ${mid.toFixed(2)} 해 높이 ${sunY.toFixed(1)}`);
+      for (let i = 0; i < 10; i++) Env3D.frame(0.5);
+      T.ok('환경: 밤 조명', Env3D.k === 0 && Math.abs(Render3D.hemi.intensity - 0.28) < 0.01 && Math.abs(Render3D.sun.position.y - 22) < 0.01);
+      Game.start('duel', { diff: 'normal', motif: 'aya', enemyBuild: 'mid', map: 'basic', rounds: 3, animals: false, sphere: true, time: 'night' }); run(2); Env3D.frame(0.016);
+      T.ok('환경: 새 판은 바로 그 시간대', Env3D.k === 0);
+      for (let i = 0; i < 60 * 8; i++) step(); Env3D.frame(0.016);
+      T.ok('환경: 스피어 차단벽', Sphere.active && Env3D.wall.visible && Math.abs(Env3D.wall.scale.x - Sphere.r) < 1e-6 && Env3D.wall.position.x === Sphere.c.x, `r ${Sphere.r.toFixed(1)}`);
+      Settings.weather = 'rain'; Env3D.frame(0.016);
+      T.ok('환경: 비', Env3D.rain.visible && !!Render3D.scene.fog && Env3D.rain.geometry.attributes.position.getY(0) > 0);
+      Settings.weather = 'fog'; Env3D.frame(0.016); T.ok('환경: 안개', !Env3D.rain.visible && Render3D.scene.fog && Render3D.scene.fog.far < Render3D.zoom * 2);
+      Settings.weather = 'clear'; Env3D.frame(0.016); T.ok('환경: 맑음', !Render3D.scene.fog && !Env3D.rain.visible);
+      Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2); Env3D.frame(0.016); T.ok('환경: 스피어 없으면 벽 숨김', !Env3D.wall.visible);
+      UI.showSettings(); T.ok('환경: 설정에 날씨 버튼', document.querySelectorAll('[data-a="weather"]').length === 3);
+      click('[data-a="weather"][data-v="rain"]'); T.ok('환경: 날씨 버튼 동작', Settings.weather === 'rain');
+      Settings.weather = w0 || 'clear'; UI.showMenu();
+    }
     T.ok('2D 복귀', Renderer.setMode('2d', true) && Renderer.mode === '2d' && Render3D.cv.style.display === 'none');
     Renderer.frame(); Settings.gfx = '2d';
   });

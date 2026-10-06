@@ -52,7 +52,7 @@ Kits.daniel = {
     let best = null, bs = -Infinity;
     for (let i = 0; i < 12; i++) {
       const dir = V.fromAng(i * Math.PI / 6), q = V.add(u.pos, V.mul(dir, K.exit));
-      const sc = wallClearance(q) * 1.2 + (away ? V.dist(q, u.pos) : -Math.abs(angDiff(i * Math.PI / 6, (u.facing ?? 0) + Math.PI))) + Math.random() * 0.2;
+      const sc = wallClearance(q) * 1.2 + (away ? V.dist(q, u.pos) : -Math.abs(angDiff(i * Math.PI / 6, (u.facing ?? 0) + Math.PI))) + rnd() * 0.2;
       if (sc > bs) { bs = sc; best = dir; }
     }
     ai.untargetable = ai.invuln = K.exitTime; ai.stealthT = 0;
@@ -183,13 +183,13 @@ Kits.daniel = {
     // --- 공통: 걸작 회피(캐시 E·R 선딜을 대상 지정 불가로 피함) ---
     // 걸작은 사실상 2초 무적 → 캐시가 스킬(특히 E·R, 진입 중엔 Q·W도)을 시전하는 순간 들어가서 피함
     if (p.cast && p.cast.phase === 'windup' && this.canR(ai, p, d) && dk !== 'easy' &&
-        (['E', 'R'].includes(p.cast.k) || (ai.mode === 'engage' && ['Q', 'W'].includes(p.cast.k) && Math.random() < (dk === 'hard' ? 0.8 : 0.5)))) { this.castR(ai, p); return true; }
+        (['E', 'R'].includes(p.cast.k) || (ai.mode === 'engage' && ['Q', 'W'].includes(p.cast.k) && rnd() < (dk === 'hard' ? 0.8 : 0.5)))) { this.castR(ai, p); return true; }
 
     if (ai.mode === 'engage') return this.combo(ai, p, d, gap);
     if (ai.mode === 'stalk') {
       // Q 견제: 캐시 E가 빠졌을 때만(맞받아치기 어려움), 사거리 7m + 가위 앞부분 1.75m
       // (진입 도구가 다 있으면 Q는 콤보용으로 아낌)
-      if (ai.cds.Q <= 0 && (ai.cds.R > 8 || ai.cds.E > 3) && d <= K.Q.range + K.Q.front * 0.6 && d > 4 && (!herE || Math.random() < 0.25) && Math.random() < (dk === 'easy' ? 0.3 : 0.7)) { this.castQ(ai, ai.predict(p, K.Q.windup)); return true; }
+      if (ai.cds.Q <= 0 && (ai.cds.R > 8 || ai.cds.E > 3) && d <= K.Q.range + K.Q.front * 0.6 && d > 4 && (!herE || rnd() < 0.25) && rnd() < (dk === 'easy' ? 0.3 : 0.7)) { this.castQ(ai, ai.predict(p, K.Q.windup)); return true; }
       // 어려움: 난전용 W 선표식 — 4초 뒤 진입해서 터뜨림
       if (dk === 'hard' && ai.cds.W <= 0 && d <= K.W.range && !herE && ai.cds.R <= 0) { this.castW(ai, p); this.setMode(ai, 'engage'); return true; }
     }
@@ -244,7 +244,7 @@ Kits.daniel = {
       const sc = -Math.abs(dc - MA.stalk) * 1.2 - V.dist(c, ai.pos) * 0.3;
       if (dc > safe && dc < MA.stalk + 4 && sc > bs) { bs = sc; best = c; }
     });
-    if (best && bs > -MA.bushPrefer * 2 && V.dist(best, ai.pos) > 0.6) { ai.moveTarget = Geo.pushOut(V.add(best, { x: (Math.random() - 0.5) * 0.6, y: (Math.random() - 0.5) * 0.6 }), ai.r); return; }
+    if (best && bs > -MA.bushPrefer * 2 && V.dist(best, ai.pos) > 0.6) { ai.moveTarget = Geo.pushOut(V.add(best, { x: (rnd() - 0.5) * 0.6, y: (rnd() - 0.5) * 0.6 }), ai.r); return; }
     if (best && V.dist(best, ai.pos) <= 0.6) { ai.moveTarget = null; return; }   // 부쉬에서 대기
     ai.moveTarget = ai.pickSpot(p, MA.stalk, 1.4);
   },

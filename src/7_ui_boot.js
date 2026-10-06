@@ -238,6 +238,18 @@ const UI = {
     }
   },
 
+  // 온라인 대전 손님: 경기 종료 (점수는 손님 시점)
+  showNetEnd() {
+    const M = Game.mode, w = M && M.view ? M.view().wins : { p: 0, e: 0 }, win = w.p > w.e;
+    // 라운드 요약(손님 기준: 호스트가 보낸 손님 캐릭터 요약 s.g)
+    const rows = (M && M.history || []).map(s => { const g = s.g || {}, mine = s.winner !== 'p', c = g.casts || {}, h = g.hits || {};
+      return `<tr><td>R${s.round}</td><td>${mine ? '<b style="color:#ffc857">승</b>' : '<b style="color:#ff3b5c">패</b>'}</td><td>${fmt(s.time, 1)}s</td><td>${Math.round(g.dealt || 0)}</td><td>${Math.round(g.taken || 0)}</td><td>${SKILL_KEYS.filter(k => c[k] > 0).map(k => `${k} ${h[k] || 0}/${c[k]}`).join(' ') || '-'}</td></tr>`; }).join('');
+    const coach = Net.gotStats ? Coach.html(Stats) : '';
+    const H = { leave: () => { Net.stop(); this.showMenu(); }, drill: d => { Net.stop(); Coach.startDrill(Coach.last.top[+d.v].drill); } };
+    this.show(`<h2>${win ? '🏆 승리!' : '패배'}</h2><div class="sub">1:1 온라인 대전 — ${w.p} : ${w.e}</div><div class="sub" style="margin-top:6px">호스트가 「다시 하기」를 누르면 새 판이 자동으로 시작됩니다.</div>
+      ${rows ? `<h3>라운드 요약</h3><table><tr><th>라운드</th><th>결과</th><th>시간</th><th>가한 피해</th><th>받은 피해</th><th>스킬 적중</th></tr>${rows}</table>` : ''}${coach}
+      <div class="row" style="margin-top:14px"><button class="btn" data-a="leave">나가기 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { m: 'leave' });
+  },
   showPause() {
     this.show(`<h2>⏸ 일시정지</h2><div class="sub">${esc(Game.mode.title)} · ${fmt(Game.time, 1)}s</div>
       <div class="row"><button class="btn primary" data-a="resume">계속 (ESC)</button><button class="btn" data-a="settings">설정</button>
@@ -268,12 +280,15 @@ const UI = {
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
       ${[['cathy', '캐시'], ['daniel', '다니엘']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍 (로컬 전용)']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
+      ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
+      <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>
       ${cb('camLock', '카메라 잠금 (3D) — 끄면 마우스를 화면 가장자리에 대 카메라 이동, 스페이스를 누르고 있으면 내 캐릭터로. 플레이 중 <kbd>Y</kbd>로 전환')}
       <div class="sub" style="margin:4px 0">3D: 이터널 리턴처럼 높이 내려다보는 시점(탑뷰와 쿼터뷰 사이), 마우스 휠로 줌. 게임 판정은 2D와 똑같습니다. 3D를 쓸 수 없는 환경이면 자동으로 2D로 돌아갑니다.</div>
       <h3>시야</h3>
       ${cb('fog', '시야 시스템 (1:1 결투) — 시야 8.5m(밤 3.4→6.4m), 높은 벽 뒤 암시야, 소음·발소리·부쉬 흔들림, C 카메라·V 드론')}
       <h3>표시 / 기타</h3>
-      ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('reduceShake', '화면 흔들림 끄기')}
+      ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('ambient', '환경음(바람·새·귀뚜라미)')}${cb('netPredict', '온라인 대전: 내 캐릭터 이동 예측 (누르자마자 움직이는 것처럼 보임)')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
       <div class="row"><label>게임 속도 <b id="spdv">x${fmt(Settings.gameSpeed, 1)}</b> (느린 연습용)</label><input type="range" min="0.5" max="1.5" step="0.1" value="${Settings.gameSpeed}" data-in="gameSpeed"></div>
       <h3>키 설정 (버튼 클릭 후 새 키 입력, 겹치면 맞바꿈)</h3>
@@ -283,11 +298,14 @@ const UI = {
       mbtn: d => { Settings.moveButton = d.v; saveSettings(); this.showSettings(back); },
       cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
+      weather: d => { Settings.weather = d.v; saveSettings(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
-      'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); },
+      'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); }, 'in:ambient': el => { Settings.ambient = el.checked; saveSettings(); }, 'in:netPredict': el => { Settings.netPredict = el.checked; saveSettings(); },
       'in:fog': el => { Settings.fog = el.checked; saveSettings(); },
       'in:camLock': el => { Settings.camLock = el.checked; saveSettings(); },
+      'in:vfx3d': el => { Settings.vfx3d = el.checked; saveSettings(); if (!el.checked && typeof VFX3D !== 'undefined') VFX3D.clear(); },
+      'in:toon': el => { Settings.toon = el.checked; saveSettings(); if (Render3D.ready) Render3D.rebuildUnits(); },
       'in:models3d': el => { Settings.models3d = el.checked; saveSettings(); if (Render3D.ready) Render3D.refreshModels(); },
       'in:pointerLock': el => { Settings.pointerLock = el.checked; saveSettings(); },
       'in:reduceShake': el => { Settings.reduceShake = el.checked; saveSettings(); },
@@ -346,7 +364,8 @@ const UI = {
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
-    const H = { retry: () => Game.restart(), menu: () => this.showMenu() };
+    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
+    const coach = Coach.html(St);   // 7_a_coach.js
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
@@ -359,6 +378,7 @@ const UI = {
         ${dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
+      ${coach}
       <h3>실수 분석</h3>${mist.length ? `<ul class="mist">${mist.map(([k, v]) => `<li>${esc(k)} <b style="color:#ffb347">${v}회</b></li>`).join('')}</ul>` : '<div class="sub">기록된 실수가 없습니다. 👍</div>'}
       <h3>스킬별 기록</h3><table><tr><th>스킬</th><th>시전</th><th>적중</th><th>적중률</th><th>피해</th><th>쿨 낭비</th></tr>${skillRows}</table>
       <h3>시간별 DPS</h3><canvas class="chart" id="cv-dps"></canvas>
@@ -375,8 +395,11 @@ let lastT = performance.now(), acc = 0, fps = 60, sideT = 0;
 function loop(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);
-  if (Game.state === 'play' && !Game.paused) {
-    acc += dt * Settings.gameSpeed; let n = 0;
+  if (Net.manual) { /* 실험실 자동 시험: 바깥에서 직접 진행 */ }
+  else if (Net.role === 'guest') Net.guestTick(dt);   // 온라인 손님: 계산 없이 받은 상태를 그림
+  else if (Game.state === 'play' && !Game.paused) {
+    // 온라인 대전은 항상 1배속
+    acc += dt * (Net.role ? 1 : Settings.gameSpeed); let n = 0;
     while (acc >= CONFIG.sim.step && n < CONFIG.sim.maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
     if (n >= CONFIG.sim.maxSteps) acc = 0;
   } else acc = 0;
@@ -384,8 +407,12 @@ function loop(now) {
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);
 }
-Renderer.init(); Input.init(Renderer.inputCanvas()); UI.init(); UI.showMenu();
-requestAnimationFrame(loop);
+if (NetLab.page()) NetLab.boot();   // ?netlab: 온라인 대전 실험실 (개발용)
+else {
+  Renderer.init(); Input.init(Renderer.inputCanvas()); UI.init(); UI.showMenu();
+  NetLab.child();   // ?net=host|guest: 실험실 창 안
+  requestAnimationFrame(loop);
+}
 </script>
 </body>
 </html>

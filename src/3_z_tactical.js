@@ -8,7 +8,7 @@ const Tactical = {
   key() { return CONFIG.tactical[Settings.tactical] ? Settings.tactical : 'blink'; },
   L(p) { return (p.build && p.build.level) || 12; },
   bonusHp(p) { return Math.max(0, p.maxHp - (p.baseHpAtLv || p.maxHp)); },
-  foes(p, pos, r) { return Game.enemies().concat(Game.units.filter(u => u.kind === 'animal' && !u.dead)).filter(u => !u.dead && !(u.untargetable > 0) && V.dist(u.pos, pos) - u.r <= r); },
+  foes(p, pos, r) { return Game.enemies(p).concat(Game.units.filter(u => u.kind === 'animal' && !u.dead)).filter(u => !u.dead && !(u.untargetable > 0) && V.dist(u.pos, pos) - u.r <= r); },
   hit(p, u, amt) { Combat.damage(p, u, amt, { type: 'skill', source: 'F', trauma: true }); Events.emit('skillHit', { k: 'F', target: u }); },
   // 짧은 돌진 (벽 못 넘음)
   dash(p, aim, dist, speed, onEnd) {
@@ -20,17 +20,17 @@ const Tactical = {
   },
   use(p, aim) {
     const k = this.key(), D = this.def(k), lv = p.skills.F.lv, L = this.L(p), at = i => (Array.isArray(i) ? i[clamp(lv - 1, 0, i.length - 1)] : i);
-    p.interruptForCast(); Stats.cast('F'); Vision.act(p, 'skill'); if (p.breakStealth) p.breakStealth();
+    p.interruptForCast(); p.S.cast('F'); Vision.act(p, 'skill'); if (p.breakStealth) p.breakStealth();
     FX.text(p.pos, D.name, '#9fd8ff', 12, { bold: true });
     switch (k) {
       case 'blink': p.blink(aim); return true;
       case 'repulser': {   // 3m 이동 후 가장 가까운 적 실험체에게 미사일 5발(2레벨 8발), 발당 10+L+최대 체력 0.6% 고정 피해
         this.dash(p, aim, D.dist, D.speed, () => {
-          const t = Game.enemies().filter(u => u.kind !== 'animal' && Vision.visible(p, u) && V.dist(u.pos, p.pos) <= D.range).sort((a, b) => V.dist(a.pos, p.pos) - V.dist(b.pos, p.pos))[0];
+          const t = Game.enemies(p).filter(u => u.kind !== 'animal' && Vision.visible(p, u) && V.dist(u.pos, p.pos) <= D.range).sort((a, b) => V.dist(a.pos, p.pos) - V.dist(b.pos, p.pos))[0];
           if (!t) return;
           const n = at(D.missiles);
           for (let i = 0; i < n; i++) {
-            const pr = new Projectile({ team: 0, owner: p, kind: 'shot', color: '#9fd8ff', len: 0.35, pos: V.copy(p.pos), dir: V.fromAng(V.ang(V.sub(t.pos, p.pos)) + (i - (n - 1) / 2) * 0.22), speed: D.mSpeed, range: 99, width: 0.2,
+            const pr = new Projectile({ team: p.team, owner: p, kind: 'shot', color: '#9fd8ff', len: 0.35, pos: V.copy(p.pos), dir: V.fromAng(V.ang(V.sub(t.pos, p.pos)) + (i - (n - 1) / 2) * 0.22), speed: D.mSpeed, range: 99, width: 0.2,
               onUnit: (pr2, u) => { if (u !== t) return 'continue'; Combat.damage(p, u, D.mBase + L * D.mLv + u.maxHp * D.mHp, { type: 'true', source: 'F', noShake: true }); return 'stop'; } });
             pr.homeTarget = t; pr.homeTurn = 14; Game.projectiles.push(pr);
           }
@@ -54,7 +54,7 @@ const Tactical = {
         this.dash(p, aim, D.dist, D.speed, dir => {
           for (let i = 0; i < D.shots; i++) {
             const a = V.ang(dir) + (i / (D.shots - 1) - 0.5) * D.angle * Math.PI / 180;
-            Game.projectiles.push(new Projectile({ team: 0, owner: p, kind: 'shot', color: '#c79bff', len: 0.5, pos: V.copy(p.pos), dir: V.fromAng(a), speed: D.pSpeed, range: D.pRange, width: 0.35,
+            Game.projectiles.push(new Projectile({ team: p.team, owner: p, kind: 'shot', color: '#c79bff', len: 0.5, pos: V.copy(p.pos), dir: V.fromAng(a), speed: D.pSpeed, range: D.pRange, width: 0.35,
               onUnit: (pr, u) => { if (done.has(u.id)) return 'stop'; done.add(u.id); this.hit(p, u, at(D.base) + L * at(D.lv)); u.addSlow(D.slow, D.slowDur); return 'stop'; } }));
           }
         });

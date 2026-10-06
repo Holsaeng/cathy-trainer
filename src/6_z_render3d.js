@@ -28,7 +28,11 @@ const Render3D = {
     this.mapGroup = new T3.Group(); this.scene.add(this.mapGroup);
     this.unitMeshes = new Map(); this.projMeshes = new Map();
     this.mats = {};
+    // 카툰 렌더링 외곽선: 뒷면을 살짝 부풀려 그리는 방식(스키닝도 따라감). 화면 기준 두께라 줌과 무관하게 일정
+    this.outline = T3.OutlineEffect ? new T3.OutlineEffect(this.gl, { defaultThickness: 0.0042, defaultColor: [0.07, 0.05, 0.06], defaultAlpha: 0.95, defaultKeepAlive: true }) : null;
     this.mapKey = null; this.resize(); this.ready = true;
+    VFX3D.init(this.scene);   // 3D 스킬 이펙트 (6_z_vfx3d.js)
+    Env3D.init(this.scene);   // 낮밤 조명·스피어 벽·날씨 (6_z_env3d.js)
     Models.load();
   },
   // ---------- 좌표 ----------
@@ -51,6 +55,19 @@ const Render3D = {
   unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : 1.75; },
   // ---------- 재질 ----------
   mat(key, make) { return this.mats[key] || (this.mats[key] = make()); },
+  // ---------- 카툰 렌더링 (셀 셰이딩 3단 + 외곽선) ----------
+  toonOn() { return Settings.toon !== false; },
+  gradient() {   // 명암 3단계: 그늘 · 중간 · 밝음
+    if (!this._grad) { const t = new THREE.DataTexture(new Uint8Array([110, 182, 255]), 3, 1, THREE.LuminanceFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; this._grad = t; }
+    return this._grad;
+  },
+  toonify(m) {   // 캐릭터·소품·무기 재질 → 툰 재질 (끄면 그대로)
+    if (!this.toonOn() || !m || m.isMeshToonMaterial || !(m.isMeshStandardMaterial || m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return m;
+    const t = new THREE.MeshToonMaterial({ color: m.color.clone(), gradientMap: this.gradient(), skinning: !!m.skinning, transparent: m.transparent, opacity: m.opacity, side: m.side, depthWrite: m.depthWrite });
+    if (m.emissive) t.emissive.copy(m.emissive);
+    t.name = m.name; t.userData = Object.assign({}, m.userData); return t;
+  },
+  noLine(m) { if (m) m.userData.outlineParameters = { visible: false }; return m; },   // 외곽선 제외(바닥·데칼·팀 링·유리·부쉬)
   std(color, o = {}) { const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85, metalness: 0.02 }, o)); m.color.set(color).convertSRGBToLinear(); return m; },   // 색은 sRGB → 선형
   // ---------- 맵 ----------
   groundTexture(key) {
@@ -75,15 +92,15 @@ const Render3D = {
     while (G.children.length) { const o = G.children.pop(); o.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) { if (m.material.map) m.material.map.dispose(); m.material.dispose(); } }); }
     this.bushMeshes = [];
     // 바닥
-    const ground = new T3.Mesh(new T3.PlaneGeometry(W, H), this.std('#ffffff', { map: this.groundTexture(Game.mapKey) }));
+    const ground = new T3.Mesh(new T3.PlaneGeometry(W, H), this.noLine(this.std('#ffffff', { map: this.groundTexture(Game.mapKey) })));
     ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, 0, H / 2); ground.receiveShadow = true; G.add(ground);
     // 아레나 바깥 (어두운 바닥) + 경계 연석
-    const out = new T3.Mesh(new T3.PlaneGeometry(W + 60, H + 60), this.std('#1d232e')); out.rotation.x = -Math.PI / 2; out.position.set(W / 2, -0.02, H / 2); G.add(out);
-    const curbM = this.std('#7d838d');
+    const out = new T3.Mesh(new T3.PlaneGeometry(W + 60, H + 60), this.noLine(this.std('#1d232e'))); out.rotation.x = -Math.PI / 2; out.position.set(W / 2, -0.02, H / 2); G.add(out);
+    const curbM = this.toonify(this.std('#7d838d'));   // 카툰이면 지형도 툰 재질(벽·연석은 외곽선 O, 부쉬는 X)
     for (const [x, z, w, d] of [[W / 2, -0.15, W + 0.6, 0.3], [W / 2, H + 0.15, W + 0.6, 0.3], [-0.15, H / 2, 0.3, H], [W + 0.15, H / 2, 0.3, H]]) { const m = new T3.Mesh(new T3.BoxGeometry(w, 0.25, d), curbM); m.position.set(x, 0.12, z); m.castShadow = m.receiveShadow = true; G.add(m); }
     // 벽: 높은 벽(콘크리트) · 낮은 턱(화단) · 창문 벽(유리)
-    const concrete = this.std('#8d939c'), concreteTop = this.std('#b4b9bf'), planter = this.std('#7f7a70'), hedge = this.std('#4f7d3f'), frame = this.std('#3c4452', { roughness: 0.5, metalness: 0.4 });
-    const glass = this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false });
+    const concrete = this.toonify(this.std('#8d939c')), concreteTop = this.toonify(this.std('#b4b9bf')), planter = this.toonify(this.std('#7f7a70')), hedge = this.toonify(this.std('#4f7d3f')), frame = this.toonify(this.std('#3c4452', { roughness: 0.5, metalness: 0.4 }));
+    const glass = this.noLine(this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false }));
     for (const w of CONFIG.walls) {
       const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
       if (w.kind === 'low') {
@@ -103,7 +120,7 @@ const Render3D = {
     // 부쉬: 잎 덩어리(로우폴리 구) 무리
     const leafGeo = new T3.IcosahedronGeometry(1, 0), leafCols = ['#3f7a3a', '#4b8a40', '#367034', '#5a9a48'];
     (CONFIG.bushes || []).forEach(b => {
-      const grp = new T3.Group(), n = Math.max(6, Math.round(b.w * b.h * 2.4)), mats = leafCols.map(c => this.std(c, { transparent: true, opacity: 1, flatShading: true }));
+      const grp = new T3.Group(), n = Math.max(6, Math.round(b.w * b.h * 2.4)), mats = leafCols.map(c => this.noLine(this.toonify(this.std(c, { transparent: true, opacity: 1, flatShading: true }))));
       for (let i = 0; i < n; i++) {
         const r = 0.32 + ((i * 0.618) % 1) * 0.22, m = new T3.Mesh(leafGeo, mats[i % mats.length]);
         m.scale.set(r, r * 0.9, r); m.position.set(b.x + 0.25 + ((i * 0.618034) % 1) * (b.w - 0.5), r * 0.75 + ((i * 0.31) % 1) * 0.25, b.y + 0.25 + ((i * 0.381966 * 1.7) % 1) * (b.h - 0.5));
@@ -115,7 +132,7 @@ const Render3D = {
   },
   // ---------- 유닛 (로우폴리 인형) ----------
   weaponMesh(u) {
-    const T3 = THREE, g = new T3.Group(), metal = this.std('#d7dbe2', { roughness: 0.3, metalness: 0.7, transparent: true }), dark = this.std('#2a2f38', { roughness: 0.5, transparent: true });   // 유닛별 재질(투명도 독립)
+    const T3 = THREE, g = new T3.Group(), metal = this.toonify(this.std('#d7dbe2', { roughness: 0.3, metalness: 0.7, transparent: true })), dark = this.toonify(this.std('#2a2f38', { roughness: 0.5, transparent: true }));   // 유닛별 재질(투명도 독립)
     const wpn = u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
     const box = (w, h, d, m, x, y, z) => { const b = new T3.Mesh(new T3.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
     if (wpn === 'dagger') box(0.42, 0.05, 0.09, metal, 0.42, 0, 0);
@@ -124,13 +141,13 @@ const Render3D = {
     else if (wpn === '권총') box(0.32, 0.12, 0.08, dark, 0.32, 0.02, 0);
     else if (wpn === '저격총') { box(1.1, 0.08, 0.08, dark, 0.5, 0, 0); box(0.25, 0.1, 0.1, metal, 0.35, 0.09, 0); }
     else if (wpn === '석궁') { box(0.6, 0.08, 0.08, dark, 0.35, 0, 0); box(0.08, 0.05, 0.7, dark, 0.55, 0, 0); }
-    else if (wpn === '활') { const arc = new T3.Mesh(new T3.TorusGeometry(0.4, 0.03, 4, 12, Math.PI), this.std('#8a5a33', { transparent: true })); arc.rotation.set(Math.PI / 2, 0, -Math.PI / 2); arc.position.set(0.35, 0, 0); g.add(arc); }
+    else if (wpn === '활') { const arc = new T3.Mesh(new T3.TorusGeometry(0.4, 0.03, 4, 12, Math.PI), this.toonify(this.std('#8a5a33', { transparent: true }))); arc.rotation.set(Math.PI / 2, 0, -Math.PI / 2); arc.position.set(0.35, 0, 0); g.add(arc); }
     return g;
   },
   makeUnit(u) {
     const T3 = THREE, root = new T3.Group(), body = new T3.Group(); root.add(body);
     const col = new T3.Color(u.color || '#888'), mats = [];
-    const M = (c, o) => { const m = this.std(c, Object.assign({ transparent: true }, o)); mats.push(m); return m; };
+    const M = (c, o) => { const m = this.toonify(this.std(c, Object.assign({ transparent: true }, o))); mats.push(m); return m; };
     const add = (geo, m, x, y, z, parent = body) => { const o = new T3.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
     if (u.kind === 'animal') {   // 늑대
       const fur = M('#7a5f46'); add(new T3.BoxGeometry(0.85, 0.42, 0.42), fur, 0, 0.5, 0); const head = add(new T3.BoxGeometry(0.34, 0.3, 0.3), fur, 0.5, 0.68, 0);
@@ -161,10 +178,11 @@ const Render3D = {
       head.userData.head = true; body.userData.armR = armR;
     }
     // 발밑 팀 링
-    const ring = new T3.Mesh(new T3.RingGeometry((u.r || 0.5) * 0.95, (u.r || 0.5) * 1.12, 28), new T3.MeshBasicMaterial({ color: new T3.Color(u.team === 0 ? '#4fe08a' : u.team === 2 ? '#c9b48a' : '#ff4d5e').convertSRGBToLinear(), transparent: true, opacity: 0.75, depthWrite: false }));
+    const ring = new T3.Mesh(new T3.RingGeometry((u.r || 0.5) * 0.95, (u.r || 0.5) * 1.12, 28), new T3.MeshBasicMaterial({ color: new T3.Color(u.team === myTeam() ? '#4fe08a' : u.team === 2 ? '#c9b48a' : '#ff4d5e').convertSRGBToLinear(), transparent: true, opacity: 0.75, depthWrite: false }));
+    this.noLine(ring.material);
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; root.add(ring); mats.push(ring.material);
     // 기절 별
-    const stars = new T3.Group(); for (let i = 0; i < 3; i++) { const s = new T3.Mesh(new T3.OctahedronGeometry(0.07), new T3.MeshBasicMaterial({ color: '#ffc857' })); stars.add(s); } stars.visible = false; root.add(stars);
+    const stars = new T3.Group(); for (let i = 0; i < 3; i++) { const s = new T3.Mesh(new T3.OctahedronGeometry(0.07), this.noLine(new T3.MeshBasicMaterial({ color: '#ffc857' }))); stars.add(s); } stars.visible = false; root.add(stars);
     root.userData = { body, mats, stars, bob: Math.random() * 6, last: V.copy(u.pos), modelVer: Models.ver };
     this.scene.add(root); return root;
   },
@@ -175,7 +193,7 @@ const Render3D = {
       let m = this.unitMeshes.get(u.id);
       if (m && m.userData.modelVer !== Models.ver && Models.keyFor(u)) { this.dropUnit(u.id, m); m = null; }   // 모델 로딩 완료 → 인형 교체
       if (!m) { m = this.makeUnit(u); this.unitMeshes.set(u.id, m); }
-      const D = m.userData, vis = !u.dead && (u.team === 0 || Vision.visible(p, u)) && !(u.kind === 'player' && u.shadow && u.shadow.phase !== 'out');
+      const D = m.userData, vis = !u.dead && (u.team === myTeam() || Vision.visible(p, u)) && !(u.kind === 'player' && u.shadow && u.shadow.phase !== 'out');
       m.visible = vis; if (!vis) continue;
       m.position.set(u.pos.x, 0, u.pos.y);
       // 방향: 인물 모델은 빠르게 돌아봄(초당 26rad ≈ 반 바퀴 0.12초), 단순 인형·순간 이동은 즉시
@@ -190,7 +208,7 @@ const Render3D = {
       const atk = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
       if (D.body.userData.armR) D.body.userData.armR.rotation.z = atk ? 1.6 : 0.9;
       // 투명도: 은신·부쉬(내 캐릭터)·무적 깜빡임 / 피격 섬광
-      let op = 1; if (u.team === 0 && u.kind === 'player') { if (u.stealthT > 0) op = 0.35; else if (Vision.bushAt(u.pos) >= 0) op = 0.6; }
+      let op = 1; if (u.team === myTeam() && u.kind === 'player') { if (u.stealthT > 0) op = 0.35; else if (Vision.bushAt(u.pos) >= 0) op = 0.6; }
       if (u.invuln > 0 && Math.floor(Game.time * 20) % 2 === 0) op *= 0.5;
       const fl = u.flash > 0 ? Math.min(1, u.flash / 0.12) : 0;
       for (const mt of D.mats) { mt.opacity = op * (mt.userData.baseOp || (mt.userData.baseOp = mt.opacity || 1)); mt.transparent = mt.opacity < 0.999; if (mt.emissive) mt.emissive.setRGB(fl * 0.9, fl * 0.9, fl * 0.9); }   // 불투명일 땐 깊이 정렬 문제(유령처럼 비침) 방지
@@ -206,6 +224,7 @@ const Render3D = {
     this.unitMeshes.delete(id);
   },
   // 설정에서 모델 켜고 끄기
+  rebuildUnits() { for (const [id, m] of this.unitMeshes) this.dropUnit(id, m); this.mapKey = null; },   // mapKey 초기화 → 다음 프레임에 맵도 새 재질로   // 재질 방식이 바뀌면(카툰 켜기/끄기) 유닛을 모두 다시 만듦
   refreshModels() { if (Settings.models3d === false) { Models.state = 'failed'; Models.ver++; } else if (Models.state === 'failed' && Models.supported()) { Models.state = 'idle'; Models.load(); } },
   // ---------- 투사체 ----------
   syncProjectiles() {
@@ -218,7 +237,7 @@ const Render3D = {
         m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
         this.scene.add(m); this.projMeshes.set(pr, m);
       }
-      m.visible = pr.team === 0 || Vision.pointVisible(pr.pos);
+      m.visible = pr.team === myTeam() || Vision.pointVisible(pr.pos);
       m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
     }
     for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.geometry.dispose(); this.projMeshes.delete(pr); }
@@ -228,7 +247,7 @@ const Render3D = {
     const p = Game.player, pb = p ? Vision.bushAt(p.pos) : -1;
     this.bushMeshes.forEach((g, bi) => {
       const op = bi === pb ? 0.45 : 1; for (const m of g.userData.mats) m.opacity = op;
-      const R = Vision.rustles.find(r => r.b === bi && (r.team !== 0 || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.12 * (R.t / CONFIG.vision.rustle) : 0;
+      const R = Vision.rustles.find(r => r.b === bi && (r.team !== myTeam() || r.skill) && Vision.pointVisible(r.pt)), sh = R ? Math.sin(Game.time * 40) * 0.12 * (R.t / CONFIG.vision.rustle) : 0;
       g.children.forEach((c, i) => { c.rotation.y = g.userData.base[i] + sh; });
     });
   },
@@ -241,7 +260,7 @@ const Render3D = {
     if (!this.decalTex) {
       this.decalTex = new THREE.CanvasTexture(c); this.decalTex.encoding = THREE.sRGBEncoding; this.decalTex.anisotropy = 4;
       if (this.decal) { this.scene.remove(this.decal); this.decal.geometry.dispose(); }
-      this.decal = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: this.decalTex, transparent: true, depthWrite: false }));
+      this.decal = new THREE.Mesh(new THREE.PlaneGeometry(W, H), this.noLine(new THREE.MeshBasicMaterial({ map: this.decalTex, transparent: true, depthWrite: false })));
       this.decal.rotation.x = -Math.PI / 2; this.decal.position.set(W / 2, 0.03, H / 2); this.decal.renderOrder = 1; this.scene.add(this.decal);
     }
     this.decalTex.needsUpdate = true;
@@ -264,19 +283,16 @@ const Render3D = {
     const ly = 0.95 * close * close;   // 가까이 당기면 발밑 대신 몸 가운데를 바라봄
     this.camera.position.set(this.camTarget.x + (Math.random() - 0.5) * sh, ly + Math.sin(pitch) * z, this.camTarget.z + Math.cos(pitch) * z + (Math.random() - 0.5) * sh);
     this.camera.lookAt(this.camTarget.x, ly, this.camTarget.z); this.camera.updateMatrixWorld();
-    // 해: 카메라 근처를 따라다니며 그림자 범위 유지 / 밤: 푸르고 어둡게
-    this.sun.position.set(this.camTarget.x + 6, 22, this.camTarget.z + 4); this.sun.target.position.copy(this.camTarget);
-    const night = Vision.fogOn && Vision.night;
-    this.hemi.intensity = night ? 0.28 : 0.6; this.sun.intensity = night ? 0.22 : 1.0;
-    this.sun.color.set(night ? '#8fa8ff' : '#fff1d6'); this.scene.background.set(night ? '#0b0f1a' : '#1a2130');
+    // 해·조명(낮밤 전환·노을·날씨)은 Env3D가 담당 (6_z_env3d.js)
   },
   frame() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.lastT || now)) / 1000); this.lastT = now;
     if (this.mapKey !== Game.mapKey || this.wallRef !== CONFIG.walls) this.buildMap();
-    this.updateCamera(dt);
+    this.updateCamera(dt); Env3D.frame(dt);
     this.syncUnits(dt); this.syncProjectiles(); this.syncBushes();
+    VFX3D.frame(Game.state === 'play' && !Game.paused ? dt * (Settings.gameSpeed || 1) : 0);
     this.drawDecal();
-    this.gl.render(this.scene, this.camera);
+    if (this.outline && this.toonOn()) this.outline.render(this.scene, this.camera); else this.gl.render(this.scene, this.camera);
     // 화면 층(체력바·글자·HUD)은 2D 캔버스를 투명하게 덮어 그림
     const ctx = Render.ctx, L = Render.L; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, Render.cv.width, Render.cv.height);
     ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0); ScreenLayer.draw(ctx, L);

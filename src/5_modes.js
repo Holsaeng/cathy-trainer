@@ -64,6 +64,7 @@ Modes.combo = {
   start(o) {
     this.combo = o.combo; this.diff = o.diff || 'intro'; this.title = '콤보: ' + o.combo.name;
     this.steps = this.parse(o.combo.steps); this.state = 'idle'; this.idx = 0; this.marks = []; this.msg = null; this.resetT = 0; this.flags = {};
+    this.demo = null; this.ideal = (Store.get('comboIdeal', {}))[o.combo.id + ':' + (o.combo.weapon || Settings.weapon)] || null;   // 시범으로 잰 모범 간격(초) — 콤보·무기별 저장
     const pl = Scene.player(10, 9);
     if (o.combo.weapon && pl.weapon !== o.combo.weapon) { pl.weapon = o.combo.weapon; FX.toast(`이 콤보는 ${CONFIG.basicAttack[o.combo.weapon].label} 기준입니다 (무기 자동 변경)`, CONFIG.theme.gold); }
     const C = CONFIG.modes.combo, pos = o.combo.setup === 'pair' ? [[14.6, 9], [16.2, 9]] : [[14.6, 9]];
@@ -95,17 +96,55 @@ Modes.combo = {
   },
   success() {
     this.state = 'result'; this.resetT = CONFIG.modes.combo.resetDelay;
+    if (this.demo) { this.endDemo(true); return; }
     if (this.combo.require === 'eDouble' && !this.flags.eDouble) { this.resultOk = false; this.msg = '실패: 2인 수쳐(관통 기절)가 발동하지 않음'; Stats.mistake('콤보 실패 - 2인 수쳐 미발동'); Sfx.play('fail'); return; }
     this.resultOk = true; Stats.comboOk++; this.msg = '콤보 성공!'; Sfx.play('combo');
     FX.text(Game.player.pos, 'COMBO!', CONFIG.theme.gold, 24, { bold: true, life: 1.2 }); Events.emit('comboOk');
   },
   fail(why) {
+    if (this.demo) { this.endDemo(false, why); return; }
     this.state = 'result'; this.resultOk = false; this.msg = '실패: ' + why; this.resetT = CONFIG.modes.combo.resetDelay;
     this.marks[this.idx] = { fail: true }; Sfx.play('fail'); Stats.mistake('콤보 실패 - ' + why.split(' (')[0]);
   },
   update(dt) {
+    if (this.demo) this.driveDemo(dt);
     if (this.state === 'run' && Game.time - this.last > this.limit(this.steps[this.idx])) this.fail('시간 초과');
     if (this.state === 'result' && (this.resetT -= dt) <= 0) this.reset();
+  },
+  // ---------- 시범 보기(G): 게임이 직접 콤보를 가장 빠른 타이밍으로 실행 → 단계별 모범 간격을 재서 내 입력과 비교 ----------
+  //   실제 판정과 같은 시뮬레이션 그대로(가짜 기준 아님). 평타 후딜은 다음 스킬로 끊고, 스킬은 후딜에 들어가면 바로 다음 입력
+  //   시범 중엔 입력을 막고(Game.demoLock), 통계는 시범 전 상태로 되돌림
+  startDemo() {
+    if (this.demo) return;
+    this.reset();
+    const snap = {}; for (const k of Object.keys(Stats)) { const v = Stats[k]; if (typeof v === 'function') continue; snap[k] = v instanceof Set ? new Set(v) : JSON.parse(JSON.stringify(v === undefined ? null : v)); }
+    this.demo = { step: 0, wait: 0, issuedAt: -1, snap, t: 0 }; Game.demoLock = true; Input.reset();
+    this.msg = '▶ 시범 중 — 모범 타이밍을 재는 중'; this.resultOk = true;
+  },
+  driveDemo(dt) {
+    const D = this.demo, p = Game.player, tgt = this.dummies[0]; D.t += dt;
+    if (D.t > 20) { this.endDemo(false, '시간 초과'); return; }
+    if (this.state === 'result') return;
+    const i = this.state === 'idle' ? 0 : this.idx, st = this.steps[i]; if (!st) return;
+    if (D.issuedAt === i && D.wait > 0) { D.wait -= dt; return; }   // 같은 단계 재입력 대기
+    const k = st.alts[0], skill = k === 'AA' ? null : (k === 'D1' || k === 'D2') ? 'D' : k;
+    if (k !== 'AA' && p.attackTarget) { p.attackTarget = null; p.attackMove = null; }   // 다음이 스킬이면 자동 평타가 끼어들지 않게
+    const busy = p.cast && p.cast.phase !== 'recovery', aaBusy = p.aa.phase === 'windup';
+    if (busy || aaBusy || !p.canAct()) return;
+    if (skill && p.skills[skill] && p.skills[skill].cd > 0) return;
+    if (k === 'D1' && p.daggerReady > 0) return;
+    if (k === 'AA') p.cmdAttack(tgt); else p.cmdSkill(skill, { x: tgt.pos.x, y: tgt.pos.y });
+    Input.aiming = null; D.issuedAt = i; D.wait = k === 'AA' ? 1.2 : 0.35;
+  },
+  endDemo(ok, why) {
+    const D = this.demo; this.demo = null; Game.demoLock = false;
+    for (const [k, v] of Object.entries(D.snap)) Stats[k] = v;   // 통계 되돌림
+    if (ok) {
+      this.ideal = this.marks.map(mk => mk && mk.ok ? mk.gap : null);
+      const all = Store.get('comboIdeal', {}); all[this.combo.id + ':' + (this.combo.weapon || Game.player.weapon)] = this.ideal; Store.set('comboIdeal', all);
+      this.msg = '시범 끝 — 칸 아래 「모범」 간격과 비교해 보세요'; this.resultOk = true;
+    } else { this.msg = '시범 실패: ' + (why || ''); this.resultOk = false; }
+    this.state = 'result'; this.resetT = CONFIG.modes.combo.resetDelay * 1.5;
   },
   reset() {
     this.state = 'idle'; this.idx = 0; this.marks = []; this.msg = null;
@@ -125,11 +164,16 @@ Modes.combo = {
       Draw.rr(ctx, x, y + 14, cw, 34, 7); ctx.fillStyle = bg; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = bd; ctx.stroke();
       const lab = st.alts.map(k => ({ AA: '평타', D1: 'D1' }[k] || k)).join('/');
       Draw.text(ctx, st.optional ? `(${lab})` : lab, x + cw / 2, y + 36, { size: 14, bold: true, align: 'center', color: m && m.skip ? '#666' : '#fff' });
-      if (m && m.ok && m.gap != null) Draw.text(ctx, Math.round(m.gap * 1000) + 'ms', x + cw / 2, y + 62, { size: 11, align: 'center', color: CONFIG.theme.accent2 });
+      const ig = this.ideal && this.ideal[i];
+      if (m && m.ok && m.gap != null) {
+        const d = ig != null ? m.gap - ig : null, col = d == null ? CONFIG.theme.accent2 : d <= 0.08 ? '#4fe08a' : d <= 0.2 ? '#ffb347' : '#ff6b6b';   // 모범보다 80ms 이내 초록 · 200ms 이내 주황 · 그 이상 빨강
+        Draw.text(ctx, Math.round(m.gap * 1000) + 'ms' + (d != null && !this.demo ? ` (${d >= 0 ? '+' : ''}${Math.round(d * 1000)})` : ''), x + cw / 2, y + 62, { size: 11, align: 'center', color: col });
+      }
+      if (ig != null) Draw.text(ctx, '모범 ' + Math.round(ig * 1000), x + cw / 2, y + 75, { size: 10, align: 'center', color: '#8a93a6' });
     });
     const lim = CONFIG.modes.combo.gap[this.diff], dl = { intro: '입문', skilled: '숙련', master: '마스터' }[this.diff];
-    Draw.text(ctx, `성공 ${Stats.comboOk} / 시도 ${Stats.comboAtt} (${pct(Stats.comboOk, Stats.comboAtt)}) · 난이도 ${dl}${isFinite(lim) ? ` (간격 ≤ ${lim}s)` : ''}`, L.W / 2, y + 82, { size: 12, align: 'center', color: '#8a93a6' });
-    if (this.msg) Draw.text(ctx, this.msg, L.W / 2, y + 108, { size: 18, bold: true, align: 'center', color: this.resultOk ? CONFIG.theme.gold : CONFIG.theme.accent, stroke: true });
+    Draw.text(ctx, `성공 ${Stats.comboOk} / 시도 ${Stats.comboAtt} (${pct(Stats.comboOk, Stats.comboAtt)}) · 난이도 ${dl}${isFinite(lim) ? ` (간격 ≤ ${lim}s)` : ''} · G 시범 보기`, L.W / 2, y + 94, { size: 12, align: 'center', color: '#8a93a6' });
+    if (this.msg) Draw.text(ctx, this.msg, L.W / 2, y + 120, { size: 18, bold: true, align: 'center', color: this.resultOk ? CONFIG.theme.gold : CONFIG.theme.accent, stroke: true });
   },
   side() {
     return `<h4>🧩 콤보 가이드</h4><div style="line-height:1.6;color:#c9cfdb">${esc(this.combo.tip || '')}</div>
@@ -154,21 +198,21 @@ Modes.dodge = {
   update(dt) {
     const p = Game.player, L = this.level(); this.t += dt;
     if ((this.spawnT -= dt) <= 0) {
-      const r = Math.random();
+      const r = rnd();
       if (r < 0.45) this.spawnLine(L); else if (r < 0.75) this.spawnCircle(L); else this.spawnDelayed(L);
-      if (L > 2.2 && Math.random() < 0.25) [-0.25, 0.25].forEach(o => this.spawnLine(L, o));
+      if (L > 2.2 && rnd() < 0.25) [-0.25, 0.25].forEach(o => this.spawnLine(L, o));
       this.spawnT = Math.max(0.28, 1.45 / L);
     }
     for (const h of this.hz) this.updH(h, dt, p);
     this.hz = this.hz.filter(h => !h.dead);
   },
   spawnLine(L, off = 0) {
-    const p = Game.player, tu = this.turrets[Math.floor(Math.random() * this.turrets.length)];
+    const p = Game.player, tu = this.turrets[Math.floor(rnd() * this.turrets.length)];
     const tgt = V.add(p.pos, V.mul(p.vel, Math.min(1, (L - 1) * 0.5) * 0.4));
     this.hz.push({ type: 'line', from: V.copy(tu), dir: V.fromAng(V.ang(V.sub(tgt, tu)) + off), tele: Math.max(0.35, 0.75 / Math.sqrt(L)), t: 0, speed: Math.min(20, 9 * Math.sqrt(L)), width: 0.7, pos: null, traveled: 0 });
   },
   spawnCircle(L) {
-    const c = V.add(Game.player.pos, V.mul(V.fromAng(Math.random() * 6.28), Math.random() * 1.4));
+    const c = V.add(Game.player.pos, V.mul(V.fromAng(rnd() * 6.28), rnd() * 1.4));
     this.hz.push({ type: 'circle', c, r: rand(1.5, 2.3), tele: Math.max(CONFIG.modes.dodge.circleTeleMin, CONFIG.modes.dodge.circleTele / Math.pow(L, 0.45)), t: 0 });
   },
   spawnDelayed(L) { this.hz.push({ type: 'delayed', c: V.copy(Game.player.pos), follow: 0.5, r: 1.8, tele: Math.max(0.6, 1.3 / Math.pow(L, 0.35)), t: 0 }); },
@@ -224,7 +268,7 @@ Modes.duel = {
   start(o) {
     this.diff = o.diff || 'normal'; this.need = o.rounds === 1 ? 1 : 2;
     const keys = Object.keys(CONFIG.rangedMotifs);
-    this.motifKey = o.motif && CONFIG.rangedMotifs[o.motif] ? o.motif : keys[Math.floor(Math.random() * keys.length)];   // 기본: 무작위
+    this.motifKey = o.motif && CONFIG.rangedMotifs[o.motif] ? o.motif : keys[Math.floor(rnd() * keys.length)];   // 기본: 무작위
     this.motif = CONFIG.rangedMotifs[this.motifKey];
     const eb = o.enemyBuild && o.enemyBuild !== 'same' ? o.enemyBuild : Game.buildId;   // 상대 레벨: 캐시와 같게 / 직접 선택
     this.enemyStage = CONFIG.rangedAI.stages[eb] ? eb : 'mid';
@@ -266,7 +310,9 @@ Modes.duel = {
     const sum = { round: this.round, winner: w, time: Game.time - this.roundStart, dealt: St.dealtTotal - s0.dealt, taken: St.takenTotal - s0.taken, casts, hits,
       mistakes: Object.entries(mist).sort((a, b) => b[1] - a[1]).slice(0, 3), eDodge: e.stats.dodges, eS1: `${e.stats.s1Hits}/${e.stats.s1Casts}`, pHp: Math.max(0, p.hp / p.maxHp), eHp: Math.max(0, e.hp / e.maxHp) };
     this.history.push(sum);
-    if (w === 'p') { Events.emit('roundWin'); Sfx.play('win'); } else Sfx.play('fail');
+    if (this.onRoundSum) this.onRoundSum(sum);   // 온라인 대전: 손님용 요약 추가
+    if (w === 'p') Events.emit('roundWin');
+    Sfx.playFor(Game.player, w === 'p' ? 'win' : 'fail', null, w === 'p' ? 'fail' : 'win');
     if (this.wins.p >= this.need || this.wins.e >= this.need) { Game.finish('duelEnd'); return; }
     this.inter = { t: 4.5, sum }; Game.freeze = 999;
   },

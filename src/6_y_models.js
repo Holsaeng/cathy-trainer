@@ -48,10 +48,11 @@ const Models = {
       try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
     }).catch(() => {});
   },
-  // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb). 없으면 조용히 넘어감
+  // 선택 파일: Blender로 만든 모델(tools/blender/make_model.py → local/<키>_custom.glb, 깃 제외). 없으면 조용히 넘어감
+  //   IP 정책 확인 전까지 직접 만든 3D 모델 데이터는 온라인에 배포하지 않음 — 이 PC에서만 씀 (docs/ip_policy_notes.md)
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
-      const file = this.DIR + k + '_custom.glb';
+      const file = 'local/' + k + '_custom.glb';
       fetch(file, { method: 'HEAD' }).then(r => {
         if (!r.ok) return;
         loader.load(file, g => {
@@ -101,19 +102,20 @@ const Models = {
         if (!col && look.tint && this.TINT_MATS.includes(name)) col = name === 'White' ? new T3.Color(u.color).lerp(new T3.Color('#ffffff'), 0.55).getStyle() : u.color;
         if (col) c.color.set(col).convertSRGBToLinear();
         if (c.emissive) c.emissive.setRGB(0, 0, 0);
-        cache.set(m, c); mats.push(c); return c;
+        const t = Render3D.toonify(c);   // 카툰 렌더링이면 툰 재질
+        cache.set(m, t); mats.push(t); return t;
       };
       o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
     });
     if (S.refPose && S.clips[S.refPose]) { const mx = new T3.AnimationMixer(obj); mx.clipAction(S.clips[S.refPose]).play(); mx.setTime(0); obj.updateMatrixWorld(true); }   // 무기·소품 붙이는 기준 자세
-    this.addProps(obj, S, S.proc ? key + 'Proc' : key, u, mats);
+    const PP = this.addProps(obj, S, S.proc ? key + 'Proc' : key, u, mats);
     const mixer = new T3.AnimationMixer(obj), actions = {};
     for (const [k, n] of Object.entries(this.ANIM)) if (S.clips[n]) actions[k] = mixer.clipAction(S.clips[n]);
     for (const k of ['slash', 'stabR', 'stabL', 'dualAA', 'dualX', 'shoot', 'hit', 'roll']) if (actions[k]) { actions[k].setLoop(T3.LoopOnce); actions[k].clampWhenFinished = true; }   // 끝 프레임 유지 — 끝나자마자 기본 자세(A자세)로 튀지 않고 다음 동작과 섞임
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -131,14 +133,15 @@ const Models = {
       const h = new T3.Group(), m = new T3.Matrix4().copy(bone.matrixWorld).invert().multiply(want);
       m.decompose(h.position, h.quaternion, h.scale); bone.add(h); return (holders[name] = h);
     };
-    const M = (c, o = {}) => { const m = Render3D.std(c, Object.assign({ flatShading: true }, o)); mats.push(m); return m; };
+    const M = (c, o = {}) => { const m = Render3D.toonify(Render3D.std(c, Object.assign({ flatShading: true }, o))); mats.push(m); return m; };
     const add = (bone, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
       const h = at(bone); if (!h) return null;
       const o = new T3.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; h.add(o); return o;
     };
-    const P = { T3, add, M, u, col: u.color || '#888', S };
+    const P = { T3, add, M, u, col: u.color || '#888', S, blades: [] };
     if (build) build.call(this, P);
     this.addWeapon(P);
+    return P;
   },
   weaponKind(u, S) {
     if (S && S.design && S.design.weapon && (u.kind === 'player' || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
@@ -148,9 +151,10 @@ const Models = {
   addWeapon({ T3, add, M }) {
     const w = this.weaponKind(arguments[0].u, arguments[0].S), steel = M('#dfe4ea', { metalness: 0.75, roughness: 0.25 }), grip = M('#2a2f38'), wood = M('#7a5534');
     const G = 0.075;   // 손목 → 손바닥 중심
+    const blades = arguments[0].blades;
     const blade = (bone, len, wid, col = steel) => {   // 손잡이 + 날 (끝으로 갈수록 가는 판)
       add(bone, new T3.CylinderGeometry(0.016, 0.018, 0.1, 6), grip, 0, -G, 0);
-      add(bone, new T3.BoxGeometry(0.006, len, wid), col, 0, -G - 0.05 - len / 2, wid * 0.2);
+      const b = add(bone, new T3.BoxGeometry(0.006, len, wid), col, 0, -G - 0.05 - len / 2, wid * 0.2); if (b) blades.push({ mesh: b, len });   // 칼 궤적(VFX3D)용
       add(bone, new T3.ConeGeometry(wid * 0.55, wid * 1.6, 4), col, 0, -G - 0.05 - len - wid * 0.7, wid * 0.2, Math.PI, 0, 0).scale.set(0.12, 1, 1);
     };
     if (w === 'dagger') blade('WristR', 0.2, 0.04);
@@ -158,7 +162,7 @@ const Models = {
     else if (w === '단검') blade('WristR', 0.22, 0.04, M('#b9b2c9', { metalness: 0.7, roughness: 0.3 }));
     else if (w === 'scissor') {   // 큰 가위: 두 날 + 고리 손잡이
       for (const sgn of [1, -1]) {
-        add('WristR', new T3.BoxGeometry(0.008, 0.42, 0.035), steel, 0, -G - 0.23, sgn * 0.018, sgn * 0.06, 0, 0);
+        const sb = add('WristR', new T3.BoxGeometry(0.008, 0.42, 0.035), steel, 0, -G - 0.23, sgn * 0.018, sgn * 0.06, 0, 0); if (sb && sgn > 0) blades.push({ mesh: sb, len: 0.42 });
         add('WristR', new T3.TorusGeometry(0.03, 0.009, 4, 10), grip, 0, -G + 0.02, sgn * 0.035, 0, Math.PI / 2, 0);
       }
     } else if (w === '권총') {

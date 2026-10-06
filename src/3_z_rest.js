@@ -14,17 +14,17 @@ const Rest = {
   // 다음 단계 완료 시 회복량(예상)
   nextHeal(u) { if (!u.rest || Rest.done(u)) return 0; return Math.min(u.maxHp - u.hp, u.maxHp * CONFIG.rest.stages[Rest.stageOf(u)].hp); },
   start(u, quiet) {
-    if (!Rest.can(u)) { if (!quiet && u === Game.player && (u.restCd || 0) > 0) FX.toast(`휴식 재사용 대기 ${fmt(u.restCd, 1)}초`, '#aaa'); return false; }
+    if (!Rest.can(u)) { if (!quiet && (u.restCd || 0) > 0) FX.toastFor(u, `휴식 재사용 대기 ${fmt(u.restCd, 1)}초`, '#aaa'); return false; }
     u.rest = { stage: 0, t: 0 };
     u.moveTarget = null; u.vel = { x: 0, y: 0 }; if (u.act) u.act = null;
     if (u.attackTarget !== undefined) u.attackTarget = null; if (u.attackMove !== undefined) u.attackMove = null; if (u.aa) u.aa.phase = 'none';
-    if (!quiet || u === Game.player) FX.text(u.pos, '휴식', '#9fe0ff', 12, { bold: true });
+    FX.textFor(u, '휴식', '#9fe0ff', 12, { bold: true }, quiet ? 'owner' : 'all');
     return true;
   },
   // 단계 완료: 그 단계 회복량을 한 번에
   complete(u) {
     const S = CONFIG.rest.stages[u.rest.stage], h = u.heal(u.maxHp * S.hp, true);
-    if (h > 0.5 && (u === Game.player || Vision.visible(Game.player, u))) FX.text(u.pos, `+${Math.round(h)} (휴식 ${u.rest.stage + 1}단계)`, '#5dff9a', 12, { bold: true });
+    if (h > 0.5) FX.textFor(u, `+${Math.round(h)} (휴식 ${u.rest.stage + 1}단계)`, '#5dff9a', 12, { bold: true });
     u.rest.stage++; u.rest.t = 0;
   },
   // voluntary = 본인이 이동·공격·스킬·X로 끝냄 (0.25초 유예 적용)
@@ -32,7 +32,7 @@ const Rest = {
     const R = u.rest; if (!R) return;
     if (voluntary && !Rest.done(u) && CONFIG.rest.stages[R.stage].dur - R.t <= CONFIG.rest.grace) Rest.complete(u);   // 단계 끝나기 직전 입력 → 회복 후 이동
     u.rest = null; u.restCd = CONFIG.rest.cd;
-    if (why && (u === Game.player || Vision.visible(Game.player, u))) FX.text(u.pos, '휴식 취소 · ' + why, '#ffb347', 11);
+    if (why) FX.textFor(u, '휴식 취소 · ' + why, '#ffb347', 11);
   },
   // 피해를 받으면 전투 상태 + 휴식 취소 (패치노트: "피해를 받으면 휴식이 취소")
   onDamage(src, tgt, o) {

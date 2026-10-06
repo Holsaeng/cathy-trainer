@@ -28,7 +28,7 @@ const Procgen = {
     o.scale.setScalar(1);   // Models.prepare와 같은 규약: 원본 축척(게임에서 S.scale 적용)
     return { scene: o, scale: S.scale, clips: S.clips, proc: true, design: D };
   },
-  // Blender 모델 붙이기: Blender 파일(models/<키>_custom.glb)에서는 모양(메시·음영·가중치)만 가져오고 뼈대·동작은 원본 CC0 것을 그대로 씀
+  // Blender 모델 붙이기: Blender 파일(local/<키>_custom.glb)에서는 모양(메시·음영·가중치)만 가져오고 뼈대·동작은 원본 CC0 것을 그대로 씀
   //   (Blender로 내보내면 뼈의 기본 방향·끝점이 다시 계산돼 다리 동작이 어긋나 발이 부츠에서 떨어졌음) → 직접 만든 모델과 똑같이 다리 보정·쌍검 동작·무기 위치가 맞음
   rebind(S, g, D) {
     const T3 = THREE, o = THREE.SkeletonUtils.clone(S.scene); o.scale.setScalar(S.scale); o.updateMatrixWorld(true);

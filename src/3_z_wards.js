@@ -5,9 +5,12 @@
 class Ward extends Unit {
   constructor(x, y, owner) {
     const C = CONFIG.vision.camera;
-    super({ x, y, team: owner.team, kind: 'ward', name: C.name, hp: 1, def: 0, ms: 0, r: 0.28, color: owner.team === 0 ? '#7fd1ff' : '#ff8a8a' });
+    super({ x, y, team: owner.team, kind: 'ward', name: C.name, hp: 1, def: 0, ms: 0, r: 0.28 });
     this.owner = owner; this.life = C.dur; this.detect = true; this.born = Game.time;
   }
+  // 색은 보는 사람 기준(내 편 파랑·적 빨강) — 저장하지 않고 그릴 때 계산
+  get color() { return this.team === myTeam() ? '#7fd1ff' : '#ff8a8a'; }
+  set color(v) { /* 무시 */ }
   sightR() { return CONFIG.vision.camera.r * (Vision.night ? CONFIG.vision.cameraNightMul : 1); }
   update(dt) { this.tickStatus(dt); if ((this.life -= dt) <= 0 && !this.dead) { this.dead = true; } }
 }
@@ -26,7 +29,7 @@ const VisionItems = {
     if (mine.length >= C.max) { mine[0].dead = true; FX.ring(mine[0].pos, 0.2, 0.8, '#8a93a6', 0.3); }   // 최대 2개: 가장 먼저 설치한 것 파괴
     const w = new Ward(pos.x, pos.y, u); Game.units.push(w);
     u.items.camera--; u.itemCd.camera = C.cd;
-    FX.ring(pos, 0.3, 1.2, w.color, 0.4); FX.text(pos, C.name, w.color, 11, { bold: true }); Sfx.play('throw');
+    FX.ringFor(w, pos, 0.3, 1.2, 'team', 0.4); FX.textFor(w, C.name, 'team', 11, { bold: true }, 'all'); Sfx.play('throw');   // 색은 보는 사람 기준
     return w;
   },
   // 정찰 드론: 목표 지점으로 날아가 5초간 원형 시야(벽 무시)
@@ -38,13 +41,13 @@ const VisionItems = {
     u.items.drone--; u.itemCd.drone = D.cd; Sfx.play('throw');
     const fly = { from: V.copy(u.pos), to, t: 0, dur: d / D.speed + 0.05, team: u.team };
     (Game.drones = Game.drones || []).push(fly);
-    if (!quiet || u === Game.player) FX.text(u.pos, D.name, u.team === 0 ? '#7fd1ff' : '#ff8a8a', 11, { bold: true });
+    FX.textFor(u, D.name, 'team', 11, { bold: true }, quiet ? 'owner' : 'all');
     return true;
   },
   fail(u, k) {
-    if (!Vision.fogOn) { FX.toast('시야 아이템은 1:1 결투(시야 시스템)에서만 쓸 수 있습니다', '#aaa'); return; }
-    if (!u.items || u.items[k] <= 0) FX.toast(`${CONFIG.vision[k].name}: 이번 라운드 보유량을 다 썼습니다`, '#aaa');
-    else { FX.toast(`${CONFIG.vision[k].name}: 재사용 대기 ${fmt(u.itemCd[k], 1)}초`, '#aaa'); Sfx.play('error'); }
+    if (!Vision.fogOn) { FX.toastFor(u, '시야 아이템은 1:1 결투(시야 시스템)에서만 쓸 수 있습니다', '#aaa'); return; }
+    if (!u.items || u.items[k] <= 0) FX.toastFor(u, `${CONFIG.vision[k].name}: 이번 라운드 보유량을 다 썼습니다`, '#aaa');
+    else { FX.toastFor(u, `${CONFIG.vision[k].name}: 재사용 대기 ${fmt(u.itemCd[k], 1)}초`, '#aaa'); Sfx.playFor(u, 'error'); }
   },
   update(dt) {
     const D = CONFIG.vision.drone;
