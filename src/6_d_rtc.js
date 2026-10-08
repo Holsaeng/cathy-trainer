@@ -93,7 +93,7 @@ const Rtc = {
   },
   onOpen() {
     // 손님: 버전·무기 알림 → 호스트가 대전 시작
-    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger' })); }
+    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
     this.watch();
     this.onStatus('open');
   },
@@ -102,7 +102,8 @@ const Rtc = {
       let m; try { m = JSON.parse(s); } catch (e) { return; }
       if (m.t !== 'join') return;
       if (m.v !== BUILD_ID) { this.lost('상대의 게임 버전이 다릅니다'); return; }
-      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: m.weapon === 'dual' ? 'dual' : 'dagger' }));
+      const gw = m.weapon === 'dual' ? 'dual' : 'dagger', gg = m.gear ? Builds.clean(m.gear, gw) : null;   // 손님 장비는 검사 후
+      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: gw, guestGear: Builds.any(gg) ? gg : null, gear: Builds.current() }));
       this.onStatus('started');
       return;
     }
@@ -111,7 +112,15 @@ const Rtc = {
   // 아무 메시지도 안 오면 끊긴 것으로 (손님은 0.05초마다 상태, 호스트는 1초마다 핑을 받음)
   watch() {
     clearInterval(this.watchT);
-    this.watchT = setInterval(() => { if (this.state === 'open' && performance.now() - this.lastRx > this.LOST_MS) this.lost('응답이 없습니다 — 연결이 끊긴 것 같습니다'); }, 1000);
+    // 1초마다: 무응답 검사 + 연결 유지 신호(ka). 둘 다 탭을 숨겨도 1초 간격 타이머는 돌므로 끊김으로 오판하지 않고, 숨겨진 호스트도 최소 1초마다 계산을 따라잡음
+    this.lastWatch = performance.now();
+    this.watchT = setInterval(() => {
+      if (this.state !== 'open') return;
+      // 내 타이머가 크게 늦어졌으면(창이 오래 숨겨져 브라우저가 절전) 이번엔 판정 보류 — 진짜 끊김은 채널 닫힘·연결 실패 이벤트로 잡힘
+      const now = performance.now(), late = now - this.lastWatch > 2500; this.lastWatch = now;
+      if (!late && now - this.lastRx > this.LOST_MS) { this.lost('응답이 없습니다 — 연결이 끊긴 것 같습니다'); return; }
+      try { if (this.dc && this.dc.readyState === 'open') this.dc.send('{"t":"ka"}'); } catch (e) { /* 닫히는 중 */ }
+    }, 1000);
   },
   // 기본 동작: 화면 안내 (어디서 연결을 시작했든 항상)
   onStatus(s) { if (s === 'open' && typeof UI !== 'undefined') UI.netStatus('연결됨! 대전을 시작합니다…'); },

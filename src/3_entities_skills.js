@@ -39,7 +39,7 @@ class Unit {
   applyFear(dur, from) { if (this.dead || this.unstoppable > 0) return false; this.fear = Math.max(this.fear, dur); this.fearFrom = V.copy(from); return true; }
   heal(a, silent) {
     if (this.dead) return 0;
-    if (this.healRed > 0) a *= 1 - CONFIG.passive.healReduction;
+    a *= ItemFx.healMul(this);   // 치유 감소: 캐시 패시브(치명적 외상)·장비 중 큰 값 하나
     const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + a);
     const h = this.hp - before; if (!silent && h > 0.5) FX.text(this.pos, '+' + Math.round(h), '#5dff9a', 12);
     return h;
@@ -48,6 +48,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    ItemFx.tick(this, dt);   // 장비 고유 효과(부패 틱·파열 폭발·의념 타이머)
     Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
@@ -82,12 +83,17 @@ class Unit {
 
 // ============================== 플레이어: 캐시 ==============================
 class Cathy extends Unit {
-  constructor(x, y) {
-    const b = CONFIG.builds[Game.buildId];
+  // gear: 부위별 아이템 코드 (생략하면 판 옵션 opts.gear, null이면 장비 없음 = 랭크 영상 실측 능력치)
+  constructor(x, y, gear) {
+    const gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear);
+    const b = Builds.any(gr) ? Builds.resolve(Game.buildId, gr, Settings.weapon) : CONFIG.builds[Game.buildId];
     super({ team: 0, x, y, r: 0.5, hp: b.hp, def: b.def, ms: b.ms, color: CONFIG.theme.accent, name: '캐시', kind: 'player', facing: 0 });
     this.build = b; this.weapon = Settings.weapon;
     this.ad = b.ad; this.bonusAd = b.bonusAd; this.sp = b.sp; this.critChance = b.crit; this.cdr = b.cdr;
-    this.as = +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 무기별 공속 보정(쌍검은 느림)
+    this.as = b.computed ? b.as : +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 실측 빌드: 무기별 공속 보정(쌍검은 느림) / 장비 빌드: 이미 무기 기준으로 계산됨
+    // 장비 능력치: 방어 관통(고정·%), 치명타 피해 증가, 흡혈, 고유 효과 수치
+    this.penFlat = b.pen || 0; this.penPct = b.penPct || 0; this.critDmg = b.critDmg || 0; this.omni = b.omni || 0; this.ls = b.ls || 0;
+    this.pasK = b.passiveK || {}; this.gear = b.gear || null;
     this.pendingHits = []; this.baseHpAtLv = 970 + 88 * (b.level - 1);   // 레벨 기본 체력(나무위키) — 추가 체력 계산용
     this.maxSt = b.stamina; this.st = b.stamina;
     this.skills = {};
@@ -105,7 +111,7 @@ class Cathy extends Unit {
   }
   baseAaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가
-  atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1); }                                                     // 라이트 윙: 공속 20%
+  atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1) * ItemFx.asMul(this); }                                                     // 라이트 윙: 공속 20%
   aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.atkSpd()) : this.aaCfg().windupRatio / this.atkSpd(); }
   validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === this.team || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
@@ -226,6 +232,7 @@ class Cathy extends Unit {
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) this.S.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
+    if (qwer) ItemFx.onCast(this);   // 의념 충전
     if (qwer) this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // Q 지속 효과: 스킬 사용 후 다음 평타 강화
     Events.emit('action', { k: c.impl.action || c.k });
   }
@@ -280,9 +287,9 @@ class Cathy extends Unit {
   aaHit(t) {
     const cfg = this.aaCfg(), crit = rnd() < this.critChance, enh = this.enhanced > 0, Q = CONFIG.skills.Q;
     if (enh) {   // 강화 평타: 1회 (쌍검은 공격력 110%)
-      Combat.damage(this, t, this.ad * (this.weapon === 'dual' ? Q.dualEnhAd : 1) * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit });
+      Combat.damage(this, t, this.ad * (this.weapon === 'dual' ? Q.dualEnhAd : 1) * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit });
     } else {     // 일반 평타: 쌍검은 공격력 80% × 2회 (2타는 잠시 뒤)
-      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit });
+      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit });
       for (let i = 1; i < (cfg.hits || 1); i++) this.pendingHits.push({ t: cfg.hitGap * i, target: t });
     }
     if (enh) {
@@ -291,6 +298,7 @@ class Cathy extends Unit {
       this.S.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
+    ItemFx.onAA(this, t);   // 의념 추가 피해
     this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
@@ -312,7 +320,7 @@ class Cathy extends Unit {
       const t = h.target, cfg = this.aaCfg();
       if (!t || t.dead || this.dead || V.dist(this.pos, t.pos) - t.r - this.r > cfg.range + 0.6) continue;
       const crit = rnd() < this.critChance;
-      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit, noShake: true });
+      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit, noShake: true });
       FX.burst(t.pos, '#ffffff', 4, 3); Sfx.play('aa');
     }
     this.pendingHits = this.pendingHits.filter(h => !h.done);
@@ -376,6 +384,7 @@ function skillHit(p, c, e, amount, o = {}) {
   const trauma = o.trauma !== false && !c.traumaSet.has(e.id);   // 외상은 시전당 대상 1회
   if (trauma) c.traumaSet.add(e.id);
   Combat.damage(p, e, amount, { type: 'skill', source: o.source || c.k, trauma });
+  ItemFx.onSkillDamage(p, e);   // 부패·파열
   Events.emit('skillHit', { k: c.k, target: e });
 }
 

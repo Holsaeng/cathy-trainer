@@ -17,7 +17,7 @@ const Game = {
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
-  step(dt) { this._step(dt); Net.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
+  step(dt) { this._step(dt); Net.afterStep(); Replay.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
   _step(dt) {
     Cmd.feed(); Net.feed(); this.tick++;
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
@@ -47,9 +47,12 @@ const Game = {
   },
   finish(reason) {
     if (this.state !== 'play') return;
+    if (Replay.active) { Replay.end(); return; }   // 다시 보기 중엔 기록·결과 화면 없이 끝
     this.state = 'result';
-    if (Net.role === 'host') Net.flush();   // 손님에게 경기 종료 전달
+    if (Net.role === 'host') Net.flush();
+    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
+    if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
   togglePause() {
@@ -551,6 +554,7 @@ const ScreenLayer = {
     this.drawOverheads(ctx);
     this.drawTexts(ctx);
     if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
+    if (Replay.active) Draw.text(ctx, Replay.label(), L.W / 2, L.H - 150, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);
@@ -593,7 +597,7 @@ const ScreenLayer = {
     ctx.globalAlpha = 1;
   },
   drawTopInfo(ctx, L) {
-    const p = Game.player, b = CONFIG.builds[Game.buildId];
+    const p = Game.player, b = (p && p.build) || CONFIG.builds[Game.buildId];   // 장비 빌드면 그 라벨
     // 가운데 점수판(약 ±190px)과 겹치지 않도록 왼쪽 정보는 폭을 넘으면 말줄임
     const maxW = Math.max(160, L.W / 2 - 200);
     const fit = (s, size, bold) => { ctx.font = `${bold ? '700 ' : ''}${size}px ${FONT}`; if (ctx.measureText(s).width <= maxW) return s; while (s.length > 4 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; };

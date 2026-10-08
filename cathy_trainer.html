@@ -215,7 +215,8 @@ const CONFIG = {
          homingAngle: 35,     // 첫 적중 후 진행 방향 기준 이 각도 안의 적에게 유도
          homingRange: 3.5,    // 첫 적중 대상 기준 유도 가능 거리(m)
          homingTurn: 14 },    // 유도 회전 속도(rad/s)    // 영상: 2인 적중 → 충돌까지 약 0.28초 (관통 이동 포함)
-    R: { wallPass: 0.8, name: '이머전시 OP', short: 'OP', minDmg: [100, 175, 250], minSp: 0.7, maxDmg: [200, 350, 500], maxSp: 1.4,
+    // 피해: 12.4 패치(2026-09-17)에서 하향 — 최소 100/175/250 → 100/160/220, 최대 200/350/500 → 200/320/440 (playeternalreturn.com/posts/news/3838)
+    R: { wallPass: 0.8, name: '이머전시 OP', short: 'OP', minDmg: [100, 160, 220], minSp: 0.7, maxDmg: [200, 320, 440], maxSp: 1.4,
          cd: [80, 70, 60], minDist: 3, maxDist: 6.5, width: 3, maxHpThreshold: 0.3,
          windup: 0.45, dashTime: 0.16, recovery: 0.25,          // 영상: 범위 표시 약 0.5초 후 빠른 돌진
          channel: true,       // 정신집중: 누르면 제자리 고정, 이동 입력 무시(끊기지 않음) → 돌진
@@ -382,6 +383,121 @@ const CONFIG = {
   ],
 };
 
+// ============================== 장비 아이템 (시즌 12 · 패치 12.5) ==============================
+// 수치: dak.gg 아이템 데이터(게임 12.5.0 툴팁, https://er.dakgg.io/api/v1/data/items?hl=ko)에서 줄 단위로 읽어 옮김 — docs/er_notes_items.md
+// 키 = 게임 아이템 코드. 고유 효과(pas)는 이름만 담고, 설명은 아래 ITEM_PASSIVES에 직접 요약(원문 툴팁은 옮기지 않음)
+// stats 키: ad 공격력 · sp 스킬 증폭 · spLv 레벨 당 스증 · spPct 스증% · spPctU (고유)스증% · adaptAd/adaptSp 맞춤형(높은 쪽 하나) ·
+//           hp 체력 · def 방어력 · as 공속% · ms 이속(고정) · msPct 이속% · cdr 쿨감(수치) · pen 방관(고정) · penPct 방관% ·
+//           omni 모든 피해 흡혈% · regen 체력 재생% · tacCdr 전술 스킬 쿨감 · tenacity (고유)방해 효과 저항%
+CONFIG.items = {
+  // ---- 단검 ----
+  101401: { name: '카른웬난', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 58, as: 20, msPct: 2, cdr: 10 }, pas: '충전 - 섬광' },
+  101402: { name: '파산검', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 25, sp: 68, msPct: 2, cdr: 10 } },
+  101405: { name: '프라가라흐', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 73, as: 40, msPct: 2 }, pas: '가벼운 발걸음' },
+  101408: { name: '하이랜더 더크', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 30, sp: 82, hp: 50 } },
+  101501: { name: '월식', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 45, sp: 77, msPct: 2, cdr: 15 }, pas: '의념', pasK: { nianSp: 0.4 } },
+  101502: { name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 66, as: 20, cdr: 10 }, pas: '신속 - 루드라의 단검' },
+  101503: { name: '비색 단검', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 20, adaptAd: 57, adaptSp: 114, as: 30, msPct: 3, cdr: 15, penPct: 10 } },
+  101504: { name: '악의', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 45, sp: 100, msPct: 2 }, pas: '집행자' },
+  101701: { name: '비색 단검-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 79, as: 40, msPct: 2, penPct: 7 }, pas: '가벼운 발걸음' },
+  101702: { name: '비색 단검-새벽', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 13, sp: 114, msPct: 3, penPct: 8 }, pas: '집행자' },
+  // ---- 쌍검 ----
+  103403: { name: '아수라', slot: 'weapon', grade: 'epic', weapon: 'dual', stats: { ad: 31, sp: 70, cdr: 10, omni: 5 } },
+  103404: { name: '검은 나비', slot: 'weapon', grade: 'epic', weapon: 'dual', stats: { ad: 30, sp: 82 }, pas: '저주', pasK: { curse: 1 } },
+  103502: { name: '로이거 차르', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 31, sp: 90, cdr: 15 }, pas: '가벼운 발걸음' },
+  103503: { name: '간장과 막야', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 66, as: 18 }, pas: '현란함' },
+  103504: { name: '환영도', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 17, adaptAd: 56, adaptSp: 112, as: 30, cdr: 15, penPct: 10 } },
+  103505: { name: '타나토스', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 35, sp: 86, hp: 150 }, pas: '파열' },
+  103507: { name: '죽음의 발걸음', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 60, as: 30, cdr: 15 } },
+  103701: { name: '환영도-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 72, as: 30, penPct: 7 }, pas: '현란함' },
+  103702: { name: '환영도-새벽', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 16, sp: 112, penPct: 8 }, pas: '파열' },
+  // ---- 옷 ----
+  202104: { name: '백색 가운', slot: 'chest', grade: 'epic', stats: { def: 25, spLv: 5, hp: 120, cdr: 10 } },
+  202307: { name: '고위 사제복', slot: 'chest', grade: 'epic', stats: { def: 24, sp: 24, spLv: 5 }, pas: '치유 감소' },
+  202404: { name: '어사의', slot: 'chest', grade: 'epic', stats: { def: 25, sp: 12, spLv: 5, cdr: 10 } },
+  202412: { name: '지휘관의 갑옷', slot: 'chest', grade: 'epic', stats: { def: 25, sp: 26, spLv: 5 } },
+  202501: { name: '카바나', slot: 'chest', grade: 'legend', stats: { def: 28, sp: 40, spLv: 5, cdr: 10 }, pas: '치유 감소' },
+  202503: { name: '성법의', slot: 'chest', grade: 'legend', stats: { def: 30, sp: 30, spLv: 5, spPctU: 25 } },
+  202511: { name: '핏빛 망토', slot: 'chest', grade: 'legend', stats: { def: 25, sp: 14, spLv: 5 }, pas: '부패', pasK: { rotHp: 0.012, rotSp: 0.00002 } },
+  202518: { name: '레버넌트', slot: 'chest', grade: 'legend', stats: { def: 30, spLv: 5, hp: 250 }, pas: '돌풍' },
+  202526: { name: '이단심판관', slot: 'chest', grade: 'legend', stats: { def: 30, sp: 30, spLv: 5, cdr: 15 }, pas: '차원 균열' },
+  202209: { name: '비키니', slot: 'chest', grade: 'mythic', stats: { def: 25, sp: 35, spLv: 5, omni: 8 }, pas: '명경지수 / 치유 감소' },
+  202502: { name: '퀸 오브 하트', slot: 'chest', grade: 'mythic', stats: { def: 30, sp: 35, spLv: 5, regen: 100, cdr: 25 }, pas: '응집 / 치유 감소' },
+  // ---- 머리 ----
+  201405: { name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: { sp: 55, as: 30, cdr: 10 }, pas: '포톤 런처' },
+  201409: { name: '제국 왕관', slot: 'head', grade: 'epic', stats: { sp: 63, cdr: 15 } },
+  201413: { name: '비질란테', slot: 'head', grade: 'epic', stats: { sp: 50, hp: 150, cdr: 10 }, pas: '부패', pasK: { rotHp: 0.004, rotSp: 0.000014 } },
+  201423: { name: '전술 고글', slot: 'head', grade: 'legend', stats: { sp: 65, hp: 200, as: 30, cdr: 15 }, pas: '치유 감소' },
+  201503: { name: '페르소나', slot: 'head', grade: 'legend', stats: { sp: 80, msPct: 3.5, spPctU: 25 } },
+  201505: { name: '레이싱 헬멧', slot: 'head', grade: 'legend', stats: { sp: 80, as: 35, cdr: 10 }, pas: '포톤 런처' },
+  201507: { name: '우주 비행사의 헬멧', slot: 'head', grade: 'legend', stats: { sp: 50, hp: 200, cdr: 10 }, pas: '부패', pasK: { rotHp: 0.012, rotSp: 0.00002 } },
+  201520: { name: '사이버 스토커', slot: 'head', grade: 'legend', stats: { sp: 85, msPct: 2, cdr: 15 }, pas: '테이저 건', pasK: { taser: 1 } },
+  201526: { name: '앙 가르드', slot: 'head', grade: 'legend', stats: { def: 8, sp: 75, cdr: 10 }, pas: '예열 - 증강' },
+  201411: { name: '변검', slot: 'head', grade: 'mythic', stats: { def: 8, adaptAd: 45, adaptSp: 90, msPct: 3, cdr: 20, pen: 10 }, pas: '치유 감소' },
+  201701: { name: '핏빛 왕관', slot: 'head', grade: 'mythic', stats: { adaptAd: 50, adaptSp: 100, as: 35, msPct: 3.5 }, pas: '개시 / 치유 감소' },
+  // ---- 팔/장식 ----
+  203403: { name: '드라우프니르', slot: 'arm', grade: 'epic', stats: { sp: 75 } },
+  203410: { name: '틴달로스의 팔찌', slot: 'arm', grade: 'epic', stats: { sp: 50, cdr: 20 } },
+  203506: { name: '스포츠 시계', slot: 'arm', grade: 'epic', stats: { sp: 32, as: 30 }, pas: '열정 - 순환' },
+  205405: { name: '진리는 나의 빛', slot: 'arm', grade: 'epic', stats: { def: 8, sp: 50, hp: 100, cdr: 5 } },
+  205505: { name: '호루스의 눈', slot: 'arm', grade: 'legend', stats: { sp: 75, cdr: 10 }, pas: '의념', pasK: { nianSp: 0.35 } },
+  203510: { name: '용의 비늘', slot: 'arm', grade: 'legend', stats: { sp: 85, penPct: 15 } },
+  705619: { name: '별 조각', slot: 'arm', grade: 'legend', stats: { def: 10, sp: 80, hp: 230, cdr: 15 } },
+  205406: { name: '요명월', slot: 'arm', grade: 'legend', stats: { def: 8, sp: 55, hp: 200, cdr: 10 }, pas: '달인' },
+  203413: { name: '텔루리안 타임피스', slot: 'arm', grade: 'legend', stats: { sp: 64, as: 42 }, pas: '열정 - 순환' },
+  203515: { name: '노바 실드', slot: 'arm', grade: 'mythic', stats: { def: 15, adaptAd: 45, adaptSp: 90, cdr: 20 }, pas: '치유 감소' },
+  205507: { name: '네크로노미콘', slot: 'arm', grade: 'mythic', stats: { sp: 95, penPct: 15 }, pas: '치유 감소' },
+  // ---- 다리 ----
+  204406: { name: '풍화륜', slot: 'leg', grade: 'epic', stats: { sp: 25, ms: 0.22, cdr: 5 } },
+  204419: { name: '델타 레드', slot: 'leg', grade: 'epic', stats: { sp: 18, ms: 0.22, cdr: 10 } },
+  204506: { name: '와일드 워커', slot: 'leg', grade: 'legend', stats: { def: 10, ms: 0.25, cdr: 20 }, pas: '치유 감소' },
+  204505: { name: '칼날 다리', slot: 'leg', grade: 'legend', stats: { sp: 42, ms: 0.25, cdr: 10 }, pas: '치유 감소' },
+  204410: { name: '글레이셜 슈즈', slot: 'leg', grade: 'legend', stats: { sp: 33, ms: 0.25, cdr: 15 } },
+  204501: { name: '헤르메스의 부츠', slot: 'leg', grade: 'legend', stats: { def: 18, hp: 150, ms: 0.25, tenacity: 30 } },
+  204512: { name: '스페이스 부츠', slot: 'leg', grade: 'legend', stats: { def: 15, hp: 120, ms: 0.25, cdr: 10 } },
+  204405: { name: '킬힐', slot: 'leg', grade: 'legend', stats: { sp: 60, spPct: 5, ms: 0.25 } },
+  204409: { name: 'EOD 부츠', slot: 'leg', grade: 'legend', stats: { def: 10, hp: 100, regen: 50, ms: 0.25 }, pas: '격동' },
+  204511: { name: '로즈 스텝', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 10 }, pas: '각성 / 치유 감소' },
+  204413: { name: '탭루트', slot: 'leg', grade: 'mythic', stats: { def: 10, hp: 250, ms: 0.27, cdr: 20, tacCdr: 20 }, pas: '치유 감소' },
+  204513: { name: '픽시 부츠', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 20 }, pas: '순풍 / 치유 감소' },
+};
+// 고유 효과 요약(직접 작성) · impl: 시뮬레이터에 들어간 효과
+CONFIG.itemPassives = {
+  '의념': { text: '스킬을 쓰면 충전 → 충전 중 공속 +40%, 3초 안에 하는 다음 평타가 스증 비례 추가 스킬 피해 (쿨 2초)', impl: true },
+  '부패': { text: '스킬로 피해를 주면 3초간 매초 대상 최대 체력 비례 스킬 피해 (1스택)', impl: true },
+  '파열': { text: '적 실험체에게 스킬 피해 → 0.8초 뒤 그 자리에 광역 폭발 (쿨 8초)', impl: true },
+  '집행자': { text: '대상 체력이 40% 이하면 주는 스킬 피해 +15%', impl: true },
+  '치유 감소': { text: '피해를 주면 대상 치유 효과 4초간 감소 (전설 20% · 초월 30%)', impl: true },
+  '테이저 건': { text: '8m 안에 3초 이상 있던 적에게 평타 강화(추가 스킬 피해) + 5초간 그 대상에게 스킬 피해 +10% (쿨 10초)', impl: true },
+  '저주': { text: '스킬 적중 시 4초 저주 → 풀릴 때 고정 피해. 풀린 뒤 8초간 다시 안 걸림(평타 맞을 때마다 1초 감소, ⚠ 시작 시점 가정)', impl: true },
+  '가벼운 발걸음': { text: '이동 거리만큼 중첩 → 이속 증가, 평타 때 모두 소모해 추가 스킬 피해' },
+  '현란함': { text: '적중마다 잠시 이속 증가 중첩 (최대 8)' },
+  '신속 - 루드라의 단검': { text: '4초 안에 3회 피해 → 3초간 이속·공격력 증가 (쿨 10초)' },
+  '충전 - 섬광': { text: '다음 평타가 잠시 둔화 (쿨 5초)' },
+  '포톤 런처': { text: '3번째 평타마다 추가 스킬 피해' },
+  '예열 - 증강': { text: '스킬 피해마다 중첩, 중첩당 스킬 피해 증가 (최대 6)' },
+  '열정 - 순환': { text: '평타 적중 시 추가 스킬 피해 + 잠시 공속 증가' },
+  '돌풍': { text: '5초 안에 3회 적중 → 주변에 소용돌이 피해 (쿨 10초)' },
+  '차원 균열': { text: '궁극기 적중 시 대상이 받는 피해 증가 + 지속 피해' },
+  '명경지수': { text: '5초간 맞지 않으면 매초 보호막 (최대치 있음)' },
+  '응집': { text: '3초 안에 스킬 2회 적중 → 잠시 뒤 강한 둔화 (쿨 12초)' },
+  '개시': { text: '20초마다 평타 적중 시 잠시 공격력/스증·공속 증가' },
+  '달인': { text: '무기 스킬 사용 직후 충격파 피해 + 둔화 (쿨 10초)' },
+  '격동': { text: '전투 중 가까운 적이 있으면 주기적으로 피해' },
+  '각성': { text: '궁극기 사용 시 8초간 방어 관통 증가 (쿨 20초)' },
+  '순풍': { text: '스킬 적중 시 잠시 이속 증가' },
+};
+// 대표 조합 (docs/er_notes_items.md 3.4 — dak.gg 랭크 다이아+ 12.5, 나무위키 루트)
+CONFIG.gearPresets = {
+  dualS1: { label: '쌍검 표준 (전설)', weapon: 'dual', gear: { weapon: 103505, chest: 202503, head: 201520, arm: 205505, leg: 204506 } },
+  dualS2: { label: '쌍검 혈무기 (환영도-새벽)', weapon: 'dual', gear: { weapon: 103702, chest: 202503, head: 201520, arm: 205505, leg: 204506 } },
+  dualS0: { label: '쌍검 시작 (영웅)', weapon: 'dual', gear: { weapon: 103404, chest: 202412, head: 201413, arm: 203410, leg: 204419 } },
+  daggerD1: { label: '단검 의념·부패 (전설)', weapon: 'dagger', gear: { weapon: 101501, chest: 202511, head: 201503, arm: 203510, leg: 204505 } },
+  daggerD2: { label: '단검 고스증 (악의)', weapon: 'dagger', gear: { weapon: 101504, chest: 202501, head: 201503, arm: 205505, leg: 204410 } },
+  daggerD3: { label: '단검 성법의형', weapon: 'dagger', gear: { weapon: 101501, chest: 202503, head: 201423, arm: 203510, leg: 204410 } },
+  daggerD0: { label: '단검 시작 (영웅)', weapon: 'dagger', gear: { weapon: 101402, chest: 202404, head: 201409, arm: 203410, leg: 204406 } },
+};
+
 // ============================== 비공식 표기 ==============================
 // 님블뉴런 IP 이용 정책(2025-08-07): 공식으로 오인될 수 있는 표현·공식 로고/UI 무단 사용 금지, 2D/3D 모델 배포 금지
 // → 이 시뮬레이터는 공식 리소스(로고·일러스트·게임 모델·UI)를 쓰지 않고, 캐릭터 모델은 자체 제작 또는 CC0 범용 모델을 색·소품으로 꾸며 사용
@@ -389,6 +505,130 @@ const NOTICE = {
   short: '비공식 팬 제작 연습 도구 · 님블뉴런(Nimble Neuron)과 무관 · 공식 리소스 미사용 · IP 이용 정책 확인 문의 중, 권리자 요청 시 즉시 수정·삭제',
   long: '이 시뮬레이터는 팬이 만든 <b>비공식</b> 연습 도구로, 님블뉴런(Nimble Neuron)과 관련이 없고 공식 지원을 받지 않습니다. 이터널 리턴이라는 게임명과 실험체 이름·설정 등 모든 권리는 님블뉴런에 있으며, 이 도구는 연습 목적으로만 이름을 표기합니다. 님블뉴런 IP 이용 정책(2025-08-07)에 맞는지 회사에 확인 문의 중이며, 권리자의 요청이 있으면 즉시 수정하거나 삭제합니다. 공식 로고·일러스트·게임 모델·UI는 사용하지 않으며, 3D 캐릭터는 직접 만든 로우폴리 모델 또는 CC0(자유 이용) 범용 모델을 색과 소품으로 꾸민 것입니다. 수치는 공개된 패치노트·위키·영상에서 정리했습니다.',
   html(cls = 'sub') { return `<div class="${cls}" style="margin:10px 0 0;font-size:11px;opacity:.75">ⓘ ${this.short}</div>`; },
+};
+
+// ============================== 장비 → 능력치 계산 ==============================
+// 장비를 고르지 않으면 CONFIG.builds(랭크 영상 실측)를 그대로 씀. 고르면 아래 공식으로 계산 (docs/build_items_plan.md)
+//   레벨 능력치 = 1레벨 값 + 성장치 × (레벨 − 1)                      (나무위키·dak.gg 캐시)
+//   스킬 증폭 = (고정 스증 + 옷 레벨당 × 레벨 + 맞춤형) × (1 + 숙련도 스증% + (고유)% + 스증%)   ⚠ %가 스증 수치를 키운다고 가정(RULES.spPct)
+//   공격 속도 = (무기 기본 + 캐시 보정 0.09) × (1 + 숙련도 공속% + 아이템 공속%), 상한 2.5          ⚠ 곱하는 방식 가정
+//   이동 속도 = (기본 3.5 + 고정 이속) × (1 + 이속%)                                               ⚠ 순서 가정
+//   쿨감 = 아이템 쿨감 합 (점감 공식은 스킬 쪽: 쿨 × 100 / (100 + 쿨감))
+//   맞춤형 = 추가 공격력×2 와 스증 중 높은 쪽으로 / (고유) 표기 효과는 같은 종류끼리 중첩 안 함(가장 큰 값)
+const Builds = {
+  SLOTS: ['weapon', 'chest', 'head', 'arm', 'leg'],
+  SLOT_LABEL: { weapon: '무기', chest: '옷', head: '머리', arm: '팔/장식', leg: '다리' },
+  GRADE_LABEL: { epic: '영웅', legend: '전설', mythic: '초월' },
+  // 캐시 기본 능력치 [1레벨, 성장] — docs/er_notes_items.md 2.1
+  BASE: { hp: [970, 88], ad: [29, 4.3], def: [53, 3.2], ms: 3.5, asBonus: 0.09 },
+  WEAPON_AS: { dagger: 0.58, dual: 0.43 },
+  MASTERY: { dagger: { as: 0.034, sp: 0.043 }, dual: { as: 0.03, sp: 0.045 } },   // 레벨당 (12.5)
+  // 단계별 숙련도 레벨 ⚠ 추정 (캐릭터 레벨은 CONFIG.builds의 level)
+  MASTERY_LV: { early: 3, mid: 8, late: 13 },
+  RULES: { spPct: 'stat', asCap: 2.5, critCap: 1 },
+  item(id) { return id !== null && id !== undefined ? CONFIG.items[id] || null : null; },
+  // 장비 검사: 부위·무기군이 맞는 것만 남김 (잘못된 값은 빈 칸)
+  clean(gear, weapon) {
+    const g = {};
+    for (const s of this.SLOTS) {
+      const id = gear && gear[s], it = this.item(id);
+      g[s] = it && it.slot === s && (s !== 'weapon' || it.weapon === weapon) ? +id : null;
+    }
+    return g;
+  },
+  any(gear) { return !!gear && this.SLOTS.some(s => gear[s]); },
+  // 장비 서명 (기록 키·표시용)
+  sig(gear) { return this.SLOTS.map(s => gear && gear[s] || 0).join('-'); },
+  short(gear) { return this.SLOTS.map(s => { const it = this.item(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
+  // 단계 + 장비 → 캐시 빌드 (CONFIG.builds와 같은 모양 + 새 능력치)
+  resolve(stage, gear, weapon) {
+    const B0 = CONFIG.builds[stage] || CONFIG.builds.mid, Lv = B0.level, w = weapon === 'dual' ? 'dual' : 'dagger';
+    const g = this.clean(gear, w), M = this.MASTERY[w], mLv = this.MASTERY_LV[stage] ?? 8;
+    const sum = {}, uniq = {}, items = [];
+    for (const s of this.SLOTS) {
+      const it = this.item(g[s]); if (!it) continue; items.push(it);
+      for (const [k, v] of Object.entries(it.stats)) {
+        if (k === 'spPctU' || k === 'tenacity') uniq[k] = Math.max(uniq[k] || 0, v);   // (고유): 중첩 안 함
+        else sum[k] = (sum[k] || 0) + v;
+      }
+    }
+    const S = k => sum[k] || 0, at = ([a, b]) => a + b * (Lv - 1);
+    const bonusAd = S('ad'), spFlat0 = S('sp') + S('spLv') * Lv;
+    // 맞춤형: 추가 공격력(×2)과 스증 중 높은 쪽
+    const toSp = spFlat0 >= bonusAd * 2, adaptAd = toSp ? 0 : S('adaptAd'), adaptSp = toSp ? S('adaptSp') : 0;
+    const spFlat = spFlat0 + adaptSp, spMul = 1 + M.sp * mLv + (uniq.spPctU || 0) / 100 + S('spPct') / 100;
+    const asBase = this.WEAPON_AS[w] + this.BASE.asBonus, asMul = 1 + M.as * mLv + S('as') / 100;
+    const b = Object.assign({}, B0, {
+      label: `${B0.label} · 장비`, computed: true, weapon: w, gear: g, masteryLv: mLv,
+      hp: Math.round(at(this.BASE.hp) + S('hp')),
+      ad: Math.round((at(this.BASE.ad) + bonusAd + adaptAd) * 10) / 10, bonusAd: bonusAd + adaptAd,
+      sp: Math.round(this.RULES.spPct === 'stat' ? spFlat * spMul : spFlat), spMul,
+      as: +Math.min(this.RULES.asCap, asBase * asMul).toFixed(3),
+      def: Math.round(at(this.BASE.def) + S('def')),
+      ms: +((this.BASE.ms + S('ms')) * (1 + S('msPct') / 100)).toFixed(3),
+      crit: Math.min(this.RULES.critCap, S('crit') / 100), critDmg: S('critDmg') / 100,
+      cdr: S('cdr') / 100, pen: S('pen'), penPct: S('penPct') / 100, omni: S('omni') / 100, ls: S('ls') / 100,
+      regenPct: S('regen') / 100, tacCdr: S('tacCdr'), tenacity: (uniq.tenacity || 0) / 100,
+      passives: [...new Set(items.flatMap(it => (it.pas || '').split(' / ').filter(Boolean)))],
+      passiveK: this.passiveK(items),
+    });
+    return b;
+  },
+  // 고유 효과 수치(같은 이름은 큰 값 하나 — 중첩 여부 ⚠ 미확인이라 보수적으로)
+  passiveK(items) {
+    const k = {};
+    for (const it of items) {
+      if (it.pasK) for (const [a, v] of Object.entries(it.pasK)) k[a] = Math.max(k[a] || 0, v);
+      for (const p of (it.pas || '').split(' / ')) if (p === '치유 감소') k.healCut = Math.max(k.healCut || 0, it.grade === 'mythic' ? 0.3 : 0.2);
+      if (it.pas === '파열') k.rupture = true;
+      if (it.pas === '집행자') k.executor = true;
+    }
+    return k;
+  },
+  // 지금 설정의 장비 (장비 사용 + 캐시일 때만, 아니면 null)
+  current() {
+    if (!Settings.gearOn || (Settings.character || 'cathy') !== 'cathy') return null;
+    const w = Settings.weapon === 'dual' ? 'dual' : 'dagger', g = this.clean((Settings.gearSets || {})[w] || this.defaultGear(w), w);
+    return this.any(g) ? g : null;
+  },
+  defaultGear(w) { return Object.assign({}, CONFIG.gearPresets[w === 'dual' ? 'dualS1' : 'daggerD1'].gear); },
+  // 아이템 능력치 짧은 글
+  LABEL: { ad: '공', sp: '스증', spLv: '레벨당 스증', spPct: '스증%', spPctU: '(고유) 스증%', hp: '체력', def: '방어', as: '공속%', ms: '이속', msPct: '이속%', cdr: '쿨감', pen: '방관', penPct: '방관%', omni: '모든 피해 흡혈%', regen: '체력 재생%', tacCdr: '전술 쿨감', tenacity: '(고유) 방해 저항%' },
+  statText(it) {
+    const s = it.stats, out = [];
+    for (const [k, v] of Object.entries(s)) { if (k === 'adaptAd') out.push(`맞춤형 공 ${v}/스증 ${s.adaptSp}`); else if (k !== 'adaptSp') out.push(`${this.LABEL[k] || k} ${v}`); }
+    return out.join(' · ');
+  },
+  // 예상 DPS: 허수아비(방어 100)를 10초 동안 단순 순환(Q·W·E·D + 평타, R 제외)으로 — 같은 시드라 매번 같은 값. 화면·기록에 남지 않음
+  estimate(stage, gear, weapon, sec = 10) {
+    const keep = { sound: Settings.sound, weapon: Settings.weapon, build: Settings.build, character: Settings.character, gfx: Renderer.mode };
+    Object.assign(Settings, { sound: false, weapon: weapon === 'dual' ? 'dual' : 'dagger', build: stage, character: 'cathy' });
+    let dps = 0;
+    try {
+      Game.start('dummy', { count: 1, hp: 3000, def: 100, infinite: true, seed: 7, build: stage, gear: gear || null });
+      const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'), S = CONFIG.sim.step, n = Math.round(sec / S);
+      p.pos = { x: d.pos.x - 2.3, y: d.pos.y }; Stats.reset();
+      for (let i = 0; i < n; i++) {
+        if (i % 6 === 0 && !(p.cast && p.cast.phase !== 'recovery')) {
+          const k = ['Q', 'W', 'E', 'D'].find(k => p.skills[k].lv > 0 && p.skills[k].cd <= 0);
+          if (k && !(p.enhanced > 0)) { p.attackTarget = null; p.cmdSkill(k, V.copy(d.pos)); } else if (!p.attackTarget) p.cmdAttack(d);
+        }
+        Game.step(S);
+      }
+      dps = Stats.dealtTotal / sec;
+    } finally {
+      Object.assign(Settings, { sound: keep.sound, weapon: keep.weapon, build: keep.build, character: keep.character });
+      Object.assign(Game, { state: 'menu', mode: null, units: [], projectiles: [], zones: [], player: null }); FX.reset(); Stats.reset(); Cmd.reset();
+    }
+    return Math.round(dps);
+  },
+  // 현재 실측 빌드와 비교할 주요 능력치
+  compare(stage, gear, weapon) {
+    const a = CONFIG.builds[stage], b = this.resolve(stage, gear, weapon), w = weapon === 'dual' ? 'dual' : 'dagger';
+    const aAs = +(a.as * (CONFIG.basicAttack[w].asMul || 1)).toFixed(2);
+    return [['체력', a.hp, b.hp], ['공격력', a.ad, b.ad], ['스킬 증폭', a.sp, b.sp], ['방어력', a.def, b.def], ['공격 속도', aAs, b.as], ['이동 속도', a.ms, b.ms],
+      ['쿨다운 감소', Math.round(a.cdr * 100), Math.round(b.cdr * 100)], ['방어 관통', '0', `${b.pen ? b.pen + ' + ' : ''}${Math.round(b.penPct * 100)}%`]];
+  },
 };
 
 // ============================== 유틸 ==============================
@@ -404,7 +644,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '8c58618e';
+const BUILD_ID = '68de5fe0';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 const rand = (a, b) => a + Rng.next() * (b - a);
 const vrand = (a, b) => a + Math.random() * (b - a);   // 화면 효과용 (판정 난수를 소모하지 않음)
@@ -647,7 +887,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', netPredict: true, netStun: true, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, netPredict: true, netStun: true, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -889,8 +1129,11 @@ const Combat = {
     if (!tgt || tgt.dead || tgt.invuln > 0) return 0;
     const type = o.type || 'skill';
     let dmg = amount;
-    if (type !== 'true') dmg *= 100 / (100 + Math.max(0, tgt.def * (1 - (o.pen || 0))));   // 방어 관통(%) 반영
+    // 방어 관통: 적용 방어력 = 방어력 × (1 − %관통) − 고정 관통 (노트 2.4). %는 옵션(o.pen)이 없으면 공격한 쪽 장비 능력치
+    const penPct = o.pen !== undefined ? o.pen : (src && src.penPct) || 0, penFlat = (src && src.penFlat) || 0;
+    if (type !== 'true') dmg *= 100 / (100 + Math.max(0, tgt.def * (1 - penPct) - penFlat));
     if (o.min) dmg = Math.max(o.min, dmg);
+    dmg *= ItemFx.damageMul(src, tgt, type);   // 장비: 집행자
     dmg = Math.max(0, dmg);
     let absorbed = 0;
     if (tgt.shield > 0) { absorbed = Math.min(tgt.shield, dmg); tgt.shield -= absorbed; }
@@ -907,6 +1150,12 @@ const Combat = {
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);
+    if (src) ItemFx.onDamage(src, tgt);   // 장비: 치유 감소
+    // 흡혈: 생명력 흡수(평타) · 모든 피해 흡혈(광역은 50%, 야생동물 60% — 노트 2.1)
+    if (src && !src.dead && dmg > 0 && (src.ls || src.omni) && src.heal) {
+      const vs = tgt.kind === 'animal' ? 0.6 : 1, aoe = o.aoe ? 0.5 : 1;
+      const h = dmg * ((type === 'normal' ? src.ls || 0 : 0) + (src.omni || 0) * aoe) * vs; if (h > 0) src.heal(h, true);
+    }
     if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);   // 다니엘: 영감 축적·최근 피해
     if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준(온라인 대전 상대 캐시도)
     return dmg;
@@ -1021,7 +1270,7 @@ class Unit {
   applyFear(dur, from) { if (this.dead || this.unstoppable > 0) return false; this.fear = Math.max(this.fear, dur); this.fearFrom = V.copy(from); return true; }
   heal(a, silent) {
     if (this.dead) return 0;
-    if (this.healRed > 0) a *= 1 - CONFIG.passive.healReduction;
+    a *= ItemFx.healMul(this);   // 치유 감소: 캐시 패시브(치명적 외상)·장비 중 큰 값 하나
     const before = this.hp; this.hp = Math.min(this.maxHp, this.hp + a);
     const h = this.hp - before; if (!silent && h > 0.5) FX.text(this.pos, '+' + Math.round(h), '#5dff9a', 12);
     return h;
@@ -1030,6 +1279,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    ItemFx.tick(this, dt);   // 장비 고유 효과(부패 틱·파열 폭발·의념 타이머)
     Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
@@ -1064,12 +1314,17 @@ class Unit {
 
 // ============================== 플레이어: 캐시 ==============================
 class Cathy extends Unit {
-  constructor(x, y) {
-    const b = CONFIG.builds[Game.buildId];
+  // gear: 부위별 아이템 코드 (생략하면 판 옵션 opts.gear, null이면 장비 없음 = 랭크 영상 실측 능력치)
+  constructor(x, y, gear) {
+    const gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear);
+    const b = Builds.any(gr) ? Builds.resolve(Game.buildId, gr, Settings.weapon) : CONFIG.builds[Game.buildId];
     super({ team: 0, x, y, r: 0.5, hp: b.hp, def: b.def, ms: b.ms, color: CONFIG.theme.accent, name: '캐시', kind: 'player', facing: 0 });
     this.build = b; this.weapon = Settings.weapon;
     this.ad = b.ad; this.bonusAd = b.bonusAd; this.sp = b.sp; this.critChance = b.crit; this.cdr = b.cdr;
-    this.as = +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 무기별 공속 보정(쌍검은 느림)
+    this.as = b.computed ? b.as : +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 실측 빌드: 무기별 공속 보정(쌍검은 느림) / 장비 빌드: 이미 무기 기준으로 계산됨
+    // 장비 능력치: 방어 관통(고정·%), 치명타 피해 증가, 흡혈, 고유 효과 수치
+    this.penFlat = b.pen || 0; this.penPct = b.penPct || 0; this.critDmg = b.critDmg || 0; this.omni = b.omni || 0; this.ls = b.ls || 0;
+    this.pasK = b.passiveK || {}; this.gear = b.gear || null;
     this.pendingHits = []; this.baseHpAtLv = 970 + 88 * (b.level - 1);   // 레벨 기본 체력(나무위키) — 추가 체력 계산용
     this.maxSt = b.stamina; this.st = b.stamina;
     this.skills = {};
@@ -1087,7 +1342,7 @@ class Cathy extends Unit {
   }
   baseAaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가
-  atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1); }                                                     // 라이트 윙: 공속 20%
+  atkSpd() { return this.as * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1) * ItemFx.asMul(this); }                                                     // 라이트 윙: 공속 20%
   aaWindupTime() { return this.enhanced > 0 ? CONFIG.basicAttack.enhanced.windup / Math.max(1, this.atkSpd()) : this.aaCfg().windupRatio / this.atkSpd(); }
   validTarget(t) { return t && !t.dead && Game.units.includes(t) && !(t.untargetable > 0) && (t.team === this.team || Vision.visible(this, t)); }   // 은신·대상 지정 불가면 평타 대상 해제
 
@@ -1208,6 +1463,7 @@ class Cathy extends Unit {
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) this.S.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
+    if (qwer) ItemFx.onCast(this);   // 의념 충전
     if (qwer) this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // Q 지속 효과: 스킬 사용 후 다음 평타 강화
     Events.emit('action', { k: c.impl.action || c.k });
   }
@@ -1262,9 +1518,9 @@ class Cathy extends Unit {
   aaHit(t) {
     const cfg = this.aaCfg(), crit = rnd() < this.critChance, enh = this.enhanced > 0, Q = CONFIG.skills.Q;
     if (enh) {   // 강화 평타: 1회 (쌍검은 공격력 110%)
-      Combat.damage(this, t, this.ad * (this.weapon === 'dual' ? Q.dualEnhAd : 1) * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit });
+      Combat.damage(this, t, this.ad * (this.weapon === 'dual' ? Q.dualEnhAd : 1) * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit });
     } else {     // 일반 평타: 쌍검은 공격력 80% × 2회 (2타는 잠시 뒤)
-      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit });
+      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit });
       for (let i = 1; i < (cfg.hits || 1); i++) this.pendingHits.push({ t: cfg.hitGap * i, target: t });
     }
     if (enh) {
@@ -1273,6 +1529,7 @@ class Cathy extends Unit {
       this.S.enhAA++; Events.emit('enhAA');
       { const d = V.fromAng(this.facing); FX.arc(V.sub(this.pos, V.mul(d, 0.3)), d, 3.4, 0.7, CONFIG.theme.accent, 0.45); FX.burst(t.pos, '#ffffff', 10, 5); FX.addShake(4); }
     }
+    ItemFx.onAA(this, t);   // 의념 추가 피해
     this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA', enh });
     FX.burst(t.pos, enh ? '#ff9fb2' : '#ffffff', 6, 3); Sfx.play('aa');
@@ -1294,7 +1551,7 @@ class Cathy extends Unit {
       const t = h.target, cfg = this.aaCfg();
       if (!t || t.dead || this.dead || V.dist(this.pos, t.pos) - t.r - this.r > cfg.range + 0.6) continue;
       const crit = rnd() < this.critChance;
-      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul : 1), { type: 'normal', source: 'AA', crit, noShake: true });
+      Combat.damage(this, t, this.ad * cfg.hitRatio * (crit ? cfg.critMul + this.critDmg : 1), { type: 'normal', source: 'AA', crit, noShake: true });
       FX.burst(t.pos, '#ffffff', 4, 3); Sfx.play('aa');
     }
     this.pendingHits = this.pendingHits.filter(h => !h.done);
@@ -1358,6 +1615,7 @@ function skillHit(p, c, e, amount, o = {}) {
   const trauma = o.trauma !== false && !c.traumaSet.has(e.id);   // 외상은 시전당 대상 1회
   if (trauma) c.traumaSet.add(e.id);
   Combat.damage(p, e, amount, { type: 'skill', source: o.source || c.k, trauma });
+  ItemFx.onSkillDamage(p, e);   // 부패·파열
   Events.emit('skillHit', { k: c.k, target: e });
 }
 
@@ -1589,6 +1847,88 @@ class Projectile {
   }
 }
 Projectile.seq = 0;
+
+// ============================== 장비 고유 효과 ==============================
+// 장비(Builds.resolve → unit.pasK)에 따라 캐시의 스킬·평타·피해·회복에 붙는 효과. 수치는 12.5 툴팁(1_z_items.js · docs/er_notes_items.md)
+//   의념(월식·호루스의 눈): 스킬 사용 → 3초 충전: 공속 +40%, 다음 평타가 스증 비례 추가 스킬 피해 (쿨 2초)
+//   부패(핏빛 망토 등): 스킬 피해 → 3초간 매초 대상 최대 체력 비례 스킬 피해 (1스택, 다시 걸면 갱신)
+//   파열(타나토스·환영도-새벽): 스킬 피해 → 0.8초 뒤 대상 위치 광역 폭발 60 + 레벨×3 + 스증 25% (쿨 8초, 반경 ⚠ 2.5m 가정)
+//   집행자(악의·비색 단검-새벽): 대상 체력 40% 이하면 스킬 피해 +15%
+//   치유 감소: 피해를 주면 대상 치유 4초간 감소 (전설 20%·초월 30%, 캐시 패시브의 치유 감소와 중첩 없이 큰 값)
+//   「적 실험체에게」 효과는 연습용으로 허수아비에도 적용
+const ItemFx = {
+  NIAN: { dur: 3, as: 0.4, cd: 2 }, ROT: { dur: 3 }, RUPTURE: { delay: 0.8, cd: 8, base: 60, perLv: 3, sp: 0.25, r: 2.5 }, EXEC: { hp: 0.4, mul: 1.15 }, TASER: { range: 8, need: 3, base: 30, sp: 0.2, mark: 5, mul: 1.1, cd: 10 }, CURSE: { dur: 4, base: 25, sp: 0.1, imm: 8, aaCut: 1, cd: 2 }, HEALCUT: { dur: 4 },
+  isChar(u) { return u && ['player', 'ranged', 'melee', 'dummy'].includes(u.kind); },
+  k(u) { return (u && u.pasK) || {}; },
+  // 스킬 사용(QWERD) 직후
+  onCast(p) { if (this.k(p).nianSp && !(p.nianCd > 0)) p.nianT = this.NIAN.dur; },
+  asMul(p) { return p.nianT > 0 && this.k(p).nianSp ? 1 + this.NIAN.as : 1; },
+  // 평타 적중 직후
+  onAA(p, t) {
+    if (t && t.curseImm > 0) t.curseImm = Math.max(0, t.curseImm - this.CURSE.aaCut);   // 저주: 평타 맞을 때마다 재저주 대기 1초 감소
+    this.onAATaser(p, t);
+    const K = this.k(p); if (!K.nianSp || !(p.nianT > 0) || !t || t.dead) return;
+    p.nianT = 0; p.nianCd = this.NIAN.cd;
+    Combat.damage(p, t, p.sp * K.nianSp, { type: 'skill', source: '의념', noShake: true });
+    FX.burst(t.pos, '#c9a4ff', 8, 4); FX.ring(t.pos, 0.2, 0.9, '#c9a4ff', 0.25, 0.06);
+  },
+  onAATaser(p, t) {
+    const K = this.k(p), T = this.TASER; if (!K.taser || !t || t.dead || p.taserCd > 0 || !this.isChar(t)) return;
+    if (((p.taserNear || {})[t.id] || 0) < T.need) return;
+    p.taserCd = T.cd;
+    Combat.damage(p, t, T.base + p.sp * T.sp, { type: 'skill', source: '테이저 건', noShake: true });
+    if (!t.dead) t.taserMark = { by: p.id, t: T.mark };   // 적중한 뒤 표식 (이 추가 피해에는 +10% 안 붙음)
+    FX.burst(t.pos, '#9fd8ff', 10, 5); FX.ring(t.pos, 0.2, 1.0, '#9fd8ff', 0.25, 0.06);
+  },
+  // 캐시 개별 스킬 피해 직후 (skillHit)
+  onSkillDamage(p, e) {
+    const K = this.k(p); if (!e || e.dead) return;
+    if (K.rotHp) e.rot = { t: this.ROT.dur, per: e.maxHp * (K.rotHp + p.sp * K.rotSp), src: p, acc: 0 };
+    if (K.curse && !(p.curseCd > 0) && !e.curse && !(e.curseImm > 0)) { p.curseCd = this.CURSE.cd; e.curse = { t: this.CURSE.dur, src: p, dmg: this.CURSE.base + p.sp * this.CURSE.sp }; }
+    if (K.rupture && !(p.ruptCd > 0) && this.isChar(e)) { p.ruptCd = this.RUPTURE.cd; (p.itemPending = p.itemPending || []).push({ kind: 'rupture', t: this.RUPTURE.delay, target: e, pos: V.copy(e.pos) }); }
+  },
+  // 모든 피해: 집행자 배율
+  damageMul(src, tgt, type) {
+    const K = this.k(src);
+    let m = K.executor && type === 'skill' && tgt.maxHp > 0 && tgt.hp / tgt.maxHp <= this.EXEC.hp ? this.EXEC.mul : 1;
+    if (type === 'skill' && tgt.taserMark && tgt.taserMark.t > 0 && src && tgt.taserMark.by === src.id) m *= this.TASER.mul;   // 테이저 건 표식
+    return m;
+  },
+  // 모든 피해 뒤: 치유 감소
+  onDamage(src, tgt) {
+    const K = this.k(src); if (!K.healCut || tgt.dead) return;
+    tgt.healCutT = this.HEALCUT.dur; tgt.healCutPct = Math.max(tgt.healCutT > 0 && tgt.healCutPct || 0, K.healCut);
+  },
+  healMul(u) { const a = u.healRed > 0 ? CONFIG.passive.healReduction : 0, b = u.healCutT > 0 ? (u.healCutPct || 0) : 0; return 1 - Math.max(a, b); },
+  // 매 스텝 (tickStatus): 타이머·부패 틱·파열 폭발
+  tick(u, dt) {
+    for (const k of ['nianT', 'nianCd', 'ruptCd', 'healCutT', 'taserCd', 'curseCd', 'curseImm']) if (u[k] > 0) u[k] = Math.max(0, u[k] - dt);
+    if (u.taserMark && (u.taserMark.t -= dt) <= 0) u.taserMark = null;
+    if (this.k(u).taser) {   // 테이저 건: 8m 안에 머문 시간(대상별)
+      const N = u.taserNear = u.taserNear || {}, seen = {};
+      for (const e of Game.enemies(u)) if (this.isChar(e) && V.dist(e.pos, u.pos) <= this.TASER.range) { seen[e.id] = (N[e.id] || 0) + dt; }
+      u.taserNear = seen;
+    }
+    if (u.curse && (u.curse.t -= dt) <= 0) { const C = u.curse; u.curse = null; u.curseImm = this.CURSE.imm; if (!u.dead) Combat.damage(C.src, u, C.dmg, { type: 'true', source: '저주', noShake: true }); }
+    if (u.rot) {
+      const R = u.rot; R.acc += dt; R.t -= dt;
+      while (R.acc >= 1 && !u.dead) { R.acc -= 1; Combat.damage(R.src, u, R.per, { type: 'skill', source: '부패', tick: true, noShake: true }); }
+      if (R.t <= 1e-9 || u.dead) u.rot = null;
+    }
+    if (u.itemPending && u.itemPending.length) {
+      for (const P of u.itemPending) {
+        if ((P.t -= dt) > 0) continue;
+        P.done = true;
+        if (P.kind === 'rupture') {
+          const at = P.target && !P.target.dead ? V.copy(P.target.pos) : P.pos, R = this.RUPTURE, lvl = (u.build && u.build.level) || 1;
+          FX.ring(at, 0.3, R.r, '#ff7b3b', 0.35, 0.14); FX.burst(at, '#ff7b3b', 18, 6);
+          for (const e of Game.enemies(u)) if (V.dist(e.pos, at) <= R.r + e.r) Combat.damage(u, e, R.base + R.perLv * lvl + u.sp * R.sp, { type: 'skill', source: '파열', aoe: true });
+        }
+      }
+      u.itemPending = u.itemPending.filter(P => !P.done);
+    }
+  },
+};
 
 // ============================== 플레이어블: 다니엘 (단검) ==============================
 // 캐시의 조작·시전·평타 흐름(Cathy)을 그대로 쓰고, 스킬 Q·W·E·R과 평타만 다니엘 것으로 교체
@@ -3664,7 +4004,7 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     try {
       Settings.character = 'cathy'; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
       Settings.weapon = this.guestWeapon;
-      const g = new Cathy(sp.e.x, sp.e.y);
+      const g = new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(없으면 실측)
       Object.assign(g, { team: 1, name: '캐시 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
       Object.defineProperty(g, 'rstats', { value: this.rs, enumerable: false, writable: true, configurable: true });   // 스냅샷에 안 실리게(따로 보냄)
       this.rs.owner = g; Game.units.push(g); this.enemy = g;
@@ -3692,7 +4032,10 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     if (this.inter) { const s = this.inter.sum; const g = s.g || { casts: {}, hits: {}, mistakes: [], dealt: s.taken, taken: s.dealt }; v.inter = { t: this.inter.t, sum: Object.assign({}, s, { winner: s.winner === 'p' ? 'e' : 'p', dealt: g.dealt, taken: g.taken, casts: g.casts, hits: g.hits, mistakes: g.mistakes, eDodge: 0, eS1: '-' }) }; }
     return v;
   },
-  drawScreen(ctx, L, oy = 0) { Modes.duel.drawScreen.call(this.view(), ctx, L, oy); },
+  drawScreen(ctx, L, oy = 0) {
+    Modes.duel.drawScreen.call(this.view(), ctx, L, oy);
+    if (Net.role) { const q = Net.quality(); Draw.text(ctx, q.text, L.W - 14, 22 + oy, { size: 13, bold: true, align: 'right', color: q.color, stroke: true }); }   // 연결 품질
+  },
   side() {
     const v = this.view(), e = Net.role === 'guest' ? Game.units.find(u => u instanceof Cathy && u !== Game.player) : this.enemy;
     if (!e) return '';
@@ -3701,7 +4044,9 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
       (Net.role ? `${kv('보냄 / 받음', `${(S.bytes / 1024 / sec).toFixed(1)} / ${(S.rbytes / 1024 / sec).toFixed(1)} KB/s`)}${kv('키프레임 요청', S.keyReq || 0)}` : '');
   },
   result(reason) {
-    const r = Modes.duel.result.call(this, reason); r.key = 'pvp'; r.recTitle = this.title; return r;
+    const r = Modes.duel.result.call(this, reason); r.key = 'pvp'; r.recTitle = this.title;
+    if (Net.role === 'host') r.extraHtml = `<div class="sub" style="color:#9fd8ff">🌐 「다시 하기」를 누르면 상대도 새 판으로 함께 시작합니다. 리플레이는 양쪽 입력이 다 있는 호스트가 저장할 수 있습니다.</div>` + (r.extraHtml || '');
+    return r;
   },
 });
 
@@ -4027,7 +4372,7 @@ const Net = {
   },
   // ---------- 호스트 ----------
   startHost(link, opts = {}) {
-    this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = [];
+    this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = []; this.rtt = 0;
     const o = Object.assign({ build: Settings.build, hostWeapon: Settings.weapon, guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
     if (o.seed === undefined) o.seed = (Math.random() * 4294967296) >>> 0;
     this.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: null };
@@ -4054,7 +4399,12 @@ const Net = {
     if (['move', 'amove', 'sk', 'cam', 'drone', 'cur'].includes(c.t) && c.x === undefined) return false;
     return true;
   },
-  afterStep() { if (this.role === 'host' && this.tx && ++this.tx.t % this.SEND_TICKS === 0) this.flush(); },
+  afterStep() {
+    if (this.role !== 'host' || !this.tx) return;
+    if (++this.tx.t % this.SEND_TICKS === 0) this.flush();
+    if (this.tx.t % 120 === 60) this.send({ t: 'ping', c: this.now() });   // 호스트도 지연 측정(1초마다)
+  },
+  rttSample(c) { const s = this.now() - c; if (s >= 0 && s < 5000) this.rtt = this.rtt ? this.rtt * 0.8 + s * 0.2 : s; },
   flush() {
     if (!this.tx) return;
     if (this.tx.opts !== Game.opts) this.hello();
@@ -4085,6 +4435,8 @@ const Net = {
       if (m.t === 'c') { (this.inbox = this.inbox || []).push(m.c); if (this.inbox.length > 200) this.inbox.shift(); }
       else if (m.t === 'key') { this.tx.wantKey = true; this.stats.keyReq++; }
       else if (m.t === 'ping') this.send({ t: 'pong', c: m.c });
+      else if (m.t === 'pong') this.rttSample(m.c);
+      else if (m.t === 'rematch') { this.stats.rematch = (this.stats.rematch || 0) + 1; UI.netNotice('🔁 상대가 재대결을 원합니다 — 「다시 하기」를 누르면 바로 함께 시작'); }
       // m.t === 'a': 손님 확인(아래에서 계산 진행만)
       else if (m.t === 'bye') { FX.toast('상대가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('상대가 나갔습니다'); }
       return;
@@ -4095,7 +4447,8 @@ const Net = {
       Game.start(m.mode, m.opts); this.rx = { n: 0, tree: null, asked: false, got: 0 }; this.ended = false; this.gotStats = false; this.pred = { target: null }; return;
     }
     if (m.t === 'bye') { FX.toast('호스트가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('호스트가 나갔습니다'); return; }
-    if (m.t === 'pong') { const s = this.now() - m.c; if (s >= 0 && s < 5000) this.rtt = this.rtt ? this.rtt * 0.8 + s * 0.2 : s; return; }
+    if (m.t === 'pong') { this.rttSample(m.c); return; }
+    if (m.t === 'ping') { this.send({ t: 'pong', c: m.c }); return; }
     if (m.t === 'stats') { Stats.reset(); Object.assign(Stats, Snap.dec(m.s, new Map())); this.gotStats = true; return; }
     if (m.t !== 's' || !Game.mode) return;
     const R = this.rx;
@@ -4103,6 +4456,8 @@ const Net = {
     else if (R.tree && m.base === R.n) R.tree = Snap.patch(R.tree, m.d);
     else { if (!R.asked) { R.asked = true; this.stats.keyReq++; this.send({ t: 'key' }); } return; }   // 빠진 델타 → 키프레임 요청
     R.n = m.n; R.asked = false; R.got++;
+    // 받을 때마다 짧은 응답(0.5초에 한 번까지): 손님 창이 오래 숨겨져 타이머가 멈춰도, 메시지 수신은 계속되므로 호스트가 끊김으로 오판하지 않음
+    { const now = performance.now(); if (now - (this.lastAck || 0) > 500) { this.lastAck = now; this.send({ t: 'a' }); } }
     this.applyView(); this.replay(m.ev || []);
   },
   // 받은 상태 적용 + 손님 시점(내 캐릭터 = 호스트 기준 상대) + 위치 보간 준비
@@ -4140,6 +4495,12 @@ const Net = {
   },
   playSound(n, pos) { this.stats.sounds[n] = (this.stats.sounds[n] || 0) + 1; this.orig.play.call(Sfx, n, pos || undefined); },
   // 손님 매 프레임: 위치 보간·효과 진행 (판정 계산 없음)
+  // 연결 품질: 지연 + 최근 받은 시각 → 표시 문구·색
+  quality() {
+    const quiet = typeof Rtc !== 'undefined' && Rtc.state === 'open' && performance.now() - Rtc.lastRx > 1500;
+    const ms = Math.round(this.rtt || 0), c = quiet ? '#ff6b6b' : ms < 80 ? '#5dff9a' : ms < 150 ? '#ffd166' : '#ff6b6b';
+    return { ms, quiet, color: c, text: quiet ? '⚠ 연결 불안정' : ms ? `📶 ${ms}ms` : '📶 측정 중' };
+  },
   predOn() { return Settings.netPredict !== false; },
   // 예측 위치: 마지막 호스트 위치에서 목표 쪽으로 (왕복 지연 + 받은 뒤 지난 시간)만큼. 벽에서 멈춤. 못 움직이는 상태면 호스트 위치 그대로
   predictPos(u, now) {
@@ -4260,7 +4621,7 @@ const Rtc = {
   },
   onOpen() {
     // 손님: 버전·무기 알림 → 호스트가 대전 시작
-    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger' })); }
+    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
     this.watch();
     this.onStatus('open');
   },
@@ -4269,7 +4630,8 @@ const Rtc = {
       let m; try { m = JSON.parse(s); } catch (e) { return; }
       if (m.t !== 'join') return;
       if (m.v !== BUILD_ID) { this.lost('상대의 게임 버전이 다릅니다'); return; }
-      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: m.weapon === 'dual' ? 'dual' : 'dagger' }));
+      const gw = m.weapon === 'dual' ? 'dual' : 'dagger', gg = m.gear ? Builds.clean(m.gear, gw) : null;   // 손님 장비는 검사 후
+      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: gw, guestGear: Builds.any(gg) ? gg : null, gear: Builds.current() }));
       this.onStatus('started');
       return;
     }
@@ -4278,7 +4640,15 @@ const Rtc = {
   // 아무 메시지도 안 오면 끊긴 것으로 (손님은 0.05초마다 상태, 호스트는 1초마다 핑을 받음)
   watch() {
     clearInterval(this.watchT);
-    this.watchT = setInterval(() => { if (this.state === 'open' && performance.now() - this.lastRx > this.LOST_MS) this.lost('응답이 없습니다 — 연결이 끊긴 것 같습니다'); }, 1000);
+    // 1초마다: 무응답 검사 + 연결 유지 신호(ka). 둘 다 탭을 숨겨도 1초 간격 타이머는 돌므로 끊김으로 오판하지 않고, 숨겨진 호스트도 최소 1초마다 계산을 따라잡음
+    this.lastWatch = performance.now();
+    this.watchT = setInterval(() => {
+      if (this.state !== 'open') return;
+      // 내 타이머가 크게 늦어졌으면(창이 오래 숨겨져 브라우저가 절전) 이번엔 판정 보류 — 진짜 끊김은 채널 닫힘·연결 실패 이벤트로 잡힘
+      const now = performance.now(), late = now - this.lastWatch > 2500; this.lastWatch = now;
+      if (!late && now - this.lastRx > this.LOST_MS) { this.lost('응답이 없습니다 — 연결이 끊긴 것 같습니다'); return; }
+      try { if (this.dc && this.dc.readyState === 'open') this.dc.send('{"t":"ka"}'); } catch (e) { /* 닫히는 중 */ }
+    }, 1000);
   },
   // 기본 동작: 화면 안내 (어디서 연결을 시작했든 항상)
   onStatus(s) { if (s === 'open' && typeof UI !== 'undefined') UI.netStatus('연결됨! 대전을 시작합니다…'); },
@@ -4294,6 +4664,61 @@ const Rtc = {
     try { if (this.pc) this.pc.close(); } catch (e) { /* 이미 닫힘 */ }
     this.dc = null; this.pc = null; this.role = null;
   },
+};
+
+// ============================== 리플레이 (저장·다시 보기) ==============================
+// 같은 시드 + 같은 명령 = 같은 판(결정성, 6_a_cmd.js) → 파일에는 시드·옵션·설정·명령만 담음 (보통 수십 KB)
+//   저장: 판이 끝날 때 기록을 잡아 두고(Replay.last) 결과 화면 「리플레이 저장」으로 내려받음
+//   보기: 메뉴 「리플레이 열기」 → 저장할 때의 설정을 잠시 적용하고 그 판을 다시 진행 (실제 입력은 막힘, 기록에 안 남음)
+//   온라인 대전은 양쪽 명령을 다 가진 호스트가 저장 (손님 명령은 p: 1)
+const Replay = {
+  V: 1, active: null, last: null,
+  KEEP: ['character', 'weapon', 'build', 'tactical', 'fog', 'duelTime'],   // 판정에 영향을 주는 설정
+  capture() {
+    const r = Cmd.record();
+    return Object.assign(r, { kind: 'cathy-replay', rv: this.V, buildId: BUILD_ID, title: (Game.mode && Game.mode.title) || Game.modeId, date: Date.now() });
+  },
+  fileName(r) { const d = new Date(r.date || Date.now()), p = n => String(n).padStart(2, '0'); return `cathy-replay-${r.mode}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`; },
+  // 파일 내용 검사 (잘못된 파일로 게임이 깨지지 않게)
+  check(r) {
+    if (!r || r.kind !== 'cathy-replay') throw new Error('캐시 수련장 리플레이 파일이 아닙니다');
+    if (r.rv !== this.V) throw new Error('지원하지 않는 리플레이 형식입니다');
+    if (!Modes[r.mode] || r.mode === 'combo' && !(r.opts && r.opts.combo)) throw new Error('알 수 없는 모드: ' + r.mode);
+    if (!Array.isArray(r.log) || !Number.isInteger(r.ticks) || r.ticks < 0 || r.ticks > 120 * 60 * 60) throw new Error('리플레이 내용이 올바르지 않습니다');
+    if (r.step !== CONFIG.sim.step) throw new Error('시뮬레이션 간격이 다른 리플레이입니다');
+    for (const c of r.log) if (!c || !Number.isInteger(c.k) || !Net.validCmd(c)) throw new Error('리플레이 명령이 올바르지 않습니다');
+    return r;
+  },
+  download(r = this.last) {
+    if (!r) return false;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(r)], { type: 'application/json' })), a = document.createElement('a');
+    a.href = url; a.download = this.fileName(r); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return true;
+  },
+  // 다시 보기 시작
+  start(r) {
+    this.check(r);
+    if (this.active) this.restore();
+    const backup = {}; for (const k of this.KEEP) backup[k] = Settings[k];
+    Object.assign(Settings, r.settings || {});
+    this.active = { r, backup, warn: r.buildId !== BUILD_ID };
+    Game.start(r.mode, Object.assign({}, r.opts, { seed: r.seed }));
+    Cmd.replay(r.log);
+    if (this.active.warn) FX.toast('다른 버전에서 저장한 리플레이 — 결과가 다를 수 있습니다', '#ffb347');
+    return true;
+  },
+  restore() { if (!this.active) return; Object.assign(Settings, this.active.backup); },
+  // 매 스텝 뒤: 기록 끝에 닿으면 종료
+  afterStep() { if (this.active && Game.state === 'play' && Game.tick >= this.active.r.ticks) this.end(); },
+  end() {
+    if (!this.active) return;
+    const r = this.active.r; Game.state = 'result'; this.restore(); this.active = null;
+    UI.show(`<h2>📼 리플레이 끝</h2><div class="sub">${esc(r.title || r.mode)} · ${fmt(r.ticks * r.step, 1)}초</div>
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="again">다시 보기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`,
+      { again: () => this.start(r), menu: () => UI.showMenu() }, { r: 'again', m: 'menu', Escape: 'menu' });
+  },
+  stop() { if (this.active) { this.restore(); this.active = null; } },
+  label() { const A = this.active; if (!A) return ''; const t = A.r.ticks * A.r.step; return `📼 리플레이 ${fmt(Math.min(Game.tick * A.r.step, t), 1)} / ${fmt(t, 1)}초${A.warn ? ' · ⚠ 다른 버전' : ''}`; },
 };
 
 // ============================== 게임 ==============================
@@ -4314,7 +4739,7 @@ const Game = {
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
-  step(dt) { this._step(dt); Net.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
+  step(dt) { this._step(dt); Net.afterStep(); Replay.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
   _step(dt) {
     Cmd.feed(); Net.feed(); this.tick++;
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
@@ -4344,9 +4769,12 @@ const Game = {
   },
   finish(reason) {
     if (this.state !== 'play') return;
+    if (Replay.active) { Replay.end(); return; }   // 다시 보기 중엔 기록·결과 화면 없이 끝
     this.state = 'result';
-    if (Net.role === 'host') Net.flush();   // 손님에게 경기 종료 전달
+    if (Net.role === 'host') Net.flush();
+    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
+    if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
   togglePause() {
@@ -4848,6 +5276,7 @@ const ScreenLayer = {
     this.drawOverheads(ctx);
     this.drawTexts(ctx);
     if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
+    if (Replay.active) Draw.text(ctx, Replay.label(), L.W / 2, L.H - 150, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);
@@ -4890,7 +5319,7 @@ const ScreenLayer = {
     ctx.globalAlpha = 1;
   },
   drawTopInfo(ctx, L) {
-    const p = Game.player, b = CONFIG.builds[Game.buildId];
+    const p = Game.player, b = (p && p.build) || CONFIG.builds[Game.buildId];   // 장비 빌드면 그 라벨
     // 가운데 점수판(약 ±190px)과 겹치지 않도록 왼쪽 정보는 폭을 넘으면 말줄임
     const maxW = Math.max(160, L.W / 2 - 200);
     const fit = (s, size, bold) => { ctx.font = `${bold ? '700 ' : ''}${size}px ${FONT}`; if (ctx.measureText(s).width <= maxW) return s; while (s.length > 4 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; };
@@ -5147,22 +5576,24 @@ const Models = {
     return null;
   },
   // 원작풍 설계(models/<키>_ref.json, 이 PC에선 local/이 우선) → 설정에 「원작풍」 선택지가 생김
+  optPending: 0,   // 아직 불러오는 중인 추가 파일 수(Blender 모델·원작풍 설계) — 테스트가 다 받을 때까지 기다림
   loadLocal() {
-    for (const k of this.CUSTOM) this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
+    for (const k of this.CUSTOM) { this.optPending++; this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
       if (!d || !d.parts) return;
       try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => this.optPending--); }
   },
   // Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb, 이 PC에선 local/이 우선). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
+      this.optPending++; const done = () => this.optPending--;
       this.find(k + '_custom.glb').then(file => {
-        if (!file) return;
-        loader.load(file, g => {
+        if (!file) return done();
+        loader.load(file, g => { done();
           // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
           const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;
           this.src[k + 'Blend'] = S; if (this.choice(k) === 'blend') this.ver++;
-        }, undefined, e => console.warn('Blender 모델을 읽지 못했습니다:', k, e));
+        }, undefined, e => { done(); console.warn('Blender 모델을 읽지 못했습니다:', k, e); });
       }).catch(() => {});
     }
   },
@@ -6468,17 +6899,24 @@ const NetLab = {
   //   사람이 하는 「코드 복사·붙여넣기」를 바깥 페이지가 대신 → 진짜 연결로 대전·명령·끊김 감지 확인 (STUN 끔: 외부 접속 없음)
   async rtcTest() {
     const H = this.fh.contentWindow.LAB, G = this.fg.contentWindow.LAB, res = [], ok = (n, c, info = '') => res.push({ n, c: !!c, info });
-    const sleep = ms => new Promise(r => setTimeout(r, ms)), err = [];
+    // 숨겨진 창에선 setTimeout·화면 갱신이 느려지므로: 늦춰지지 않는 MessageChannel로 양보하고, 두 창의 계산을 직접 진행(advanceSim)
+    const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+    let hostPump = true, guestPump = true;   // 「숨겨진 호스트」 검사 중엔 끔(호스트는 손님 신호로만 진행해야 함)
+    const pumpBoth = () => { try { if (hostPump && !H.Net.manual) H.advanceSim(performance.now()); if (guestPump && !G.Net.manual) G.advanceSim(performance.now()); } catch (e) { /* 로딩 중 */ } };
+    const sleep = async ms => { const end = performance.now() + ms; while (performance.now() < end) { pumpBoth(); await yieldNow(); } }, err = [];
     for (const w of [this.fh.contentWindow, this.fg.contentWindow]) w.addEventListener('error', e => err.push(e.message));
     const fail = async (p, re) => { try { await p; return false; } catch (e) { return re.test(e.message) ? e.message : false; } };
+    // 강한 절전(숨겨진 지 오래된 창: 타이머가 1분 간격까지 늦어짐) 여부 — 그러면 타이머에 기대는 검사는 건너뜀
+    const throttled = await new Promise(r => { const t0 = performance.now(); setTimeout(() => r(performance.now() - t0 > 900), 50); });
     try {
+      if (throttled) ok('(참고) 시험 창이 강한 절전 상태 — 타이머 의존 검사 일부 건너뜀', true);
       // 잘못된 코드 처리
       ok('엉뚱한 코드 거부', await fail(G.Rtc.join('안녕하세요'), /연결 코드가 아닙니다/));
       ok('잘린 코드 거부', await fail(G.Rtc.join('CT1.z!!!!'), /잘렸거나|읽을 수 없|올바르지/));
       const fake = await G.Rtc.pack({ t: 'offer', sdp: 'v=0', v: 'oldver00' });
       ok('버전이 다른 코드 거부', await fail(G.Rtc.join(fake), /버전/));
       // 연결: 호스트 초대 → 손님 응답 → 호스트 연결
-      G.Settings.weapon = 'dual';
+      G.Settings.weapon = 'dual'; G.Settings.character = 'cathy'; G.Settings.gearOn = true; G.Settings.gearSets = { dual: Object.assign({}, CONFIG.gearPresets.dualS1.gear) };   // 손님 장비 전달 확인용
       const offer = await H.Rtc.host({ map: 'basic', rounds: 3, time: 'day', sphere: false, seed: 99 });
       ok('초대 코드 만들기', offer.startsWith('CT1.') && offer.length < 4000, offer.length + '자');
       ok('응답 코드 자리에 초대 코드를 넣으면 거부', await fail(H.Rtc.accept(offer), /응답 코드가 아닙니다/));
@@ -6488,6 +6926,8 @@ const NetLab = {
       let w = 0; while (w++ < 100 && !(H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Net.role === 'host' && G.Game.modeId === 'pvp')) await sleep(100);
       ok('실제 연결 성공 → 대전 시작', H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Game.modeId === 'pvp' && G.Net.role === 'guest', `${H.Rtc.state}/${G.Rtc.state} ${(w / 10).toFixed(1)}초`);
       ok('손님 무기가 호스트에 전달', H.Game.mode && H.Game.mode.enemy && H.Game.mode.enemy.weapon === 'dual');
+      ok('손님 장비가 호스트에 전달', H.Game.mode.enemy.gear && H.Game.mode.enemy.gear.weapon === 103505 && G.Game.player && G.Game.player.gear && G.Game.player.gear.weapon === 103505);
+      G.Settings.gearOn = false;
       // 실제 시간으로 진행 (창이 숨겨져도 돌도록 직접 진행)
       H.Net.manual = G.Net.manual = true; const S = CONFIG.sim.step; let last = performance.now(), acc = 0, t0 = last, tick = 0;
       while (performance.now() - t0 < 8000) {
@@ -6506,12 +6946,20 @@ const NetLab = {
       // 호스트 탭이 숨겨진 상황: 화면 갱신(requestAnimationFrame)을 멈춰도 손님 확인 메시지로 계산이 계속 진행되는지
       {
         const hw = this.fh.contentWindow, raf = hw.requestAnimationFrame; hw.requestAnimationFrame = () => 0;   // 호스트 화면 갱신 멈춤
-        H.Net.hidden = () => true; H.Net.manual = false; G.Net.manual = false; await sleep(100);
+        hostPump = false; H.Net.hidden = () => true; H.Net.manual = false; G.Net.manual = false; await sleep(100);
         const t1 = H.Game.time, r1 = performance.now();
         const g0 = performance.now(); while (performance.now() - g0 < 3000) { G.Net.fakeNow = performance.now(); G.Net.guestTick(1 / 60); await sleep(16); }
         const ran = H.Game.time - t1, real = (performance.now() - r1) / 1000;
-        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.8 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초`);
-        H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop);   // 원래대로
+        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
+        H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop); hostPump = true;   // 원래대로
+      }
+      // 둘 다 창을 숨긴 것처럼(양쪽 계산·화면 멈춤) 7.5초 → 연결 유지 신호 덕에 끊김으로 오판하지 않음
+      {
+        const hw = this.fh.contentWindow, gw = this.fg.contentWindow, r1 = hw.requestAnimationFrame, r2 = gw.requestAnimationFrame;
+        hw.requestAnimationFrame = gw.requestAnimationFrame = () => 0; hostPump = guestPump = false; H.Net.manual = G.Net.manual = true;
+        await sleep(7500);
+        ok('둘 다 멈춰도 연결 유지(1초 신호)', throttled || (H.Rtc.state === 'open' && G.Rtc.state === 'open'), throttled ? '건너뜀(강한 절전)' : `${H.Rtc.state}/${G.Rtc.state}`);
+        hw.requestAnimationFrame = r1; gw.requestAnimationFrame = r2; r1.call(hw, H.loop); r2.call(gw, G.loop); hostPump = guestPump = true; H.Net.manual = G.Net.manual = false;
       }
       // 끊김: 손님이 창을 닫은 것처럼 → 호스트가 알아챔
       G.Rtc.close();
@@ -6627,6 +7075,11 @@ const NetLab = {
       ok('호스트 통계에 손님 기록이 안 섞임', hc.c === 0 && H.Game.mode.rs.totalCasts().c === gc.c, `호스트 ${hc.c} / 손님용 ${H.Game.mode.rs.totalCasts().c}`);
       ok('손님 종료 화면: 라운드 요약·코칭', /라운드 요약/.test(card) && /코칭/.test(card), card.slice(0, 60).split('\n').join(' '));
       ok('경기 종료가 손님에게 전달', H.Game.state === 'result' && G.Game.state === 'result' && /패배/.test(G.document.querySelector('#card') ? G.document.querySelector('#card').innerText : ''), `host ${H.Game.state} guest ${G.Game.state}`);
+      // 5단계: 양쪽 지연 측정·연결 품질 표시, 손님 재대결 요청 → 호스트 결과 화면에 알림
+      ok('호스트도 지연 측정', H.Net.rtt > 0 && G.Net.rtt > 0 && /ms/.test(H.Net.quality().text), `호스트 ${Math.round(H.Net.rtt)}ms · 손님 ${Math.round(G.Net.rtt)}ms`);
+      const rb = G.document.querySelector('[data-a="rematch"]'); if (rb) rb.click(); run(LAT * 2 + 10);
+      const hcard = H.document.querySelector('#card') ? H.document.querySelector('#card').innerText : '';
+      ok('재대결 요청 → 호스트에 알림', !!rb && rb.disabled && H.Net.stats.rematch === 1 && /재대결/.test(hcard));
       // 호스트 「다시 하기」 → 손님도 새 판
       H.Game.restart(); run(LAT + 30);
       ok('다시 하기 → 손님도 새 판', G.Game.state === 'play' && G.Game.mode.round === 1 && G.Game.player && G.Game.player.team === 1);
@@ -6739,7 +7192,11 @@ const UI = {
   allCombos() { return CONFIG.combos.concat(CONFIG.videoCombos, this.customCombos()); },
 
   // 모드 시작 (마지막 플레이로 저장 → 메뉴의 「최근 플레이 다시」·Enter)
-  start(id, opts) { Settings.lastPlay = { id, opts }; saveSettings(); Game.start(id, opts); },
+  start(id, opts) {
+    // 장비: 지금 설정(장비 사용 + 캐시)이면 판 옵션에 넣음 → 리플레이·다시 하기도 같은 장비
+    opts = Object.assign({}, opts); delete opts.gear; const g = Builds.current(); if (g) opts.gear = g;
+    Settings.lastPlay = { id, opts }; saveSettings(); Game.start(id, opts);
+  },
   modeList() {
     return [
       ['duel', '⚔️', '1:1 결투', '원딜 4명·다니엘 AI와 3판 2선승. 시야·부쉬·카메라·휴식까지 실전처럼.'],
@@ -6772,6 +7229,7 @@ const UI = {
 
   showMenu() {
     if (Net.role) Net.stop();   // 메뉴로 나가면 온라인 대전 종료
+    Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
     const modes = this.modeList(), dan = Settings.character === 'daniel';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
@@ -6781,7 +7239,7 @@ const UI = {
       <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
-      <div class="row"><label>빌드</label>${bb}<label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
+      <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
@@ -6789,7 +7247,7 @@ const UI = {
         <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
-      <div class="row" style="margin-top:16px"><button class="btn" data-a="online">🌐 온라인 대전 (시험)</button><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
+      <div class="row" style="margin-top:16px"><button class="btn" data-a="online">🌐 온라인 대전 (시험)</button><label class="btn" style="cursor:pointer">📼 리플레이 열기<input type="file" accept=".json,application/json" data-in="replayFile" style="display:none"></label><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
         <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
       ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
@@ -6799,6 +7257,8 @@ const UI = {
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
       online: () => this.showOnline(),
+      gear: () => this.showGear(),
+      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.start(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
       quick: d => this.start(d.v, this.quickOpts(d.v)),
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
@@ -6881,7 +7341,42 @@ const UI = {
     }
   },
 
+  // ---------- 장비 맞추기 ----------
+  showGear(msg) {
+    const dan = (Settings.character || 'cathy') !== 'cathy', w = Settings.weapon === 'dual' ? 'dual' : 'dagger', stage = Settings.build;
+    const sets = Settings.gearSets = Settings.gearSets || {}; const g = sets[w] = Builds.clean(sets[w] || Builds.defaultGear(w), w);
+    const b = Builds.resolve(stage, g, w), grades = { mythic: 0, legend: 1, epic: 2 };
+    const pre = Object.entries(CONFIG.gearPresets).filter(([, p]) => p.weapon === w).map(([k, p]) => `<button class="btn ${Builds.sig(p.gear) === Builds.sig(g) ? 'sel' : ''}" data-a="gpre" data-v="${k}">${p.label}</button>`).join('');
+    const slot = s => {
+      const list = Object.entries(CONFIG.items).filter(([, it]) => it.slot === s && (s !== 'weapon' || it.weapon === w)).sort((a, b2) => grades[a[1].grade] - grades[b2[1].grade]);
+      return `<div class="row"><label style="min-width:64px">${Builds.SLOT_LABEL[s]}</label><select data-in="gs" data-slot="${s}" style="max-width:100%;flex:1"><option value="">— 없음 —</option>${list.map(([id, it]) => `<option value="${id}" ${+id === g[s] ? 'selected' : ''}>${it.name} (${Builds.GRADE_LABEL[it.grade]}) — ${esc(Builds.statText(it))}${it.pas ? ' · ' + it.pas : ''}</option>`).join('')}</select></div>`;
+    };
+    const cmp = Builds.compare(stage, g, w).map(([n, a, v]) => { const d = typeof a === 'number' && typeof v === 'number' ? v - a : 0; return `<tr><td>${n}</td><td>${a}</td><td><b style="color:${d > 0.001 ? '#5dff9a' : d < -0.001 ? '#ff8a8a' : '#e6e9ef'}">${v}</b></td></tr>`; }).join('');
+    const pas = b.passives.length ? b.passives.map(n => { const P = CONFIG.itemPassives[n] || {}; return `<li><b>${esc(n)}</b> — ${esc(P.text || '')} ${P.impl ? '<span style="color:#5dff9a">✔ 적용</span>' : '<span style="color:#8a93a6">· 효과 미구현(능력치만)</span>'}</li>`; }).join('') : '<li class="sub">고유 효과 없음</li>';
+    this.show(`<h2>🛠 장비 맞추기 — ${CONFIG.basicAttack[w].label} 캐시 · ${CONFIG.builds[stage].label}</h2>
+      ${dan ? '<div class="sub" style="color:#ffb347">장비는 캐시 전용입니다. 다니엘은 지금처럼 실측 능력치로 진행합니다.</div>' : ''}
+      <div class="row"><label><input type="checkbox" data-in="gearOn" ${Settings.gearOn ? 'checked' : ''}> 장비 사용</label><span class="sub" style="margin:0 0 0 8px">끄면 랭크 영상에서 잰 능력치(기본). 무기·단계는 메뉴에서 바꿈</span></div>
+      <div class="row"><label>추천 조합</label>${pre}</div>
+      ${Builds.SLOTS.map(slot).join('')}
+      <h3>능력치 (${CONFIG.builds[stage].label}, 숙련도 ${b.masteryLv}레벨 ⚠ 추정)</h3>
+      <table><tr><th>능력치</th><th>실측(지금)</th><th>장비</th></tr>${cmp}</table>
+      <h3>고유 효과</h3><ul class="mist">${pas}</ul>
+      <div class="row"><button class="btn" data-a="gdps">⏱ 예상 DPS 비교 (허수아비 방어 100 · 10초)</button><span id="gear-dps" class="sub" style="margin:0 0 0 8px">${msg || ''}</span></div>
+      <div class="sub" style="margin-top:8px">수치: 시즌 12 · 12.5 툴팁(dak.gg). ⚠ 가정: %스증은 스증 수치를 키움 · %공속은 기본 공속에 곱함 · (고유) 효과는 중첩 안 함 · 파열 반경 2.5m. 근거: docs/er_notes_items.md · docs/build_items_plan.md</div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>`, {
+      'in:gearOn': el => { Settings.gearOn = el.checked; saveSettings(); this.showGear(); },
+      'in:gs': el => { const s = el.dataset.slot; sets[w] = Object.assign({}, g, { [s]: el.value ? +el.value : null }); saveSettings(); this.showGear(); },
+      gpre: d => { const P = CONFIG.gearPresets[d.v]; if (P) { sets[w] = Object.assign({}, P.gear); Settings.gearOn = true; saveSettings(); } this.showGear(); },
+      gdps: () => { const a = Builds.estimate(stage, null, w), c = Builds.estimate(stage, g, w); this.showGear(`실측 ${a} → 장비 <b>${c}</b> (${c >= a ? '+' : ''}${Math.round((c - a) / Math.max(1, a) * 100)}%) · 단순 순환 Q·W·E·D+평타, R 제외`); },
+      back: () => this.showMenu(),
+    }, { Escape: 'back' });
+  },
   // ---------- 온라인 대전 (연결 코드 복사·붙여넣기) ----------
+  // 결과 화면 등 카드가 떠 있으면 맨 위 알림 칸에, 아니면 화면 알림으로
+  netNotice(text) {
+    if (this.ov && this.ov.classList.contains('show')) { let el = document.getElementById('net-notice'); if (!el) { el = document.createElement('div'); el.id = 'net-notice'; el.className = 'coach-good'; el.style.marginBottom = '10px'; this.card.prepend(el); } el.textContent = text; }
+    else FX.toast(text, '#9fd8ff');
+  },
   showOnline() {
     const ok = Rtc.ok(), w = CONFIG.basicAttack[Settings.weapon === 'dual' ? 'dual' : 'dagger'].label;
     this.show(`<h2>🌐 온라인 대전 (시험)</h2>
@@ -6961,10 +7456,11 @@ const UI = {
     const rows = (M && M.history || []).map(s => { const g = s.g || {}, mine = s.winner !== 'p', c = g.casts || {}, h = g.hits || {};
       return `<tr><td>R${s.round}</td><td>${mine ? '<b style="color:#ffc857">승</b>' : '<b style="color:#ff3b5c">패</b>'}</td><td>${fmt(s.time, 1)}s</td><td>${Math.round(g.dealt || 0)}</td><td>${Math.round(g.taken || 0)}</td><td>${SKILL_KEYS.filter(k => c[k] > 0).map(k => `${k} ${h[k] || 0}/${c[k]}`).join(' ') || '-'}</td></tr>`; }).join('');
     const coach = Net.gotStats ? Coach.html(Stats) : '';
-    const H = { leave: () => { Net.stop(); this.showMenu(); }, drill: d => { Net.stop(); Coach.startDrill(Coach.last.top[+d.v].drill); } };
+    const H = { leave: () => { Net.stop(); this.showMenu(); }, drill: d => { Net.stop(); Coach.startDrill(Coach.last.top[+d.v].drill); },
+        rematch: () => { Net.send({ t: 'rematch' }); const b = document.querySelector('[data-a="rematch"]'); if (b) { b.disabled = true; b.textContent = '🔁 요청함 — 호스트를 기다리는 중'; } } };
     this.show(`<h2>${win ? '🏆 승리!' : '패배'}</h2><div class="sub">1:1 온라인 대전 — ${w.p} : ${w.e}</div><div class="sub" style="margin-top:6px">호스트가 「다시 하기」를 누르면 새 판이 자동으로 시작됩니다.</div>
       ${rows ? `<h3>라운드 요약</h3><table><tr><th>라운드</th><th>결과</th><th>시간</th><th>가한 피해</th><th>받은 피해</th><th>스킬 적중</th></tr>${rows}</table>` : ''}${coach}
-      <div class="row" style="margin-top:14px"><button class="btn" data-a="leave">나가기 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { m: 'leave' });
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="rematch">🔁 재대결 요청</button><button class="btn" data-a="leave">나가기 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { m: 'leave' });
   },
   showPause() {
     this.show(`<h2>⏸ 일시정지</h2><div class="sub">${esc(Game.mode.title)} · ${fmt(Game.time, 1)}s</div>
@@ -7080,19 +7576,19 @@ const UI = {
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
-    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
+    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
     const coach = Coach.html(St);   // 7_a_coach.js
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
           ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
-          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div></div></div>
+          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
         ${dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
-      ${r.extraHtml || ''}
+      ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}
       <h3>실수 분석</h3>${mist.length ? `<ul class="mist">${mist.map(([k, v]) => `<li>${esc(k)} <b style="color:#ffb347">${v}회</b></li>`).join('')}</ul>` : '<div class="sub">기록된 실수가 없습니다. 👍</div>'}
@@ -7121,7 +7617,7 @@ function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
   } else acc = 0;
 }
 // 호스트 탭이 숨겨지면 화면 갱신이 멈추므로, 손님의 확인 메시지가 올 때마다 계산을 진행 (네트워크 메시지는 숨겨져도 옴)
-Net.onAck = () => { if (Net.hidden()) advanceSim(performance.now(), 0.5, 60); };
+Net.onAck = () => { if (Net.hidden()) advanceSim(performance.now(), 2.0, 240); };   // 최대 2초치까지 따라잡음(연결 유지 신호 1초 간격 + 숨겨진 창의 타이머 지연 여유)
 function loop(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);

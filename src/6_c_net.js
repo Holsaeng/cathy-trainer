@@ -47,7 +47,7 @@ const Net = {
   },
   // ---------- 호스트 ----------
   startHost(link, opts = {}) {
-    this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = [];
+    this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = []; this.rtt = 0;
     const o = Object.assign({ build: Settings.build, hostWeapon: Settings.weapon, guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
     if (o.seed === undefined) o.seed = (Math.random() * 4294967296) >>> 0;
     this.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: null };
@@ -74,7 +74,12 @@ const Net = {
     if (['move', 'amove', 'sk', 'cam', 'drone', 'cur'].includes(c.t) && c.x === undefined) return false;
     return true;
   },
-  afterStep() { if (this.role === 'host' && this.tx && ++this.tx.t % this.SEND_TICKS === 0) this.flush(); },
+  afterStep() {
+    if (this.role !== 'host' || !this.tx) return;
+    if (++this.tx.t % this.SEND_TICKS === 0) this.flush();
+    if (this.tx.t % 120 === 60) this.send({ t: 'ping', c: this.now() });   // 호스트도 지연 측정(1초마다)
+  },
+  rttSample(c) { const s = this.now() - c; if (s >= 0 && s < 5000) this.rtt = this.rtt ? this.rtt * 0.8 + s * 0.2 : s; },
   flush() {
     if (!this.tx) return;
     if (this.tx.opts !== Game.opts) this.hello();
@@ -105,6 +110,8 @@ const Net = {
       if (m.t === 'c') { (this.inbox = this.inbox || []).push(m.c); if (this.inbox.length > 200) this.inbox.shift(); }
       else if (m.t === 'key') { this.tx.wantKey = true; this.stats.keyReq++; }
       else if (m.t === 'ping') this.send({ t: 'pong', c: m.c });
+      else if (m.t === 'pong') this.rttSample(m.c);
+      else if (m.t === 'rematch') { this.stats.rematch = (this.stats.rematch || 0) + 1; UI.netNotice('🔁 상대가 재대결을 원합니다 — 「다시 하기」를 누르면 바로 함께 시작'); }
       // m.t === 'a': 손님 확인(아래에서 계산 진행만)
       else if (m.t === 'bye') { FX.toast('상대가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('상대가 나갔습니다'); }
       return;
@@ -115,7 +122,8 @@ const Net = {
       Game.start(m.mode, m.opts); this.rx = { n: 0, tree: null, asked: false, got: 0 }; this.ended = false; this.gotStats = false; this.pred = { target: null }; return;
     }
     if (m.t === 'bye') { FX.toast('호스트가 나갔습니다', '#ffb347'); if (Rtc.state === 'open') Rtc.lost('호스트가 나갔습니다'); return; }
-    if (m.t === 'pong') { const s = this.now() - m.c; if (s >= 0 && s < 5000) this.rtt = this.rtt ? this.rtt * 0.8 + s * 0.2 : s; return; }
+    if (m.t === 'pong') { this.rttSample(m.c); return; }
+    if (m.t === 'ping') { this.send({ t: 'pong', c: m.c }); return; }
     if (m.t === 'stats') { Stats.reset(); Object.assign(Stats, Snap.dec(m.s, new Map())); this.gotStats = true; return; }
     if (m.t !== 's' || !Game.mode) return;
     const R = this.rx;
@@ -123,6 +131,8 @@ const Net = {
     else if (R.tree && m.base === R.n) R.tree = Snap.patch(R.tree, m.d);
     else { if (!R.asked) { R.asked = true; this.stats.keyReq++; this.send({ t: 'key' }); } return; }   // 빠진 델타 → 키프레임 요청
     R.n = m.n; R.asked = false; R.got++;
+    // 받을 때마다 짧은 응답(0.5초에 한 번까지): 손님 창이 오래 숨겨져 타이머가 멈춰도, 메시지 수신은 계속되므로 호스트가 끊김으로 오판하지 않음
+    { const now = performance.now(); if (now - (this.lastAck || 0) > 500) { this.lastAck = now; this.send({ t: 'a' }); } }
     this.applyView(); this.replay(m.ev || []);
   },
   // 받은 상태 적용 + 손님 시점(내 캐릭터 = 호스트 기준 상대) + 위치 보간 준비
@@ -160,6 +170,12 @@ const Net = {
   },
   playSound(n, pos) { this.stats.sounds[n] = (this.stats.sounds[n] || 0) + 1; this.orig.play.call(Sfx, n, pos || undefined); },
   // 손님 매 프레임: 위치 보간·효과 진행 (판정 계산 없음)
+  // 연결 품질: 지연 + 최근 받은 시각 → 표시 문구·색
+  quality() {
+    const quiet = typeof Rtc !== 'undefined' && Rtc.state === 'open' && performance.now() - Rtc.lastRx > 1500;
+    const ms = Math.round(this.rtt || 0), c = quiet ? '#ff6b6b' : ms < 80 ? '#5dff9a' : ms < 150 ? '#ffd166' : '#ff6b6b';
+    return { ms, quiet, color: c, text: quiet ? '⚠ 연결 불안정' : ms ? `📶 ${ms}ms` : '📶 측정 중' };
+  },
   predOn() { return Settings.netPredict !== false; },
   // 예측 위치: 마지막 호스트 위치에서 목표 쪽으로 (왕복 지연 + 받은 뒤 지난 시간)만큼. 벽에서 멈춤. 못 움직이는 상태면 호스트 위치 그대로
   predictPos(u, now) {

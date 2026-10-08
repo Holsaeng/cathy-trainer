@@ -255,7 +255,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', netPredict: true, netStun: true, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, netPredict: true, netStun: true, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -497,8 +497,11 @@ const Combat = {
     if (!tgt || tgt.dead || tgt.invuln > 0) return 0;
     const type = o.type || 'skill';
     let dmg = amount;
-    if (type !== 'true') dmg *= 100 / (100 + Math.max(0, tgt.def * (1 - (o.pen || 0))));   // 방어 관통(%) 반영
+    // 방어 관통: 적용 방어력 = 방어력 × (1 − %관통) − 고정 관통 (노트 2.4). %는 옵션(o.pen)이 없으면 공격한 쪽 장비 능력치
+    const penPct = o.pen !== undefined ? o.pen : (src && src.penPct) || 0, penFlat = (src && src.penFlat) || 0;
+    if (type !== 'true') dmg *= 100 / (100 + Math.max(0, tgt.def * (1 - penPct) - penFlat));
     if (o.min) dmg = Math.max(o.min, dmg);
+    dmg *= ItemFx.damageMul(src, tgt, type);   // 장비: 집행자
     dmg = Math.max(0, dmg);
     let absorbed = 0;
     if (tgt.shield > 0) { absorbed = Math.min(tgt.shield, dmg); tgt.shield -= absorbed; }
@@ -515,6 +518,12 @@ const Combat = {
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
     if (tgt.hp <= 0) this.kill(src, tgt);
+    if (src) ItemFx.onDamage(src, tgt);   // 장비: 치유 감소
+    // 흡혈: 생명력 흡수(평타) · 모든 피해 흡혈(광역은 50%, 야생동물 60% — 노트 2.1)
+    if (src && !src.dead && dmg > 0 && (src.ls || src.omni) && src.heal) {
+      const vs = tgt.kind === 'animal' ? 0.6 : 1, aoe = o.aoe ? 0.5 : 1;
+      const h = dmg * ((type === 'normal' ? src.ls || 0 : 0) + (src.omni || 0) * aoe) * vs; if (h > 0) src.heal(h, true);
+    }
     if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);   // 다니엘: 영감 축적·최근 피해
     if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준(온라인 대전 상대 캐시도)
     return dmg;

@@ -48,22 +48,24 @@ const Models = {
     return null;
   },
   // 원작풍 설계(models/<키>_ref.json, 이 PC에선 local/이 우선) → 설정에 「원작풍」 선택지가 생김
+  optPending: 0,   // 아직 불러오는 중인 추가 파일 수(Blender 모델·원작풍 설계) — 테스트가 다 받을 때까지 기다림
   loadLocal() {
-    for (const k of this.CUSTOM) this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
+    for (const k of this.CUSTOM) { this.optPending++; this.find(k + '_ref.json').then(f => f ? fetch(f).then(r => r.ok ? r.json() : null) : null).then(d => {
       if (!d || !d.parts) return;
       try { this.src[k + 'Ref'] = Procgen.build(this.src[d.rig], d); if (this.choice(k) === 'ref') this.ver++; } catch (e) { console.warn('로컬 설계 생성 실패:', k, e); }
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => this.optPending--); }
   },
   // Blender로 만든 모델(tools/blender/make_model.py → models/<키>_custom.glb, 이 PC에선 local/이 우선). 없으면 조용히 넘어감
   loadOptional(loader) {
     for (const k of this.CUSTOM) {
+      this.optPending++; const done = () => this.optPending--;
       this.find(k + '_custom.glb').then(file => {
-        if (!file) return;
-        loader.load(file, g => {
+        if (!file) return done();
+        loader.load(file, g => { done();
           // 모양만 가져오고 뼈대·동작은 원본 CC0 것 (Procgen.rebind) — 쌍검 동작 등 직접 만든 동작도 원본 것을 그대로 공유
           const S = Procgen.rebind(this.src[DESIGNS[k].rig], g, DESIGNS[k]); if (!S) return;
           this.src[k + 'Blend'] = S; if (this.choice(k) === 'blend') this.ver++;
-        }, undefined, e => console.warn('Blender 모델을 읽지 못했습니다:', k, e));
+        }, undefined, e => { done(); console.warn('Blender 모델을 읽지 못했습니다:', k, e); });
       }).catch(() => {});
     }
   },

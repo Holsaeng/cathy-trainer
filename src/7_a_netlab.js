@@ -69,17 +69,24 @@ const NetLab = {
   //   사람이 하는 「코드 복사·붙여넣기」를 바깥 페이지가 대신 → 진짜 연결로 대전·명령·끊김 감지 확인 (STUN 끔: 외부 접속 없음)
   async rtcTest() {
     const H = this.fh.contentWindow.LAB, G = this.fg.contentWindow.LAB, res = [], ok = (n, c, info = '') => res.push({ n, c: !!c, info });
-    const sleep = ms => new Promise(r => setTimeout(r, ms)), err = [];
+    // 숨겨진 창에선 setTimeout·화면 갱신이 느려지므로: 늦춰지지 않는 MessageChannel로 양보하고, 두 창의 계산을 직접 진행(advanceSim)
+    const yieldNow = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+    let hostPump = true, guestPump = true;   // 「숨겨진 호스트」 검사 중엔 끔(호스트는 손님 신호로만 진행해야 함)
+    const pumpBoth = () => { try { if (hostPump && !H.Net.manual) H.advanceSim(performance.now()); if (guestPump && !G.Net.manual) G.advanceSim(performance.now()); } catch (e) { /* 로딩 중 */ } };
+    const sleep = async ms => { const end = performance.now() + ms; while (performance.now() < end) { pumpBoth(); await yieldNow(); } }, err = [];
     for (const w of [this.fh.contentWindow, this.fg.contentWindow]) w.addEventListener('error', e => err.push(e.message));
     const fail = async (p, re) => { try { await p; return false; } catch (e) { return re.test(e.message) ? e.message : false; } };
+    // 강한 절전(숨겨진 지 오래된 창: 타이머가 1분 간격까지 늦어짐) 여부 — 그러면 타이머에 기대는 검사는 건너뜀
+    const throttled = await new Promise(r => { const t0 = performance.now(); setTimeout(() => r(performance.now() - t0 > 900), 50); });
     try {
+      if (throttled) ok('(참고) 시험 창이 강한 절전 상태 — 타이머 의존 검사 일부 건너뜀', true);
       // 잘못된 코드 처리
       ok('엉뚱한 코드 거부', await fail(G.Rtc.join('안녕하세요'), /연결 코드가 아닙니다/));
       ok('잘린 코드 거부', await fail(G.Rtc.join('CT1.z!!!!'), /잘렸거나|읽을 수 없|올바르지/));
       const fake = await G.Rtc.pack({ t: 'offer', sdp: 'v=0', v: 'oldver00' });
       ok('버전이 다른 코드 거부', await fail(G.Rtc.join(fake), /버전/));
       // 연결: 호스트 초대 → 손님 응답 → 호스트 연결
-      G.Settings.weapon = 'dual';
+      G.Settings.weapon = 'dual'; G.Settings.character = 'cathy'; G.Settings.gearOn = true; G.Settings.gearSets = { dual: Object.assign({}, CONFIG.gearPresets.dualS1.gear) };   // 손님 장비 전달 확인용
       const offer = await H.Rtc.host({ map: 'basic', rounds: 3, time: 'day', sphere: false, seed: 99 });
       ok('초대 코드 만들기', offer.startsWith('CT1.') && offer.length < 4000, offer.length + '자');
       ok('응답 코드 자리에 초대 코드를 넣으면 거부', await fail(H.Rtc.accept(offer), /응답 코드가 아닙니다/));
@@ -89,6 +96,8 @@ const NetLab = {
       let w = 0; while (w++ < 100 && !(H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Net.role === 'host' && G.Game.modeId === 'pvp')) await sleep(100);
       ok('실제 연결 성공 → 대전 시작', H.Rtc.state === 'open' && G.Rtc.state === 'open' && H.Game.modeId === 'pvp' && G.Net.role === 'guest', `${H.Rtc.state}/${G.Rtc.state} ${(w / 10).toFixed(1)}초`);
       ok('손님 무기가 호스트에 전달', H.Game.mode && H.Game.mode.enemy && H.Game.mode.enemy.weapon === 'dual');
+      ok('손님 장비가 호스트에 전달', H.Game.mode.enemy.gear && H.Game.mode.enemy.gear.weapon === 103505 && G.Game.player && G.Game.player.gear && G.Game.player.gear.weapon === 103505);
+      G.Settings.gearOn = false;
       // 실제 시간으로 진행 (창이 숨겨져도 돌도록 직접 진행)
       H.Net.manual = G.Net.manual = true; const S = CONFIG.sim.step; let last = performance.now(), acc = 0, t0 = last, tick = 0;
       while (performance.now() - t0 < 8000) {
@@ -107,12 +116,20 @@ const NetLab = {
       // 호스트 탭이 숨겨진 상황: 화면 갱신(requestAnimationFrame)을 멈춰도 손님 확인 메시지로 계산이 계속 진행되는지
       {
         const hw = this.fh.contentWindow, raf = hw.requestAnimationFrame; hw.requestAnimationFrame = () => 0;   // 호스트 화면 갱신 멈춤
-        H.Net.hidden = () => true; H.Net.manual = false; G.Net.manual = false; await sleep(100);
+        hostPump = false; H.Net.hidden = () => true; H.Net.manual = false; G.Net.manual = false; await sleep(100);
         const t1 = H.Game.time, r1 = performance.now();
         const g0 = performance.now(); while (performance.now() - g0 < 3000) { G.Net.fakeNow = performance.now(); G.Net.guestTick(1 / 60); await sleep(16); }
         const ran = H.Game.time - t1, real = (performance.now() - r1) / 1000;
-        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.8 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초`);
-        H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop);   // 원래대로
+        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
+        H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop); hostPump = true;   // 원래대로
+      }
+      // 둘 다 창을 숨긴 것처럼(양쪽 계산·화면 멈춤) 7.5초 → 연결 유지 신호 덕에 끊김으로 오판하지 않음
+      {
+        const hw = this.fh.contentWindow, gw = this.fg.contentWindow, r1 = hw.requestAnimationFrame, r2 = gw.requestAnimationFrame;
+        hw.requestAnimationFrame = gw.requestAnimationFrame = () => 0; hostPump = guestPump = false; H.Net.manual = G.Net.manual = true;
+        await sleep(7500);
+        ok('둘 다 멈춰도 연결 유지(1초 신호)', throttled || (H.Rtc.state === 'open' && G.Rtc.state === 'open'), throttled ? '건너뜀(강한 절전)' : `${H.Rtc.state}/${G.Rtc.state}`);
+        hw.requestAnimationFrame = r1; gw.requestAnimationFrame = r2; r1.call(hw, H.loop); r2.call(gw, G.loop); hostPump = guestPump = true; H.Net.manual = G.Net.manual = false;
       }
       // 끊김: 손님이 창을 닫은 것처럼 → 호스트가 알아챔
       G.Rtc.close();
@@ -228,6 +245,11 @@ const NetLab = {
       ok('호스트 통계에 손님 기록이 안 섞임', hc.c === 0 && H.Game.mode.rs.totalCasts().c === gc.c, `호스트 ${hc.c} / 손님용 ${H.Game.mode.rs.totalCasts().c}`);
       ok('손님 종료 화면: 라운드 요약·코칭', /라운드 요약/.test(card) && /코칭/.test(card), card.slice(0, 60).split('\n').join(' '));
       ok('경기 종료가 손님에게 전달', H.Game.state === 'result' && G.Game.state === 'result' && /패배/.test(G.document.querySelector('#card') ? G.document.querySelector('#card').innerText : ''), `host ${H.Game.state} guest ${G.Game.state}`);
+      // 5단계: 양쪽 지연 측정·연결 품질 표시, 손님 재대결 요청 → 호스트 결과 화면에 알림
+      ok('호스트도 지연 측정', H.Net.rtt > 0 && G.Net.rtt > 0 && /ms/.test(H.Net.quality().text), `호스트 ${Math.round(H.Net.rtt)}ms · 손님 ${Math.round(G.Net.rtt)}ms`);
+      const rb = G.document.querySelector('[data-a="rematch"]'); if (rb) rb.click(); run(LAT * 2 + 10);
+      const hcard = H.document.querySelector('#card') ? H.document.querySelector('#card').innerText : '';
+      ok('재대결 요청 → 호스트에 알림', !!rb && rb.disabled && H.Net.stats.rematch === 1 && /재대결/.test(hcard));
       // 호스트 「다시 하기」 → 손님도 새 판
       H.Game.restart(); run(LAT + 30);
       ok('다시 하기 → 손님도 새 판', G.Game.state === 'play' && G.Game.mode.round === 1 && G.Game.player && G.Game.player.team === 1);

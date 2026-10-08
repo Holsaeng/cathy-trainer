@@ -215,7 +215,8 @@ const CONFIG = {
          homingAngle: 35,     // 첫 적중 후 진행 방향 기준 이 각도 안의 적에게 유도
          homingRange: 3.5,    // 첫 적중 대상 기준 유도 가능 거리(m)
          homingTurn: 14 },    // 유도 회전 속도(rad/s)    // 영상: 2인 적중 → 충돌까지 약 0.28초 (관통 이동 포함)
-    R: { wallPass: 0.8, name: '이머전시 OP', short: 'OP', minDmg: [100, 175, 250], minSp: 0.7, maxDmg: [200, 350, 500], maxSp: 1.4,
+    // 피해: 12.4 패치(2026-09-17)에서 하향 — 최소 100/175/250 → 100/160/220, 최대 200/350/500 → 200/320/440 (playeternalreturn.com/posts/news/3838)
+    R: { wallPass: 0.8, name: '이머전시 OP', short: 'OP', minDmg: [100, 160, 220], minSp: 0.7, maxDmg: [200, 320, 440], maxSp: 1.4,
          cd: [80, 70, 60], minDist: 3, maxDist: 6.5, width: 3, maxHpThreshold: 0.3,
          windup: 0.45, dashTime: 0.16, recovery: 0.25,          // 영상: 범위 표시 약 0.5초 후 빠른 돌진
          channel: true,       // 정신집중: 누르면 제자리 고정, 이동 입력 무시(끊기지 않음) → 돌진

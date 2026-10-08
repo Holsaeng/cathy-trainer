@@ -24,7 +24,7 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     try {
       Settings.character = 'cathy'; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
       Settings.weapon = this.guestWeapon;
-      const g = new Cathy(sp.e.x, sp.e.y);
+      const g = new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(없으면 실측)
       Object.assign(g, { team: 1, name: '캐시 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
       Object.defineProperty(g, 'rstats', { value: this.rs, enumerable: false, writable: true, configurable: true });   // 스냅샷에 안 실리게(따로 보냄)
       this.rs.owner = g; Game.units.push(g); this.enemy = g;
@@ -52,7 +52,10 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     if (this.inter) { const s = this.inter.sum; const g = s.g || { casts: {}, hits: {}, mistakes: [], dealt: s.taken, taken: s.dealt }; v.inter = { t: this.inter.t, sum: Object.assign({}, s, { winner: s.winner === 'p' ? 'e' : 'p', dealt: g.dealt, taken: g.taken, casts: g.casts, hits: g.hits, mistakes: g.mistakes, eDodge: 0, eS1: '-' }) }; }
     return v;
   },
-  drawScreen(ctx, L, oy = 0) { Modes.duel.drawScreen.call(this.view(), ctx, L, oy); },
+  drawScreen(ctx, L, oy = 0) {
+    Modes.duel.drawScreen.call(this.view(), ctx, L, oy);
+    if (Net.role) { const q = Net.quality(); Draw.text(ctx, q.text, L.W - 14, 22 + oy, { size: 13, bold: true, align: 'right', color: q.color, stroke: true }); }   // 연결 품질
+  },
   side() {
     const v = this.view(), e = Net.role === 'guest' ? Game.units.find(u => u instanceof Cathy && u !== Game.player) : this.enemy;
     if (!e) return '';
@@ -61,6 +64,8 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
       (Net.role ? `${kv('보냄 / 받음', `${(S.bytes / 1024 / sec).toFixed(1)} / ${(S.rbytes / 1024 / sec).toFixed(1)} KB/s`)}${kv('키프레임 요청', S.keyReq || 0)}` : '');
   },
   result(reason) {
-    const r = Modes.duel.result.call(this, reason); r.key = 'pvp'; r.recTitle = this.title; return r;
+    const r = Modes.duel.result.call(this, reason); r.key = 'pvp'; r.recTitle = this.title;
+    if (Net.role === 'host') r.extraHtml = `<div class="sub" style="color:#9fd8ff">🌐 「다시 하기」를 누르면 상대도 새 판으로 함께 시작합니다. 리플레이는 양쪽 입력이 다 있는 호스트가 저장할 수 있습니다.</div>` + (r.extraHtml || '');
+    return r;
   },
 });

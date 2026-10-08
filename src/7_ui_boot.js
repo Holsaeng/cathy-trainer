@@ -98,7 +98,11 @@ const UI = {
   allCombos() { return CONFIG.combos.concat(CONFIG.videoCombos, this.customCombos()); },
 
   // 모드 시작 (마지막 플레이로 저장 → 메뉴의 「최근 플레이 다시」·Enter)
-  start(id, opts) { Settings.lastPlay = { id, opts }; saveSettings(); Game.start(id, opts); },
+  start(id, opts) {
+    // 장비: 지금 설정(장비 사용 + 캐시)이면 판 옵션에 넣음 → 리플레이·다시 하기도 같은 장비
+    opts = Object.assign({}, opts); delete opts.gear; const g = Builds.current(); if (g) opts.gear = g;
+    Settings.lastPlay = { id, opts }; saveSettings(); Game.start(id, opts);
+  },
   modeList() {
     return [
       ['duel', '⚔️', '1:1 결투', '원딜 4명·다니엘 AI와 3판 2선승. 시야·부쉬·카메라·휴식까지 실전처럼.'],
@@ -131,6 +135,7 @@ const UI = {
 
   showMenu() {
     if (Net.role) Net.stop();   // 메뉴로 나가면 온라인 대전 종료
+    Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
     const modes = this.modeList(), dan = Settings.character === 'daniel';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
@@ -140,7 +145,7 @@ const UI = {
       <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
-      <div class="row"><label>빌드</label>${bb}<label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
+      <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
@@ -148,7 +153,7 @@ const UI = {
         <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
-      <div class="row" style="margin-top:16px"><button class="btn" data-a="online">🌐 온라인 대전 (시험)</button><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
+      <div class="row" style="margin-top:16px"><button class="btn" data-a="online">🌐 온라인 대전 (시험)</button><label class="btn" style="cursor:pointer">📼 리플레이 열기<input type="file" accept=".json,application/json" data-in="replayFile" style="display:none"></label><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
         <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
       ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
@@ -158,6 +163,8 @@ const UI = {
       build: d => { Settings.build = d.v; saveSettings(); this.showMenu(); },
       mode: d => this.showModeOptions(d.v),
       online: () => this.showOnline(),
+      gear: () => this.showGear(),
+      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.start(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
       quick: d => this.start(d.v, this.quickOpts(d.v)),
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
@@ -240,7 +247,42 @@ const UI = {
     }
   },
 
+  // ---------- 장비 맞추기 ----------
+  showGear(msg) {
+    const dan = (Settings.character || 'cathy') !== 'cathy', w = Settings.weapon === 'dual' ? 'dual' : 'dagger', stage = Settings.build;
+    const sets = Settings.gearSets = Settings.gearSets || {}; const g = sets[w] = Builds.clean(sets[w] || Builds.defaultGear(w), w);
+    const b = Builds.resolve(stage, g, w), grades = { mythic: 0, legend: 1, epic: 2 };
+    const pre = Object.entries(CONFIG.gearPresets).filter(([, p]) => p.weapon === w).map(([k, p]) => `<button class="btn ${Builds.sig(p.gear) === Builds.sig(g) ? 'sel' : ''}" data-a="gpre" data-v="${k}">${p.label}</button>`).join('');
+    const slot = s => {
+      const list = Object.entries(CONFIG.items).filter(([, it]) => it.slot === s && (s !== 'weapon' || it.weapon === w)).sort((a, b2) => grades[a[1].grade] - grades[b2[1].grade]);
+      return `<div class="row"><label style="min-width:64px">${Builds.SLOT_LABEL[s]}</label><select data-in="gs" data-slot="${s}" style="max-width:100%;flex:1"><option value="">— 없음 —</option>${list.map(([id, it]) => `<option value="${id}" ${+id === g[s] ? 'selected' : ''}>${it.name} (${Builds.GRADE_LABEL[it.grade]}) — ${esc(Builds.statText(it))}${it.pas ? ' · ' + it.pas : ''}</option>`).join('')}</select></div>`;
+    };
+    const cmp = Builds.compare(stage, g, w).map(([n, a, v]) => { const d = typeof a === 'number' && typeof v === 'number' ? v - a : 0; return `<tr><td>${n}</td><td>${a}</td><td><b style="color:${d > 0.001 ? '#5dff9a' : d < -0.001 ? '#ff8a8a' : '#e6e9ef'}">${v}</b></td></tr>`; }).join('');
+    const pas = b.passives.length ? b.passives.map(n => { const P = CONFIG.itemPassives[n] || {}; return `<li><b>${esc(n)}</b> — ${esc(P.text || '')} ${P.impl ? '<span style="color:#5dff9a">✔ 적용</span>' : '<span style="color:#8a93a6">· 효과 미구현(능력치만)</span>'}</li>`; }).join('') : '<li class="sub">고유 효과 없음</li>';
+    this.show(`<h2>🛠 장비 맞추기 — ${CONFIG.basicAttack[w].label} 캐시 · ${CONFIG.builds[stage].label}</h2>
+      ${dan ? '<div class="sub" style="color:#ffb347">장비는 캐시 전용입니다. 다니엘은 지금처럼 실측 능력치로 진행합니다.</div>' : ''}
+      <div class="row"><label><input type="checkbox" data-in="gearOn" ${Settings.gearOn ? 'checked' : ''}> 장비 사용</label><span class="sub" style="margin:0 0 0 8px">끄면 랭크 영상에서 잰 능력치(기본). 무기·단계는 메뉴에서 바꿈</span></div>
+      <div class="row"><label>추천 조합</label>${pre}</div>
+      ${Builds.SLOTS.map(slot).join('')}
+      <h3>능력치 (${CONFIG.builds[stage].label}, 숙련도 ${b.masteryLv}레벨 ⚠ 추정)</h3>
+      <table><tr><th>능력치</th><th>실측(지금)</th><th>장비</th></tr>${cmp}</table>
+      <h3>고유 효과</h3><ul class="mist">${pas}</ul>
+      <div class="row"><button class="btn" data-a="gdps">⏱ 예상 DPS 비교 (허수아비 방어 100 · 10초)</button><span id="gear-dps" class="sub" style="margin:0 0 0 8px">${msg || ''}</span></div>
+      <div class="sub" style="margin-top:8px">수치: 시즌 12 · 12.5 툴팁(dak.gg). ⚠ 가정: %스증은 스증 수치를 키움 · %공속은 기본 공속에 곱함 · (고유) 효과는 중첩 안 함 · 파열 반경 2.5m. 근거: docs/er_notes_items.md · docs/build_items_plan.md</div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>`, {
+      'in:gearOn': el => { Settings.gearOn = el.checked; saveSettings(); this.showGear(); },
+      'in:gs': el => { const s = el.dataset.slot; sets[w] = Object.assign({}, g, { [s]: el.value ? +el.value : null }); saveSettings(); this.showGear(); },
+      gpre: d => { const P = CONFIG.gearPresets[d.v]; if (P) { sets[w] = Object.assign({}, P.gear); Settings.gearOn = true; saveSettings(); } this.showGear(); },
+      gdps: () => { const a = Builds.estimate(stage, null, w), c = Builds.estimate(stage, g, w); this.showGear(`실측 ${a} → 장비 <b>${c}</b> (${c >= a ? '+' : ''}${Math.round((c - a) / Math.max(1, a) * 100)}%) · 단순 순환 Q·W·E·D+평타, R 제외`); },
+      back: () => this.showMenu(),
+    }, { Escape: 'back' });
+  },
   // ---------- 온라인 대전 (연결 코드 복사·붙여넣기) ----------
+  // 결과 화면 등 카드가 떠 있으면 맨 위 알림 칸에, 아니면 화면 알림으로
+  netNotice(text) {
+    if (this.ov && this.ov.classList.contains('show')) { let el = document.getElementById('net-notice'); if (!el) { el = document.createElement('div'); el.id = 'net-notice'; el.className = 'coach-good'; el.style.marginBottom = '10px'; this.card.prepend(el); } el.textContent = text; }
+    else FX.toast(text, '#9fd8ff');
+  },
   showOnline() {
     const ok = Rtc.ok(), w = CONFIG.basicAttack[Settings.weapon === 'dual' ? 'dual' : 'dagger'].label;
     this.show(`<h2>🌐 온라인 대전 (시험)</h2>
@@ -320,10 +362,11 @@ const UI = {
     const rows = (M && M.history || []).map(s => { const g = s.g || {}, mine = s.winner !== 'p', c = g.casts || {}, h = g.hits || {};
       return `<tr><td>R${s.round}</td><td>${mine ? '<b style="color:#ffc857">승</b>' : '<b style="color:#ff3b5c">패</b>'}</td><td>${fmt(s.time, 1)}s</td><td>${Math.round(g.dealt || 0)}</td><td>${Math.round(g.taken || 0)}</td><td>${SKILL_KEYS.filter(k => c[k] > 0).map(k => `${k} ${h[k] || 0}/${c[k]}`).join(' ') || '-'}</td></tr>`; }).join('');
     const coach = Net.gotStats ? Coach.html(Stats) : '';
-    const H = { leave: () => { Net.stop(); this.showMenu(); }, drill: d => { Net.stop(); Coach.startDrill(Coach.last.top[+d.v].drill); } };
+    const H = { leave: () => { Net.stop(); this.showMenu(); }, drill: d => { Net.stop(); Coach.startDrill(Coach.last.top[+d.v].drill); },
+        rematch: () => { Net.send({ t: 'rematch' }); const b = document.querySelector('[data-a="rematch"]'); if (b) { b.disabled = true; b.textContent = '🔁 요청함 — 호스트를 기다리는 중'; } } };
     this.show(`<h2>${win ? '🏆 승리!' : '패배'}</h2><div class="sub">1:1 온라인 대전 — ${w.p} : ${w.e}</div><div class="sub" style="margin-top:6px">호스트가 「다시 하기」를 누르면 새 판이 자동으로 시작됩니다.</div>
       ${rows ? `<h3>라운드 요약</h3><table><tr><th>라운드</th><th>결과</th><th>시간</th><th>가한 피해</th><th>받은 피해</th><th>스킬 적중</th></tr>${rows}</table>` : ''}${coach}
-      <div class="row" style="margin-top:14px"><button class="btn" data-a="leave">나가기 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { m: 'leave' });
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-a="rematch">🔁 재대결 요청</button><button class="btn" data-a="leave">나가기 <kbd>M</kbd></button></div>${NOTICE.html()}`, H, { m: 'leave' });
   },
   showPause() {
     this.show(`<h2>⏸ 일시정지</h2><div class="sub">${esc(Game.mode.title)} · ${fmt(Game.time, 1)}s</div>
@@ -439,19 +482,19 @@ const UI = {
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
-    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
+    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
     const coach = Coach.html(St);   // 7_a_coach.js
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
           ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
-          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div></div></div>
+          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
         ${dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
-      ${r.extraHtml || ''}
+      ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}
       <h3>실수 분석</h3>${mist.length ? `<ul class="mist">${mist.map(([k, v]) => `<li>${esc(k)} <b style="color:#ffb347">${v}회</b></li>`).join('')}</ul>` : '<div class="sub">기록된 실수가 없습니다. 👍</div>'}
@@ -480,7 +523,7 @@ function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
   } else acc = 0;
 }
 // 호스트 탭이 숨겨지면 화면 갱신이 멈추므로, 손님의 확인 메시지가 올 때마다 계산을 진행 (네트워크 메시지는 숨겨져도 옴)
-Net.onAck = () => { if (Net.hidden()) advanceSim(performance.now(), 0.5, 60); };
+Net.onAck = () => { if (Net.hidden()) advanceSim(performance.now(), 2.0, 240); };   // 최대 2초치까지 따라잡음(연결 유지 신호 1초 간격 + 숨겨진 창의 타이머 지연 여유)
 function loop(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);

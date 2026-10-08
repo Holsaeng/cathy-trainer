@@ -385,6 +385,113 @@
     T.ok('온라인 중 일시정지 막힘', (() => { Net.role = 'host'; try { Game.togglePause(); return !Game.paused; } finally { Net.role = role0; } })());
   });
 
+  // ---------------- 리플레이 (저장·다시 보기) ----------------
+  G('리플레이', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.tactical = 'blink'; Settings.fog = true;
+    const opts = { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'day', seed: 4321 };
+    Game.start('duel', opts);
+    for (let i = 0; i < 120 * 15; i++) {
+      const p = Game.player, e = Modes.duel.enemy, t = Game.tick;
+      if (p && e && !p.dead) { if (t % 60 === 0) Cmd.move({ x: e.pos.x - 2, y: e.pos.y + 1 }); if (t % 140 === 30) Cmd.skill(['Q', 'W', 'E', 'F'][(t / 140 | 0) % 4], e.pos); if (t % 200 === 100) Cmd.attack(e); }
+      step();
+    }
+    const rec = JSON.parse(JSON.stringify(Replay.capture())), h = Cmd.hash();
+    T.ok('리플레이: 기록 형식', rec.kind === 'cathy-replay' && rec.buildId === BUILD_ID && rec.log.length > 20 && rec.ticks === 120 * 15 && /^cathy-replay-duel-\d{8}-\d{4}\.json$/.test(Replay.fileName(rec)), `${JSON.stringify(rec).length}B`);
+    // 설정을 바꿔 놓고 다시 보기 → 저장 때 설정으로 같은 결과, 끝나면 원래 설정
+    Settings.weapon = 'dual'; Settings.tactical = 'quake';
+    const recN = Object.keys(Records.all()).length;
+    Replay.start(rec);
+    T.ok('리플레이: 저장 때 설정 적용', Settings.weapon === 'dagger' && Settings.tactical === 'blink' && !!Replay.active);
+    Cmd.stop(); T.ok('리플레이: 보는 중엔 실제 입력 무시', Cmd.log.length === 0);
+    let n = 0; while (Replay.active && n++ < 120 * 20) step();
+    T.ok('리플레이: 같은 결과로 끝남', !Replay.active && Cmd.hash() === h, `${h} / ${Cmd.hash()}`);
+    T.ok('리플레이: 끝나면 설정 원래대로', Settings.weapon === 'dual' && Settings.tactical === 'quake');
+    T.ok('리플레이: 끝 화면·기록에 안 남음', /리플레이 끝/.test(document.querySelector('#card').innerText) && Object.keys(Records.all()).length === recN && Game.state === 'result');
+    // 잘못된 파일
+    const bad = [null, { kind: 'x' }, Object.assign({}, rec, { mode: 'hack' }), Object.assign({}, rec, { log: [{ k: 1, t: 'boom' }] }), Object.assign({}, rec, { ticks: -1 })];
+    T.ok('리플레이: 잘못된 파일 거부', bad.every(b => { try { Replay.check(b); return false; } catch (e) { return true; } }));
+    // 결과 화면에 저장 버튼
+    Settings.weapon = 'dagger'; Settings.tactical = 'blink';
+    Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(30); Game.finish('test');
+    T.ok('리플레이: 결과 화면 저장 버튼', !!document.querySelector('[data-a="replay"]') && Replay.last && Replay.last.mode === 'dummy');
+    UI.showMenu(); T.ok('메뉴: 리플레이 열기', !!document.querySelector('[data-in="replayFile"]'));
+  });
+
+  // ---------------- 장비·빌드 ----------------
+  G('장비', () => {
+    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.build = 'late';
+    const P = CONFIG.gearPresets, D1 = P.daggerD1.gear, L = CONFIG.builds.late;
+    // 데이터: 부위·무기군·등급이 올바름
+    T.ok('아이템 데이터', Object.values(CONFIG.items).length >= 60 && Object.values(CONFIG.items).every(it => Builds.SLOTS.includes(it.slot) && Builds.GRADE_LABEL[it.grade] && (it.slot !== 'weapon' || ['dagger', 'dual'].includes(it.weapon))));
+    T.ok('프리셋은 전부 맞는 아이템', Object.values(P).every(p => Builds.SLOTS.every(s => { const it = CONFIG.items[p.gear[s]]; return it && it.slot === s && (s !== 'weapon' || it.weapon === p.weapon); })));
+    // 검산: 대표 장비(D1, 후반)가 랭크 영상 실측과 ±15% 안
+    const b = Builds.resolve('late', D1, 'dagger'), near = (a, x) => Math.abs(a - x) / x <= 0.15;
+    T.ok('검산: D1 후반 ≈ 실측(±15%)', near(b.hp, L.hp) && near(b.ad, L.ad) && near(b.sp, L.sp) && near(b.def, L.def), `체력 ${b.hp}/${L.hp} 공 ${b.ad}/${L.ad} 스증 ${b.sp}/${L.sp} 방 ${b.def}/${L.def}`);
+    // 계산 규칙
+    const lv = L.level, m = Builds.MASTERY_LV.late;
+    T.ok('스증 = (고정 + 옷 레벨당) × (1 + 숙련도 + 고유)', b.sp === Math.round((77 + 14 + 5 * lv + 80 + 85 + 42) * (1 + 0.043 * m + 0.25)), `${b.sp}`);
+    const b2 = Builds.resolve('late', Object.assign({}, D1, { leg: 204410 }), 'dagger');
+    T.ok('부위 하나만 바꾸면 그 차이만', Math.abs((b.sp - b2.sp) - Math.round((42 - 33) * b.spMul)) <= 1 && Math.round((b2.cdr - b.cdr) * 100) === 5 && b2.hp === b.hp && b2.def === b.def);
+    const both = Builds.resolve('late', Object.assign({}, D1, { chest: 202503 }), 'dagger');
+    T.ok('(고유) 스증%는 중첩 안 함', Math.abs(both.spMul - (1 + 0.043 * m + 0.25)) < 1e-9);
+    T.ok('잘못된 장비는 빈 칸', Builds.clean({ weapon: 103505, chest: 201503, head: 999 }, 'dagger').weapon === null && Builds.clean({ chest: 201503 }, 'dagger').chest === null && Builds.clean({ head: 999 }, 'dagger').head === null);
+    // 맞춤형: 추가 공격력×2와 스증 중 높은 쪽 — 비색 단검 혼자면 공격력(20 > 0), 다른 부위 스증이 많으면 스증
+    const solo = Builds.resolve('late', { weapon: 101503 }, 'dagger'), withArm = Object.assign({}, D1, { weapon: 101503 }), wa = Builds.resolve('late', withArm, 'dagger'), noW = Builds.resolve('late', Object.assign({}, D1, { weapon: null }), 'dagger');
+    T.ok('맞춤형: 높은 쪽으로', solo.bonusAd === 77 && wa.bonusAd === 20 && Math.abs(wa.sp - Math.round((Math.round(noW.sp / noW.spMul) + 114) * wa.spMul)) <= 2, `${solo.bonusAd} / ${wa.bonusAd} / ${wa.sp}`);
+    // 캐시에 적용: 장비 없으면 실측 그대로, 있으면 계산값
+    Game.start('dummy', { count: 1, hp: 20000, def: 100, infinite: true }); run(3);
+    T.ok('장비 없으면 실측 능력치', Game.player.sp === L.sp && Game.player.build === L && !Game.player.gear);
+    Game.start('dummy', { count: 1, hp: 20000, def: 100, infinite: true, gear: D1 }); run(3);
+    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy');
+    T.ok('장비 있으면 계산 능력치', p.sp === b.sp && p.maxHp === b.hp && p.penPct === 0.15 && p.as === b.as && !!p.gear);
+    // 방어 관통: 적용 방어 = 방어 × (1 − 관통%) − 고정
+    const h0 = d.hp; Combat.damage(p, d, 1000, { type: 'skill', source: 'test' }); T.ok('방어 관통 15%', Math.abs((h0 - d.hp) - 1000 * 100 / (100 + 100 * 0.85)) < 0.01);
+    // 고유 효과: 의념·부패·치유 감소
+    p.pos = { x: d.pos.x - 2, y: d.pos.y }; p.skills.Q.cd = 0; Cmd.skill('Q', d.pos); run(30); const charged = p.nianT > 0;
+    Cmd.attack(d); run(150);
+    T.ok('의념: 스킬 뒤 충전 → 다음 평타 추가 피해', charged && Math.abs((Stats.dmgBy['의념'] || 0) - p.sp * 0.4 * 100 / 185) < 1, `${Math.round(Stats.dmgBy['의념'] || 0)}`);
+    T.ok('부패: 스킬 피해 뒤 매초 피해', (Stats.dmgBy['부패'] || 0) > 0);
+    T.ok('치유 감소 20%', d.healCutT > 0 && d.healCutPct === 0.2 && Math.abs(ItemFx.healMul(d) - 0.8) < 1e-9);
+    // 파열·집행자·흡혈
+    Settings.weapon = 'dual'; Game.start('dummy', { count: 1, hp: 20000, def: 100, infinite: true, gear: P.dualS1.gear }); run(3);
+    { const p2 = Game.player, d2 = Game.units.find(u => u.kind === 'dummy'); p2.pos = { x: d2.pos.x - 2, y: d2.pos.y }; p2.skills.Q.cd = 0; Cmd.skill('Q', d2.pos); run(150); T.ok('파열: 0.8초 뒤 폭발', (Stats.dmgBy['파열'] || 0) > 0 && p2.ruptCd > 0); }
+    Game.start('dummy', { count: 1, hp: 20000, def: 0, infinite: true, gear: { weapon: 103403 } }); run(3);
+    { const p3 = Game.player, d3 = Game.units.find(u => u.kind === 'dummy'); p3.hp = 1000; Combat.damage(p3, d3, 400, { type: 'skill', source: 't' }); T.ok('모든 피해 흡혈 5%', Math.abs(p3.hp - 1020) < 0.01, p3.hp); }
+    Settings.weapon = 'dagger'; Game.start('dummy', { count: 1, hp: 20000, def: 0, infinite: true, gear: P.daggerD2.gear }); run(3);
+    { const p4 = Game.player, d4 = Game.units.find(u => u.kind === 'dummy'); d4.hp = d4.maxHp * 0.9; let h = d4.hp; Combat.damage(p4, d4, 100, { type: 'skill', source: 't' }); const hi = h - d4.hp; d4.hp = d4.maxHp * 0.3; h = d4.hp; Combat.damage(p4, d4, 100, { type: 'skill', source: 't' }); T.ok('집행자: 40% 이하 스킬 피해 +15%', Math.abs((h - d4.hp) / hi - 1.15) < 1e-9); }
+    // 테이저 건(3초 근접 뒤 평타 강화 + 스킬 피해 +10% 표식) · 저주(스킬 적중 4초 뒤 고정 피해, 풀린 뒤 8초 재저주 불가)
+    Settings.weapon = 'dual'; Game.start('dummy', { count: 1, hp: 20000, def: 0, infinite: true, gear: { head: 201520, weapon: 103404 } }); run(3);
+    { const p5 = Game.player, d5 = Game.units.find(u => u.kind === 'dummy'); p5.pos = { x: d5.pos.x - 1, y: d5.pos.y };
+      run(120 * 3 + 10); Cmd.attack(d5); run(80);
+      const tz = Stats.dmgBy['테이저 건'] || 0;
+      T.ok('테이저 건: 3초 근접 뒤 평타 강화', Math.abs(tz - (30 + p5.sp * 0.2)) < 0.5 && d5.taserMark && p5.taserCd > 0, `${Math.round(tz)}`);
+      Cmd.stop(); const h1 = d5.hp; Combat.damage(p5, d5, 100, { type: 'skill', source: 't' }); T.ok('테이저 건: 표식 대상 스킬 피해 +10%', Math.abs((h1 - d5.hp) - 110) < 0.01);
+      p5.skills.Q.cd = 0; Cmd.skill('Q', d5.pos); run(40); const cursed = !!d5.curse; run(120 * 4 + 20);
+      T.ok('저주: 4초 뒤 고정 피해 → 재저주 대기', cursed && (Stats.dmgBy['저주'] || 0) > 0 && !d5.curse && d5.curseImm > 0, `${Math.round(Stats.dmgBy['저주'] || 0)}`); }
+    Settings.weapon = 'dagger';
+    // 리플레이: 장비 판도 같은 결과
+    const opts = { diff: 'normal', motif: 'nadine', enemyBuild: 'late', map: 'basic', rounds: 3, animals: false, sphere: false, time: 'day', seed: 55, gear: D1 };
+    Game.start('duel', opts);
+    for (let i = 0; i < 120 * 12; i++) { const q = Game.player, e = Modes.duel.enemy, t = Game.tick; if (q && e && !q.dead) { if (t % 60 === 0) Cmd.move({ x: e.pos.x - 2, y: e.pos.y }); if (t % 130 === 20) Cmd.skill(['Q', 'W', 'E'][(t / 130 | 0) % 3], e.pos); if (t % 170 === 90) Cmd.attack(e); } step(); }
+    const rec = JSON.parse(JSON.stringify(Replay.capture())), hh = Cmd.hash();
+    Replay.start(rec); let n = 0; while (Replay.active && n++ < 120 * 15) step();
+    T.ok('리플레이: 장비 판도 같은 결과', Cmd.hash() === hh && !!rec.opts.gear);
+    // 화면·시작·기록
+    Settings.gearOn = false; UI.showMenu(); click('[data-a="gear"]');
+    T.ok('장비 화면', /장비 맞추기/.test(document.querySelector('#card').innerText) && document.querySelectorAll('[data-in="gs"]').length === 5 && !!document.querySelector('[data-a="gpre"][data-v="daggerD1"]'));
+    click('[data-a="gpre"][data-v="daggerD3"]'); T.ok('추천 조합 → 장비 사용 켜짐', Settings.gearOn && Builds.sig(Settings.gearSets.dagger) === Builds.sig(P.daggerD3.gear));
+    UI.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
+    T.ok('시작 시 장비가 판 옵션에', Game.opts.gear && Builds.sig(Game.opts.gear) === Builds.sig(P.daggerD3.gear) && Game.player.gear);
+    Game.finish('test'); T.ok('기록은 장비별로', Object.keys(Records.all()).some(k => k.includes('|g' + Builds.sig(P.daggerD3.gear))) && /장비:/.test(document.querySelector('#card').innerText));
+    Settings.character = 'daniel'; T.ok('다니엘은 장비 없음', Builds.current() === null); Settings.character = 'cathy';
+    const est = Builds.estimate('late', P.daggerD1.gear, 'dagger'), est0 = Builds.estimate('late', null, 'dagger');
+    T.ok('예상 DPS: 같은 값·화면 상태 복구', est > 0 && est0 > 0 && est === Builds.estimate('late', P.daggerD1.gear, 'dagger') && Game.state === 'menu' && Settings.weapon === 'dagger', `${est0} → ${est}`);
+    // 대전: 호스트·손님 장비 따로
+    Game.start('pvp', { seed: 9, hostWeapon: 'dagger', guestWeapon: 'dual', build: 'late', gear: P.daggerD1.gear, guestGear: P.dualS1.gear }); run(3);
+    T.ok('대전: 호스트·손님 장비 따로', Game.player.sp === b.sp && Game.mode.enemy.sp === Builds.resolve('late', P.dualS1.gear, 'dual').sp && Game.mode.enemy.weapon === 'dual');
+    Settings.gearOn = false; Settings.gearSets = null;
+  });
+
   // ---------------- 온라인 연결 (연결 코드·메뉴) — 실제 연결 시험은 ?netlab&rtc&test ----------------
   G('온라인 연결', () => {
     reset();
@@ -529,7 +636,9 @@
   // ---------------- 실행 ----------------
   function runAll() {
     const t0 = performance.now(), times = [];
-    for (const [name, fn] of groups) { T.group = name; const t1 = performance.now(); try { fn(); } catch (e) { T.fail.push(`[${name}] 예외: ${e.message} ${(e.stack || '').split('\n')[1] || ''}`); } times.push(`${name} ${((performance.now() - t1) / 1000).toFixed(1)}s`); }
+    const counts = {};   // 그룹별 통과 수 (검사 범위가 줄었는지 확인용)
+    for (const [name, fn] of groups) { T.group = name; const t1 = performance.now(), p0 = T.pass; try { fn(); } catch (e) { T.fail.push(`[${name}] 예외: ${e.message} ${(e.stack || '').split('\n')[1] || ''}`); } counts[name] = T.pass - p0; times.push(`${name} ${((performance.now() - t1) / 1000).toFixed(1)}s`); }
+    window.__testCounts = counts;
     errs.forEach(m => T.fail.push('[페이지 오류] ' + m));
     Object.assign(Settings, JSON.parse(saved)); saveSettings(); UI.showMenu();
     const ok = T.fail.length === 0, txt = `${ok ? 'TEST PASS' : 'TEST FAIL'} — 통과 ${T.pass} · 실패 ${T.fail.length} (${((performance.now() - t0) / 1000).toFixed(1)}s)\n${T.fail.join('\n')}\n— ${times.join(' · ')}`;
@@ -540,6 +649,7 @@
   }
   // 웹(http)에서는 CC0 모델 로딩을 기다렸다가 실행 → 모델 경로까지 검사 (최대 10초, file://은 바로 실행)
   if (window.THREE && Models.supported()) Models.load();
-  const t0w = performance.now(), wait = () => (Models.state === 'loading' && performance.now() - t0w < 10000) ? setTimeout(wait, 100) : runAll();
+  // 추가 파일(Blender 모델·원작풍 설계)까지 기다림 → 매번 같은 범위를 검사 (최대 15초)
+  const t0w = performance.now(), wait = () => ((Models.state === 'loading' || (Models.state === 'ready' && Models.optPending > 0)) && performance.now() - t0w < 15000) ? setTimeout(wait, 100) : runAll();
   setTimeout(wait, 300);
 })();
