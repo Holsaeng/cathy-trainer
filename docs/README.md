@@ -10,6 +10,7 @@
 | [er_notes_strategy.md](er_notes_strategy.md) | 일차별 목표, 초반 루트·제작, 운영(시야·오브젝트·서드파티), 교전(조합·포지션·진입·카이팅), 시즌 12 변경점, 추천 유튜브 강의 |
 | [ip_policy_notes.md](ip_policy_notes.md) | 님블뉴런 IP(2차 창작) 정책 연혁·현행 핵심·이 프로젝트 대입 결과·권장 조치 |
 | [er_notes_items.md](er_notes_items.md) | 아이템 시스템(부위·등급·능력치 단위·상한), 최종 능력치 계산, 시즌 12 캐시 인기 빌드(dak.gg·나무위키), 아이템 약 55개 12.5 수치 |
+| [er_notes_ai_builds.md](er_notes_ai_builds.md) · [ai_builds_data.json](ai_builds_data.json) | AI 상대 5명의 시즌 12 기본 능력치·캐릭터별 숙련도·인기 빌드(dak.gg 12.5)·아이템 48개 |
 | [build_items_plan.md](build_items_plan.md) | 장비·빌드 선택 기능 설계(준비 단계): 계산식·데이터 형식·화면·검증 계획 |
 | [online_duel_plan.md](online_duel_plan.md) | 1:1 온라인 대전 설계·진행(1~5단계) |
 

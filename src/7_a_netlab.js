@@ -120,7 +120,7 @@ const NetLab = {
         const t1 = H.Game.time, r1 = performance.now();
         const g0 = performance.now(); while (performance.now() - g0 < 3000) { G.Net.fakeNow = performance.now(); G.Net.guestTick(1 / 60); await sleep(16); }
         const ran = H.Game.time - t1, real = (performance.now() - r1) / 1000;
-        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
+        ok('호스트 탭이 숨겨져도 게임 진행', ran >= 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
         H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop); hostPump = true;   // 원래대로
       }
       // 둘 다 창을 숨긴 것처럼(양쪽 계산·화면 멈춤) 7.5초 → 연결 유지 신호 덕에 끊김으로 오판하지 않음
@@ -210,7 +210,7 @@ const NetLab = {
       // ---------- 3단계: 손님 이동 예측 ----------
       const waitPlay = () => { let w = 0; while (w++ < 3000 && !(H.Game.state === 'play' && H.Game.freeze <= 0 && !H.Game.mode.inter && !H.Game.player.dead && !H.Game.mode.enemy.dead)) run(5); };
       const runQuiet = n => { const b = bot; bot = false; run(n); bot = b; };
-      bot = false; waitPlay(); runQuiet(60);
+      bot = false; waitPlay(); G.Cmd.stop(); runQuiet(LAT * 2 + 60);   // 남은 이동이 끝나 완전히 멈춘 뒤 측정
       const me = G.Game.player, srv0 = H.V.copy(me._to), tgt = { x: me._to.x + (me._to.x < 16 ? 5 : -5), y: me._to.y };
       G.Cmd.move(tgt); runQuiet(3);
       const early = G.V.dist(G.Game.player.pos, srv0), srvMoved = G.V.dist(G.Game.player._to, srv0);
@@ -253,6 +253,18 @@ const NetLab = {
       // 호스트 「다시 하기」 → 손님도 새 판
       H.Game.restart(); run(LAT + 30);
       ok('다시 하기 → 손님도 새 판', G.Game.state === 'play' && G.Game.mode.round === 1 && G.Game.player && G.Game.player.team === 1);
+      // 다니엘 손님: 새 방(같은 연결)으로 다시 시작 → 손님 화면의 내 캐릭터가 다니엘, 걸작(R)도 호스트에서 실행
+      bot = false;   // 이 시나리오는 봇을 멈추고 진행 (위치를 맞춰 둔 뒤 움직이지 않게)
+      H.Net.startHost(link('g'), { guestChar: 'daniel', hostChar: 'cathy', map: 'basic', rounds: 3, seed: 77 }); run(LAT + 30);
+      { let w = 0; while (H.Game.freeze > 0 && w++ < 400) run(5); }
+      const gd = G.Game.player, hd = H.Game.mode.enemy;
+      ok('다니엘 손님: 손님 화면 내 캐릭터 = 다니엘', gd && gd.charKey === 'daniel' && gd.team === 1 && hd && hd.charKey === 'daniel' && !gd.gear);
+      const r0 = hd.skills.R.cd; hd.pos = { x: H.Game.player.pos.x + 1.5, y: H.Game.player.pos.y }; H.Combat.damage(hd, H.Game.player, 1, { type: 'skill', source: 't' }); run(2);
+      const c0 = H.Net.stats.cmds, j0 = H.Net.stats.rejected, gs = G.Net.stats.sent;
+      G.Cmd.skill('R', { x: H.Game.player.pos.x, y: H.Game.player.pos.y }); run(LAT + 20); bot = true;
+      ok('다니엘 손님: 걸작(R) 명령이 호스트에서 실행', hd.skills.R.cd > r0 || !!hd.shadow, `R 쿨 ${hd.skills.R.cd.toFixed(1)} · 받은 명령 +${H.Net.stats.cmds - c0} 거부 +${H.Net.stats.rejected - j0} 보냄 +${G.Net.stats.sent - gs} · 손님 상태 ${G.Game.state} 손님 플레이어 ${G.Game.player && G.Game.player.charKey} 호스트 ${H.Game.state} freeze ${H.Game.freeze.toFixed(2)} 거리 ${H.V.dist(hd.pos, H.Game.player.pos).toFixed(2)} R lv ${hd.skills.R.lv}`);
+      let sc = 0, sn = 0; for (let i = 0; i < 6; i++) { run(30); sn++; if (close(hist.get(G.Game.tick), digest(G, true))) sc++; }
+      ok('다니엘 손님: 화면 = 호스트 상태', sc === sn, `${sc}/${sn}`);
       ok('오류 없음', !err.length, err.slice(0, 3).join(' / '));
     } catch (x) { ok('예외 없이 실행', false, x.message + ' ' + (x.stack || '').split('\n')[1]); }
     const fail = res.filter(r => !r.c);

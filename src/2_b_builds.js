@@ -114,6 +114,32 @@ const Builds = {
     }
     return Math.round(dps);
   },
+  // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
+  //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
+  aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
+  aiBuilds(motif) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; return C ? C.builds : []; },
+  resolveAI(motif, stage, idx) {
+    const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
+    const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
+    const sum = {}, uniq = {}, items = [];
+    for (const s of this.SLOTS) { const it = this.aiItem(B.gear[s]); if (!it) continue; items.push(it); for (const [k, v] of Object.entries(it.stats)) { if (k === 'spPctU') uniq[k] = Math.max(uniq[k] || 0, v); else sum[k] = (sum[k] || 0) + v; } }
+    const S = k => sum[k] || 0, at = ([a, b]) => a + b * (Lv - 1);
+    const bonusAd0 = S('ad') + S('adLv') * Lv, spFlat0 = S('sp') + S('spLv') * Lv, toSp = spFlat0 >= bonusAd0 * 2;
+    const bonusAd = bonusAd0 + (toSp ? 0 : S('adaptAd')), spFlat = spFlat0 + (toSp ? S('adaptSp') : 0);
+    const spMul = 1 + (M.sp || 0) * mLv + (uniq.spPctU || 0) / 100 + S('spPct') / 100;
+    return {
+      motif, idx, label: B.label, gear: B.gear, level: Lv, masteryLv: mLv,
+      hp: Math.round(at(C.base.hp) + S('hp')), def: Math.round(at(C.base.def) + S('def')),
+      ad: Math.round((at(C.base.ad) + bonusAd) * 10) / 10, baseAd: Math.round(at(C.base.ad) * 10) / 10, bonusAd,
+      sp: Math.round(spFlat * spMul),
+      as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),
+      ms: +((C.base.ms + S('ms')) * (1 + S('msPct') / 100)).toFixed(3),
+      crit: Math.min(this.RULES.critCap, S('crit') / 100), critDmg: S('critDmg') / 100,
+      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'),
+      aaAmp: (M.baAmp || 0) * mLv,
+      passives: [...new Set(items.flatMap(it => (it.pas || '').split(' / ').filter(Boolean)))], passiveK: this.passiveK(items),
+    };
+  },
   // 현재 실측 빌드와 비교할 주요 능력치
   compare(stage, gear, weapon) {
     const a = CONFIG.builds[stage], b = this.resolve(stage, gear, weapon), w = weapon === 'dual' ? 'dual' : 'dagger';

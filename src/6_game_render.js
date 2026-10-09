@@ -53,6 +53,7 @@ const Game = {
     Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
+    if (this.opts && Number.isInteger(this.opts.enemyGear) && r.key) { r.key += '|eg' + this.opts.enemyGear; r.recTitle = (r.recTitle || r.title) + ` · 상대 장비 ${this.opts.enemyGear + 1}`; }
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
   togglePause() {
@@ -183,7 +184,8 @@ const Input = {
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
     }
-    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
+    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }
+    if (Replay.active && Game.state === 'play' && !e.repeat && Replay.key(e.key.toLowerCase())) { e.preventDefault(); return; }   // 리플레이: P · [ ] · − =   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
     if (Game.state !== 'play' || Game.paused || e.repeat || !Game.player) return;
     if (Game.modeId === 'combo' && e.key.toLowerCase() === 'g' && !Object.values(Settings.keys).includes('g')) { e.preventDefault(); Modes.combo.startDemo(); return; }   // 콤보 시범 보기
     if (Game.demoLock) return;   // 시범 중엔 입력 막음
@@ -554,7 +556,7 @@ const ScreenLayer = {
     this.drawOverheads(ctx);
     this.drawTexts(ctx);
     if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
-    if (Replay.active) Draw.text(ctx, Replay.label(), L.W / 2, L.H - 150, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });
+    if (Replay.active && !document.getElementById('replay-bar')) Draw.text(ctx, Replay.label(), L.W / 2, 64, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });   // 타임라인이 없을 때만
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);

@@ -93,7 +93,7 @@ const Rtc = {
   },
   onOpen() {
     // 손님: 버전·무기 알림 → 호스트가 대전 시작
-    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
+    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, char: Settings.character === 'daniel' ? 'daniel' : 'cathy', weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
     this.watch();
     this.onStatus('open');
   },
@@ -103,7 +103,8 @@ const Rtc = {
       if (m.t !== 'join') return;
       if (m.v !== BUILD_ID) { this.lost('상대의 게임 버전이 다릅니다'); return; }
       const gw = m.weapon === 'dual' ? 'dual' : 'dagger', gg = m.gear ? Builds.clean(m.gear, gw) : null;   // 손님 장비는 검사 후
-      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: gw, guestGear: Builds.any(gg) ? gg : null, gear: Builds.current() }));
+      const gc = m.char === 'daniel' ? 'daniel' : 'cathy';
+      Net.startHost(this.link(), Object.assign({}, this.opts, { guestChar: gc, guestWeapon: gw, guestGear: gc === 'cathy' && Builds.any(gg) ? gg : null, gear: Builds.current() }));
       this.onStatus('started');
       return;
     }

@@ -1,5 +1,5 @@
 
-// ============================== 1:1 온라인 대전 (캐시 vs 캐시) ==============================
+// ============================== 1:1 온라인 대전 (캐시·다니엘) ==============================
 // 결투(Modes.duel)의 라운드·점수·스피어 규칙을 그대로 쓰고, 상대만 AI 대신 「명령으로 조종하는 캐시」(팀 1)
 //   호스트: Game.player = 호스트 캐시, enemy = 손님 캐시(Net이 받은 명령을 적용)
 //   손님: 같은 판을 만들고 상태만 받아 그림. 화면의 점수·승패는 손님 시점으로 뒤집어 보여 줌
@@ -9,10 +9,14 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
   start(o) {
     this.o = o; this.diff = 'pvp'; this.need = o.rounds === 1 ? 1 : 2;
     this.guestWeapon = o.guestWeapon === 'dual' ? 'dual' : 'dagger'; this.hostWeapon = o.hostWeapon === 'dual' ? 'dual' : 'dagger';
+    // 캐릭터: 캐시 / 다니엘 (다니엘은 단검 고정·장비 없음)
+    this.hostChar = o.hostChar === 'daniel' ? 'daniel' : 'cathy'; this.guestChar = o.guestChar === 'daniel' ? 'daniel' : 'cathy';
+    if (this.guestChar === 'daniel') this.guestWeapon = 'dagger'; if (this.hostChar === 'daniel') this.hostWeapon = 'dagger';
+    const nm = c => c === 'daniel' ? '다니엘' : '캐시';
     this.motifKey = null; this.stageInfo = { label: '' };
-    this.motif = { name: '상대 캐시', weapon: CONFIG.basicAttack[this.guestWeapon].label, color: '#5aa9ff' };
+    this.motif = { name: '상대 ' + nm(this.guestChar), weapon: CONFIG.basicAttack[this.guestWeapon].label, color: '#5aa9ff' };
     this.animals = false; this.sphere = !!o.sphere;
-    this.title = '1:1 온라인 대전 · 캐시 vs 캐시' + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '') + (this.sphere ? ' · 크로노 스피어' : '');
+    this.title = `1:1 온라인 대전 · ${nm(this.hostChar)} vs ${nm(this.guestChar)}` + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '') + (this.sphere ? ' · 크로노 스피어' : '');
     // 손님 캐릭터 전용 통계 (판 전체 누적). 숨김 속성 → 스냅샷에 안 실림(라운드 끝에 따로 보냄)
     Object.defineProperty(this, 'rs', { value: Stats.make(), enumerable: false, writable: true, configurable: true });
     this.wins = { p: 0, e: 0 }; this.round = 0; this.history = []; this.newRound();
@@ -22,18 +26,18 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     this.round++; Game.units = []; Game.projectiles = []; Game.zones = [];
     const sp = Game.map.spawns, keep = { c: Settings.character, w: Settings.weapon };
     try {
-      Settings.character = 'cathy'; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
-      Settings.weapon = this.guestWeapon;
-      const g = new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(없으면 실측)
-      Object.assign(g, { team: 1, name: '캐시 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
+      Settings.character = this.hostChar; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
+      Settings.character = this.guestChar; Settings.weapon = this.guestWeapon;
+      const g = this.guestChar === 'daniel' ? new DanielPlayer(sp.e.x, sp.e.y) : new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(캐시만, 없으면 실측)
+      Object.assign(g, { team: 1, name: (this.guestChar === 'daniel' ? '다니엘' : '캐시') + ' 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
       Object.defineProperty(g, 'rstats', { value: this.rs, enumerable: false, writable: true, configurable: true });   // 스냅샷에 안 실리게(따로 보냄)
       this.rs.owner = g; Game.units.push(g); this.enemy = g;
     } finally { Settings.character = keep.c; Settings.weapon = keep.w; }
-    Game.player.name = '캐시 1P';
+    Game.player.name = (this.hostChar === 'daniel' ? '다니엘' : '캐시') + ' 1P';
     VisionItems.give(Game.player); VisionItems.give(this.enemy); Game.drones = []; Vision.reveals = []; Vision.noises = [];
     if (this.sphere) Sphere.start(); else Sphere.stop();
     this.snap = Stats.snapshot(); this.rsnap = this.rs.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
-    Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: 'VS 상대 캐시 (온라인)' };
+    Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} (온라인)` };
   },
   update(dt, frozen) { Modes.duel.update.call(this, dt, frozen); if (!frozen && this.rs) this.rs.tick(dt); },
   // 라운드 끝: 손님 캐릭터 기준 요약을 붙이고 손님에게 통계를 보냄

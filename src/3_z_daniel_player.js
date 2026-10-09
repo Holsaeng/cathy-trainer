@@ -10,7 +10,7 @@
 const DANIEL_SHORT = { Q: '가위', W: '영감', E: '그림자', R: '걸작' };
 class DanielPlayer extends Cathy {
   constructor(x, y) {
-    super(x, y);
+    super(x, y, null);   // 장비 없음(다니엘은 실측 능력치) — 판 옵션의 캐시 장비가 섞이지 않게
     const M = CONFIG.rangedMotifs.daniel, st = ['early', 'mid', 'late'].includes(Game.buildId) ? Game.buildId : 'mid', si = ['early', 'mid', 'late'].indexOf(st);
     this.charKey = 'daniel'; this.name = '다니엘'; this.color = M.color; this.weapon = 'dagger'; this.usesTrauma = false;
     this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si]; this.baseHpAtLv = 920 + 90 * (CONFIG.rangedAI.stages[st].level - 1);

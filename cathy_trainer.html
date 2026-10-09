@@ -383,6 +383,96 @@ const CONFIG = {
   ],
 };
 
+// ============================== AI 상대 장비 (시즌 12 · 패치 12.5) ==============================
+// docs/ai_builds_data.json에서 자동 생성 (tools: scratchpad gen_aigear.js) — 근거·출처는 docs/er_notes_ai_builds.md
+//   characters[상대]: 기본 능력치 [1레벨, 성장] · 무기 기본 공속 · 숙련도(레벨당: as 공속 · sp 스증 · baAmp 기본 공격 증폭) · 빌드(인기 2 + 시작)
+//   items: 수치는 dak.gg 12.5 툴팁(줄 단위). 고유 효과는 이름만
+//   ⚠ 숙련도는 무기가 아니라 캐릭터별(같은 단검이라도 다니엘은 기본 공격 증폭), 무기 기본 공속 + 캐릭터 보정은 더한다고 가정
+CONFIG.aiGear = {
+  characters: {
+    aya: { name: '아야', weapon: 'pistol', base: {hp: [905,76], ad: [40,4.1], def: [51,2.3], asBonus: 0.11, ms: 3.55, regen: [0.75,0.06]}, weaponAs: 0.505, mastery: {as: 0.035, sp: 0.043},
+      builds: [
+        { label: '완성 1위: 알타이르 / 카바나 / 페르소나 / 스카디의 팔찌 / 글레이셜 슈즈', gear: {weapon: 116502, chest: 202501, head: 201503, arm: 203501, leg: 204410} },
+        { label: '완성 2위: 알타이르 / 성법의 / 쿤달라 / 스카디의 팔찌 / 칼날 다리', gear: {weapon: 116502, chest: 202503, head: 205503, arm: 203501, leg: 204505} },
+        { label: '시작(영웅): 매그넘-보아 / 고위 사제복 / 오토바이 헬멧 / 포이즌드 / 델타 레드', gear: {weapon: 116406, chest: 202307, head: 201405, arm: 203306, leg: 204419} },
+      ] },
+    rio: { name: '리오', weapon: 'bow', base: {hp: [930,74], ad: [33,4], def: [51,2.6], asBonus: 0.09, ms: 3.45, regen: [1.2,0.06]}, weaponAs: 0.65, mastery: {as: 0.03, sp: 0, baAmp: 0.013},
+      builds: [
+        { label: '완성 1위: 페일노트-진홍 / 길리 슈트 / 쿼드 아이 / 운명의 주사위 / 갤럭시 스텝', gear: {weapon: 114701, chest: 202523, head: 201518, arm: 205501, leg: 204507} },
+        { label: '완성 2위: 페일노트-진홍 / 선녀강림 / 쿼드 아이 / 운명의 주사위 / 알렉산드로스', gear: {weapon: 114701, chest: 202509, head: 201518, arm: 205501, leg: 204504} },
+        { label: '시작(영웅): 편전 / 턱시도 / 수정 티아라 / 바이탈 센서 / 스텔라 스텝', gear: {weapon: 114401, chest: 202418, head: 201404, arm: 203405, leg: 204416} },
+      ] },
+    nadine: { name: '나딘', weapon: 'crossbow', base: {hp: [930,73], ad: [33,4.3], def: [52,2.7], asBonus: 0.13, ms: 3.5, regen: [0.6,0.045]}, weaponAs: 0.54, mastery: {as: 0.034, sp: 0, baAmp: 0.012},
+      builds: [
+        { label: '완성 1위: 혈색반월-진홍 / 현자의 로브 / 레가투스 / 월왕구천 / 알렉산드로스', gear: {weapon: 115701, chest: 202525, head: 201525, arm: 205305, leg: 204504} },
+        { label: '완성 2위: 템페스트 / 현자의 로브 / 레가투스 / 월왕구천 / 알렉산드로스', gear: {weapon: 115503, chest: 202525, head: 201525, arm: 205305, leg: 204504} },
+        { label: '시작(영웅): 대황 / 창파오 / 수정 티아라 / 미닛맨의 표식 / 부케팔로스', gear: {weapon: 115402, chest: 202420, head: 201404, arm: 203415, leg: 204408} },
+      ] },
+    katja: { name: '카티야', weapon: 'sniper', base: {hp: [890,80], ad: [36,4.7], def: [52,2.7], asBonus: 0.13, ms: 3.5, regen: [1.2,0.09]}, weaponAs: 0.43, mastery: {as: 0.036, sp: 0, baAmp: 0.02},
+      builds: [
+        { label: '완성 1위: 현자총통 / 고스트 / 쿼드 아이 / 운명의 주사위 / 갤럭시 스텝', gear: {weapon: 118502, chest: 202510, head: 201518, arm: 205501, leg: 204507} },
+        { label: '완성 2위: 현자총통 / 붉은 별빛 / 쿼드 아이 / 운명의 주사위 / 갤럭시 스텝', gear: {weapon: 118502, chest: 201534, head: 201518, arm: 205501, leg: 204507} },
+        { label: '시작(영웅): 폴라리스 / 턱시도 / 여우 가면 / 바이탈 센서 / 스텔라 스텝', gear: {weapon: 118406, chest: 202418, head: 201421, arm: 203405, leg: 204416} },
+      ] },
+    daniel: { name: '다니엘', weapon: 'dagger', base: {hp: [920,90], ad: [32,4.7], def: [51,3], asBonus: 0.07, ms: 3.55, regen: [1.53,0.077]}, weaponAs: 0.58, mastery: {as: 0.027, sp: 0, baAmp: 0.021},
+      builds: [
+        { label: '완성 1위: 비색 단검 / 택티컬 아머 / 트와일라잇 / 미스릴 완장 / 알렉산드로스', gear: {weapon: 101503, chest: 202515, head: 201509, arm: 203514, leg: 204504} },
+        { label: '완성 2위: 소울 리퍼 / 택티컬 아머 / 트와일라잇 / 미스릴 완장 / 알렉산드로스', gear: {weapon: 101502, chest: 202515, head: 201509, arm: 203514, leg: 204504} },
+        { label: '시작(영웅): 마하라자 / 광학미채 슈트 / 플라즈마 투구 / 스마트 밴드 / 부케팔로스', gear: {weapon: 101407, chest: 202405, head: 201418, arm: 203414, leg: 204408} },
+      ] },
+  },
+  items: {
+    101407: {name: '마하라자', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: {ad: 60, as: 15}, pas: '신속 - 루드라의 단검'},
+    101502: {name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: {ad: 66, as: 20, cdr: 10}, pas: '신속 - 루드라의 단검'},
+    101503: {name: '비색 단검', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: {ad: 20, adaptAd: 57, adaptSp: 114, as: 30, msPct: 3, cdr: 15, penPct: 10}},
+    114401: {name: '편전', slot: 'weapon', grade: 'epic', weapon: 'bow', stats: {ad: 57, as: 20}, pas: '열정'},
+    114701: {name: '페일노트-진홍', slot: 'weapon', grade: 'mythic', weapon: 'bow', stats: {ad: 76, as: 30, penPct: 7}, pas: '열정'},
+    115402: {name: '대황', slot: 'weapon', grade: 'epic', weapon: 'crossbow', stats: {ad: 67, as: 30}},
+    115503: {name: '템페스트', slot: 'weapon', grade: 'legend', weapon: 'crossbow', stats: {ad: 82, as: 48}},
+    115701: {name: '혈색반월-진홍', slot: 'weapon', grade: 'mythic', weapon: 'crossbow', stats: {ad: 92, as: 40, penPct: 7}, pas: '연장 총열'},
+    116406: {name: '매그넘-보아', slot: 'weapon', grade: 'epic', weapon: 'pistol', stats: {ad: 40, sp: 70, as: 30, omni: 3}},
+    116502: {name: '알타이르', slot: 'weapon', grade: 'legend', weapon: 'pistol', stats: {ad: 40, sp: 86, as: 40, cdr: 15}, pas: '가벼운 발걸음'},
+    118406: {name: '폴라리스', slot: 'weapon', grade: 'epic', weapon: 'sniper', stats: {ad: 73, as: 30, vision: 1}},
+    118502: {name: '현자총통', slot: 'weapon', grade: 'legend', weapon: 'sniper', stats: {ad: 99}, pas: '충전 - 철환'},
+    201404: {name: '수정 티아라', slot: 'head', grade: 'epic', stats: {ad: 17, as: 20, crit: 28}, pas: '치유 감소'},
+    201405: {name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: {sp: 55, as: 30, cdr: 10}, pas: '포톤 런처'},
+    201418: {name: '플라즈마 투구', slot: 'head', grade: 'epic', stats: {ad: 35, msPct: 2, pen: 8}},
+    201421: {name: '여우 가면', slot: 'head', grade: 'epic', stats: {ad: 10, as: 32, crit: 28}},
+    201503: {name: '페르소나', slot: 'head', grade: 'legend', stats: {sp: 80, msPct: 3.5, spPctU: 25}},
+    201509: {name: '트와일라잇', slot: 'head', grade: 'legend', stats: {ad: 38, msPct: 3, pen: 10}, pas: '테이저 건 - 도약'},
+    201518: {name: '쿼드 아이', slot: 'head', grade: 'legend', stats: {ad: 25, as: 22, crit: 35}, pas: '연장 총열'},
+    201525: {name: '레가투스', slot: 'head', grade: 'legend', stats: {ad: 30, as: 33, crit: 35}, pas: '개시'},
+    201534: {name: '붉은 별빛', slot: 'chest', grade: 'mythic', stats: {ad: 18, adLv: 3, def: 20, as: 15, crit: 35}, pas: '예열 / 치유 감소'},
+    202307: {name: '고위 사제복', slot: 'chest', grade: 'epic', stats: {def: 24, sp: 24, spLv: 5}, pas: '치유 감소'},
+    202405: {name: '광학미채 슈트', slot: 'chest', grade: 'epic', stats: {ad: 9, adLv: 3, def: 13, crit: 24}},
+    202418: {name: '턱시도', slot: 'chest', grade: 'epic', stats: {adLv: 3, def: 13, as: 15, crit: 24}},
+    202420: {name: '창파오', slot: 'chest', grade: 'epic', stats: {ad: 3, adLv: 3, def: 15, as: 38}},
+    202501: {name: '카바나', slot: 'chest', grade: 'legend', stats: {def: 28, sp: 40, spLv: 5, cdr: 10}, pas: '치유 감소'},
+    202503: {name: '성법의', slot: 'chest', grade: 'legend', stats: {def: 30, sp: 30, spLv: 5, spPctU: 25}},
+    202509: {name: '선녀강림', slot: 'chest', grade: 'legend', stats: {ad: 10, adLv: 3, def: 20, as: 40}, pas: '예열 - 강화'},
+    202510: {name: '고스트', slot: 'chest', grade: 'legend', stats: {ad: 14, adLv: 3, def: 18, crit: 34}, pas: '치유 감소'},
+    202515: {name: '택티컬 아머', slot: 'chest', grade: 'legend', stats: {ad: 18, adLv: 3, def: 23, pen: 12}, pas: '선고'},
+    202523: {name: '길리 슈트', slot: 'chest', grade: 'legend', stats: {adLv: 3, def: 18, as: 20, crit: 34}, pas: '예열'},
+    202525: {name: '현자의 로브', slot: 'chest', grade: 'legend', stats: {ad: 15, adLv: 3, def: 20, as: 30, ultCdr: 20}, pas: '각성'},
+    203306: {name: '포이즌드', slot: 'arm', grade: 'epic', stats: {sp: 62, cdr: 10}, pas: '치유 감소'},
+    203405: {name: '바이탈 센서', slot: 'arm', grade: 'epic', stats: {as: 33, crit: 26}, pas: '포톤 런처'},
+    203414: {name: '스마트 밴드', slot: 'arm', grade: 'epic', stats: {ad: 28, cdr: 15, pen: 7}},
+    203415: {name: '미닛맨의 표식', slot: 'arm', grade: 'epic', stats: {ad: 25, as: 18, crit: 24}},
+    203501: {name: '스카디의 팔찌', slot: 'arm', grade: 'legend', stats: {sp: 82, cdr: 10}, pas: '한파'},
+    203514: {name: '미스릴 완장', slot: 'arm', grade: 'legend', stats: {ad: 33, def: 10, crit: 34}, pas: '가벼운 발걸음'},
+    204408: {name: '부케팔로스', slot: 'leg', grade: 'epic', stats: {ad: 8, ms: 0.22, crit: 25}},
+    204410: {name: '글레이셜 슈즈', slot: 'leg', grade: 'legend', stats: {sp: 33, ms: 0.25, cdr: 15}},
+    204416: {name: '스텔라 스텝', slot: 'leg', grade: 'epic', stats: {ad: 15, as: 10, ms: 0.22, ls: 8}},
+    204419: {name: '델타 레드', slot: 'leg', grade: 'epic', stats: {sp: 18, ms: 0.22, cdr: 10}},
+    204504: {name: '알렉산드로스', slot: 'leg', grade: 'legend', stats: {ad: 14, ms: 0.25, crit: 33}},
+    204505: {name: '칼날 다리', slot: 'leg', grade: 'legend', stats: {sp: 42, ms: 0.25, cdr: 10}, pas: '치유 감소'},
+    204507: {name: '갤럭시 스텝', slot: 'leg', grade: 'legend', stats: {ad: 23, as: 20, ms: 0.25, ls: 12}},
+    205305: {name: '월왕구천', slot: 'arm', grade: 'legend', stats: {ad: 27, as: 30, crit: 35}, pas: '치유 감소'},
+    205501: {name: '운명의 주사위', slot: 'arm', grade: 'legend', stats: {ad: 25, as: 35, crit: 35, critDmg: 10}},
+    205503: {name: '쿤달라', slot: 'head', grade: 'legend', stats: {sp: 82, msPct: 3, cdr: 20}},
+  },
+};
+
 // ============================== 장비 아이템 (시즌 12 · 패치 12.5) ==============================
 // 수치: dak.gg 아이템 데이터(게임 12.5.0 툴팁, https://er.dakgg.io/api/v1/data/items?hl=ko)에서 줄 단위로 읽어 옮김 — docs/er_notes_items.md
 // 키 = 게임 아이템 코드. 고유 효과(pas)는 이름만 담고, 설명은 아래 ITEM_PASSIVES에 직접 요약(원문 툴팁은 옮기지 않음)
@@ -391,25 +481,25 @@ const CONFIG = {
 //           omni 모든 피해 흡혈% · regen 체력 재생% · tacCdr 전술 스킬 쿨감 · tenacity (고유)방해 효과 저항%
 CONFIG.items = {
   // ---- 단검 ----
-  101401: { name: '카른웬난', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 58, as: 20, msPct: 2, cdr: 10 }, pas: '충전 - 섬광' },
+  101401: { name: '카른웬난', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 58, as: 20, msPct: 2, cdr: 10 }, pas: '충전 - 섬광', pasK: { flash: 1 } },
   101402: { name: '파산검', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 25, sp: 68, msPct: 2, cdr: 10 } },
-  101405: { name: '프라가라흐', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 73, as: 40, msPct: 2 }, pas: '가벼운 발걸음' },
+  101405: { name: '프라가라흐', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 73, as: 40, msPct: 2 }, pas: '가벼운 발걸음', pasK: { step: 0.4, stepMs: 0.16, stepDmg: 100 } },
   101408: { name: '하이랜더 더크', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: { ad: 30, sp: 82, hp: 50 } },
   101501: { name: '월식', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 45, sp: 77, msPct: 2, cdr: 15 }, pas: '의념', pasK: { nianSp: 0.4 } },
-  101502: { name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 66, as: 20, cdr: 10 }, pas: '신속 - 루드라의 단검' },
+  101502: { name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 66, as: 20, cdr: 10 }, pas: '신속 - 루드라의 단검', pasK: { rudra: 1 } },
   101503: { name: '비색 단검', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 20, adaptAd: 57, adaptSp: 114, as: 30, msPct: 3, cdr: 15, penPct: 10 } },
   101504: { name: '악의', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: { ad: 45, sp: 100, msPct: 2 }, pas: '집행자' },
-  101701: { name: '비색 단검-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 79, as: 40, msPct: 2, penPct: 7 }, pas: '가벼운 발걸음' },
+  101701: { name: '비색 단검-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 79, as: 40, msPct: 2, penPct: 7 }, pas: '가벼운 발걸음', pasK: { step: 0.4, stepMs: 0.18, stepDmg: 150 } },
   101702: { name: '비색 단검-새벽', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: { ad: 13, sp: 114, msPct: 3, penPct: 8 }, pas: '집행자' },
   // ---- 쌍검 ----
   103403: { name: '아수라', slot: 'weapon', grade: 'epic', weapon: 'dual', stats: { ad: 31, sp: 70, cdr: 10, omni: 5 } },
   103404: { name: '검은 나비', slot: 'weapon', grade: 'epic', weapon: 'dual', stats: { ad: 30, sp: 82 }, pas: '저주', pasK: { curse: 1 } },
-  103502: { name: '로이거 차르', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 31, sp: 90, cdr: 15 }, pas: '가벼운 발걸음' },
-  103503: { name: '간장과 막야', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 66, as: 18 }, pas: '현란함' },
+  103502: { name: '로이거 차르', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 31, sp: 90, cdr: 15 }, pas: '가벼운 발걸음', pasK: { step: 0.2, stepMs: 0.1, stepDmg: 150 } },
+  103503: { name: '간장과 막야', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 66, as: 18 }, pas: '현란함', pasK: { dazzle: 1 } },
   103504: { name: '환영도', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 17, adaptAd: 56, adaptSp: 112, as: 30, cdr: 15, penPct: 10 } },
   103505: { name: '타나토스', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 35, sp: 86, hp: 150 }, pas: '파열' },
   103507: { name: '죽음의 발걸음', slot: 'weapon', grade: 'legend', weapon: 'dual', stats: { ad: 60, as: 30, cdr: 15 } },
-  103701: { name: '환영도-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 72, as: 30, penPct: 7 }, pas: '현란함' },
+  103701: { name: '환영도-진홍', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 72, as: 30, penPct: 7 }, pas: '현란함', pasK: { dazzle: 1 } },
   103702: { name: '환영도-새벽', slot: 'weapon', grade: 'mythic', weapon: 'dual', stats: { ad: 16, sp: 112, penPct: 8 }, pas: '파열' },
   // ---- 옷 ----
   202104: { name: '백색 가운', slot: 'chest', grade: 'epic', stats: { def: 25, spLv: 5, hp: 120, cdr: 10 } },
@@ -419,32 +509,32 @@ CONFIG.items = {
   202501: { name: '카바나', slot: 'chest', grade: 'legend', stats: { def: 28, sp: 40, spLv: 5, cdr: 10 }, pas: '치유 감소' },
   202503: { name: '성법의', slot: 'chest', grade: 'legend', stats: { def: 30, sp: 30, spLv: 5, spPctU: 25 } },
   202511: { name: '핏빛 망토', slot: 'chest', grade: 'legend', stats: { def: 25, sp: 14, spLv: 5 }, pas: '부패', pasK: { rotHp: 0.012, rotSp: 0.00002 } },
-  202518: { name: '레버넌트', slot: 'chest', grade: 'legend', stats: { def: 30, spLv: 5, hp: 250 }, pas: '돌풍' },
-  202526: { name: '이단심판관', slot: 'chest', grade: 'legend', stats: { def: 30, sp: 30, spLv: 5, cdr: 15 }, pas: '차원 균열' },
-  202209: { name: '비키니', slot: 'chest', grade: 'mythic', stats: { def: 25, sp: 35, spLv: 5, omni: 8 }, pas: '명경지수 / 치유 감소' },
-  202502: { name: '퀸 오브 하트', slot: 'chest', grade: 'mythic', stats: { def: 30, sp: 35, spLv: 5, regen: 100, cdr: 25 }, pas: '응집 / 치유 감소' },
+  202518: { name: '레버넌트', slot: 'chest', grade: 'legend', stats: { def: 30, spLv: 5, hp: 250 }, pas: '돌풍', pasK: { gale: 1 } },
+  202526: { name: '이단심판관', slot: 'chest', grade: 'legend', stats: { def: 30, sp: 30, spLv: 5, cdr: 15 }, pas: '차원 균열', pasK: { rift: 1 } },
+  202209: { name: '비키니', slot: 'chest', grade: 'mythic', stats: { def: 25, sp: 35, spLv: 5, omni: 8 }, pas: '명경지수 / 치유 감소', pasK: { calm: 1 } },
+  202502: { name: '퀸 오브 하트', slot: 'chest', grade: 'mythic', stats: { def: 30, sp: 35, spLv: 5, regen: 100, cdr: 25 }, pas: '응집 / 치유 감소', pasK: { cohesion: 1 } },
   // ---- 머리 ----
-  201405: { name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: { sp: 55, as: 30, cdr: 10 }, pas: '포톤 런처' },
+  201405: { name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: { sp: 55, as: 30, cdr: 10 }, pas: '포톤 런처', pasK: { photon: 10, photonSp: 0.2 } },
   201409: { name: '제국 왕관', slot: 'head', grade: 'epic', stats: { sp: 63, cdr: 15 } },
   201413: { name: '비질란테', slot: 'head', grade: 'epic', stats: { sp: 50, hp: 150, cdr: 10 }, pas: '부패', pasK: { rotHp: 0.004, rotSp: 0.000014 } },
   201423: { name: '전술 고글', slot: 'head', grade: 'legend', stats: { sp: 65, hp: 200, as: 30, cdr: 15 }, pas: '치유 감소' },
   201503: { name: '페르소나', slot: 'head', grade: 'legend', stats: { sp: 80, msPct: 3.5, spPctU: 25 } },
-  201505: { name: '레이싱 헬멧', slot: 'head', grade: 'legend', stats: { sp: 80, as: 35, cdr: 10 }, pas: '포톤 런처' },
+  201505: { name: '레이싱 헬멧', slot: 'head', grade: 'legend', stats: { sp: 80, as: 35, cdr: 10 }, pas: '포톤 런처', pasK: { photon: 20, photonSp: 0.3, photonHeal: 0.3 } },
   201507: { name: '우주 비행사의 헬멧', slot: 'head', grade: 'legend', stats: { sp: 50, hp: 200, cdr: 10 }, pas: '부패', pasK: { rotHp: 0.012, rotSp: 0.00002 } },
   201520: { name: '사이버 스토커', slot: 'head', grade: 'legend', stats: { sp: 85, msPct: 2, cdr: 15 }, pas: '테이저 건', pasK: { taser: 1 } },
-  201526: { name: '앙 가르드', slot: 'head', grade: 'legend', stats: { def: 8, sp: 75, cdr: 10 }, pas: '예열 - 증강' },
+  201526: { name: '앙 가르드', slot: 'head', grade: 'legend', stats: { def: 8, sp: 75, cdr: 10 }, pas: '예열 - 증강', pasK: { warmup: 1 } },
   201411: { name: '변검', slot: 'head', grade: 'mythic', stats: { def: 8, adaptAd: 45, adaptSp: 90, msPct: 3, cdr: 20, pen: 10 }, pas: '치유 감소' },
-  201701: { name: '핏빛 왕관', slot: 'head', grade: 'mythic', stats: { adaptAd: 50, adaptSp: 100, as: 35, msPct: 3.5 }, pas: '개시 / 치유 감소' },
+  201701: { name: '핏빛 왕관', slot: 'head', grade: 'mythic', stats: { adaptAd: 50, adaptSp: 100, as: 35, msPct: 3.5 }, pas: '개시 / 치유 감소', pasK: { onset: 1 } },
   // ---- 팔/장식 ----
   203403: { name: '드라우프니르', slot: 'arm', grade: 'epic', stats: { sp: 75 } },
   203410: { name: '틴달로스의 팔찌', slot: 'arm', grade: 'epic', stats: { sp: 50, cdr: 20 } },
-  203506: { name: '스포츠 시계', slot: 'arm', grade: 'epic', stats: { sp: 32, as: 30 }, pas: '열정 - 순환' },
+  203506: { name: '스포츠 시계', slot: 'arm', grade: 'epic', stats: { sp: 32, as: 30 }, pas: '열정 - 순환', pasK: { passion: 5, passionSp: 0.23, passionAs: 0.1 } },
   205405: { name: '진리는 나의 빛', slot: 'arm', grade: 'epic', stats: { def: 8, sp: 50, hp: 100, cdr: 5 } },
   205505: { name: '호루스의 눈', slot: 'arm', grade: 'legend', stats: { sp: 75, cdr: 10 }, pas: '의념', pasK: { nianSp: 0.35 } },
   203510: { name: '용의 비늘', slot: 'arm', grade: 'legend', stats: { sp: 85, penPct: 15 } },
   705619: { name: '별 조각', slot: 'arm', grade: 'legend', stats: { def: 10, sp: 80, hp: 230, cdr: 15 } },
-  205406: { name: '요명월', slot: 'arm', grade: 'legend', stats: { def: 8, sp: 55, hp: 200, cdr: 10 }, pas: '달인' },
-  203413: { name: '텔루리안 타임피스', slot: 'arm', grade: 'legend', stats: { sp: 64, as: 42 }, pas: '열정 - 순환' },
+  205406: { name: '요명월', slot: 'arm', grade: 'legend', stats: { def: 8, sp: 55, hp: 200, cdr: 10 }, pas: '달인', pasK: { master: 1 } },
+  203413: { name: '텔루리안 타임피스', slot: 'arm', grade: 'legend', stats: { sp: 64, as: 42 }, pas: '열정 - 순환', pasK: { passion: 10, passionSp: 0.25, passionAs: 0.15 } },
   203515: { name: '노바 실드', slot: 'arm', grade: 'mythic', stats: { def: 15, adaptAd: 45, adaptSp: 90, cdr: 20 }, pas: '치유 감소' },
   205507: { name: '네크로노미콘', slot: 'arm', grade: 'mythic', stats: { sp: 95, penPct: 15 }, pas: '치유 감소' },
   // ---- 다리 ----
@@ -456,10 +546,10 @@ CONFIG.items = {
   204501: { name: '헤르메스의 부츠', slot: 'leg', grade: 'legend', stats: { def: 18, hp: 150, ms: 0.25, tenacity: 30 } },
   204512: { name: '스페이스 부츠', slot: 'leg', grade: 'legend', stats: { def: 15, hp: 120, ms: 0.25, cdr: 10 } },
   204405: { name: '킬힐', slot: 'leg', grade: 'legend', stats: { sp: 60, spPct: 5, ms: 0.25 } },
-  204409: { name: 'EOD 부츠', slot: 'leg', grade: 'legend', stats: { def: 10, hp: 100, regen: 50, ms: 0.25 }, pas: '격동' },
-  204511: { name: '로즈 스텝', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 10 }, pas: '각성 / 치유 감소' },
+  204409: { name: 'EOD 부츠', slot: 'leg', grade: 'legend', stats: { def: 10, hp: 100, regen: 50, ms: 0.25 }, pas: '격동', pasK: { turbulence: 1 } },
+  204511: { name: '로즈 스텝', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 10 }, pas: '각성 / 치유 감소', pasK: { awaken: 1 } },
   204413: { name: '탭루트', slot: 'leg', grade: 'mythic', stats: { def: 10, hp: 250, ms: 0.27, cdr: 20, tacCdr: 20 }, pas: '치유 감소' },
-  204513: { name: '픽시 부츠', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 20 }, pas: '순풍 / 치유 감소' },
+  204513: { name: '픽시 부츠', slot: 'leg', grade: 'mythic', stats: { sp: 50, ms: 0.27, cdr: 20 }, pas: '순풍 / 치유 감소', pasK: { breeze: 1 } },
 };
 // 고유 효과 요약(직접 작성) · impl: 시뮬레이터에 들어간 효과
 CONFIG.itemPassives = {
@@ -470,22 +560,22 @@ CONFIG.itemPassives = {
   '치유 감소': { text: '피해를 주면 대상 치유 효과 4초간 감소 (전설 20% · 초월 30%)', impl: true },
   '테이저 건': { text: '8m 안에 3초 이상 있던 적에게 평타 강화(추가 스킬 피해) + 5초간 그 대상에게 스킬 피해 +10% (쿨 10초)', impl: true },
   '저주': { text: '스킬 적중 시 4초 저주 → 풀릴 때 고정 피해. 풀린 뒤 8초간 다시 안 걸림(평타 맞을 때마다 1초 감소, ⚠ 시작 시점 가정)', impl: true },
-  '가벼운 발걸음': { text: '이동 거리만큼 중첩 → 이속 증가, 평타 때 모두 소모해 추가 스킬 피해' },
-  '현란함': { text: '적중마다 잠시 이속 증가 중첩 (최대 8)' },
-  '신속 - 루드라의 단검': { text: '4초 안에 3회 피해 → 3초간 이속·공격력 증가 (쿨 10초)' },
-  '충전 - 섬광': { text: '다음 평타가 잠시 둔화 (쿨 5초)' },
-  '포톤 런처': { text: '3번째 평타마다 추가 스킬 피해' },
-  '예열 - 증강': { text: '스킬 피해마다 중첩, 중첩당 스킬 피해 증가 (최대 6)' },
-  '열정 - 순환': { text: '평타 적중 시 추가 스킬 피해 + 잠시 공속 증가' },
-  '돌풍': { text: '5초 안에 3회 적중 → 주변에 소용돌이 피해 (쿨 10초)' },
-  '차원 균열': { text: '궁극기 적중 시 대상이 받는 피해 증가 + 지속 피해' },
-  '명경지수': { text: '5초간 맞지 않으면 매초 보호막 (최대치 있음)' },
-  '응집': { text: '3초 안에 스킬 2회 적중 → 잠시 뒤 강한 둔화 (쿨 12초)' },
-  '개시': { text: '20초마다 평타 적중 시 잠시 공격력/스증·공속 증가' },
-  '달인': { text: '무기 스킬 사용 직후 충격파 피해 + 둔화 (쿨 10초)' },
-  '격동': { text: '전투 중 가까운 적이 있으면 주기적으로 피해' },
-  '각성': { text: '궁극기 사용 시 8초간 방어 관통 증가 (쿨 20초)' },
-  '순풍': { text: '스킬 적중 시 잠시 이속 증가' },
+  '가벼운 발걸음': { text: '이동 거리만큼 중첩 → 이속 증가, 평타 때 모두 소모해 추가 스킬 피해', impl: true },
+  '현란함': { text: '적중마다 잠시 이속 증가 중첩 (최대 8)', impl: true },
+  '신속 - 루드라의 단검': { text: '4초 안에 3회 피해 → 3초간 이속·공격력 증가 (쿨 10초)', impl: true },
+  '충전 - 섬광': { text: '다음 평타가 잠시 둔화 (쿨 5초)', impl: true },
+  '포톤 런처': { text: '3번째 평타마다 추가 스킬 피해', impl: true },
+  '예열 - 증강': { text: '스킬 피해마다 중첩, 중첩당 스킬 피해 증가 (최대 6)', impl: true },
+  '열정 - 순환': { text: '평타 적중 시 추가 스킬 피해 + 잠시 공속 증가', impl: true },
+  '돌풍': { text: '5초 안에 3회 적중 → 5초간 0.5초마다 주변(⚠ 반경 2.5m 가정) 소용돌이 피해 (쿨 10초)', impl: true },
+  '차원 균열': { text: '궁극기 적중 시 대상이 받는 피해 증가 + 지속 피해', impl: true },
+  '명경지수': { text: '5초간 맞지 않으면 매초 보호막 (최대치 있음)', impl: true },
+  '응집': { text: '3초 안에 스킬 2회 적중 → 잠시 뒤 강한 둔화 (쿨 12초)', impl: true },
+  '개시': { text: '20초마다 평타 적중 시 잠시 공격력/스증·공속 증가', impl: true },
+  '달인': { text: '무기 스킬 사용 0.5초 뒤 충격파(⚠ 반경 3m 가정) 피해 + 1초 둔화 (쿨 10초)', impl: true },
+  '격동': { text: '전투 중 가까운 적이 있으면 주기적으로 피해', impl: true },
+  '각성': { text: '궁극기 사용 시 8초간 방어 관통 증가 (쿨 20초)', impl: true },
+  '순풍': { text: '스킬 적중 시 잠시 이속 증가', impl: true },
 };
 // 대표 조합 (docs/er_notes_items.md 3.4 — dak.gg 랭크 다이아+ 12.5, 나무위키 루트)
 CONFIG.gearPresets = {
@@ -622,6 +712,32 @@ const Builds = {
     }
     return Math.round(dps);
   },
+  // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
+  //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
+  aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
+  aiBuilds(motif) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; return C ? C.builds : []; },
+  resolveAI(motif, stage, idx) {
+    const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
+    const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
+    const sum = {}, uniq = {}, items = [];
+    for (const s of this.SLOTS) { const it = this.aiItem(B.gear[s]); if (!it) continue; items.push(it); for (const [k, v] of Object.entries(it.stats)) { if (k === 'spPctU') uniq[k] = Math.max(uniq[k] || 0, v); else sum[k] = (sum[k] || 0) + v; } }
+    const S = k => sum[k] || 0, at = ([a, b]) => a + b * (Lv - 1);
+    const bonusAd0 = S('ad') + S('adLv') * Lv, spFlat0 = S('sp') + S('spLv') * Lv, toSp = spFlat0 >= bonusAd0 * 2;
+    const bonusAd = bonusAd0 + (toSp ? 0 : S('adaptAd')), spFlat = spFlat0 + (toSp ? S('adaptSp') : 0);
+    const spMul = 1 + (M.sp || 0) * mLv + (uniq.spPctU || 0) / 100 + S('spPct') / 100;
+    return {
+      motif, idx, label: B.label, gear: B.gear, level: Lv, masteryLv: mLv,
+      hp: Math.round(at(C.base.hp) + S('hp')), def: Math.round(at(C.base.def) + S('def')),
+      ad: Math.round((at(C.base.ad) + bonusAd) * 10) / 10, baseAd: Math.round(at(C.base.ad) * 10) / 10, bonusAd,
+      sp: Math.round(spFlat * spMul),
+      as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),
+      ms: +((C.base.ms + S('ms')) * (1 + S('msPct') / 100)).toFixed(3),
+      crit: Math.min(this.RULES.critCap, S('crit') / 100), critDmg: S('critDmg') / 100,
+      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'),
+      aaAmp: (M.baAmp || 0) * mLv,
+      passives: [...new Set(items.flatMap(it => (it.pas || '').split(' / ').filter(Boolean)))], passiveK: this.passiveK(items),
+    };
+  },
   // 현재 실측 빌드와 비교할 주요 능력치
   compare(stage, gear, weapon) {
     const a = CONFIG.builds[stage], b = this.resolve(stage, gear, weapon), w = weapon === 'dual' ? 'dual' : 'dagger';
@@ -644,7 +760,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '68de5fe0';
+const BUILD_ID = '5f06cdcf';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 const rand = (a, b) => a + Rng.next() * (b - a);
 const vrand = (a, b) => a + Math.random() * (b - a);   // 화면 효과용 (판정 난수를 소모하지 않음)
@@ -1255,7 +1371,7 @@ class Unit {
     let b = 0; for (const m of this.msBuffs) b += m.p * (m.decay ? m.t / m.dur : 1);
     return Math.max(0.1, (1 - s) * (1 + b));
   }
-  speed() { return this.baseMs * this.msMul(); }
+  speed() { return (this.baseMs + ItemFx.msFlat(this)) * this.msMul(); }   // 고정 이속(장비: 가벼운 발걸음)
   applyCC(type, dur) {
     if (this.dead || this.unstoppable > 0) return false;
     this[type] = Math.max(this[type], dur);
@@ -1430,6 +1546,7 @@ class Cathy extends Unit {
       FX.ring(this.pos, 0.3, 1.5, '#5ff0e6', 0.45, 0.1);
       for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.random(); FX.slash(this.pos, a, 1.3, 0.7, '#5ff0e6', 0.4, 0.7); }
       FX.burst(this.pos, '#7fb2ff', 14, 3); Sfx.play('blink'); Events.emit('action', { k: 'D1' });
+      ItemFx.onCast(this, 'D');   // 무기 스킬 사용: 의념·달인 (1차는 시전 과정 없이 바로라 여기서)
       return true;
     }
     if (this.dualRecast > 0) { this.beginCast('D', aim, Impl.Ddual2, {}); return true; }
@@ -1463,7 +1580,7 @@ class Cathy extends Unit {
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) this.S.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
-    if (qwer) ItemFx.onCast(this);   // 의념 충전
+    if (qwer) ItemFx.onCast(this, c.k);   // 의념 충전·각성·달인
     if (qwer) this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // Q 지속 효과: 스킬 사용 후 다음 평타 강화
     Events.emit('action', { k: c.impl.action || c.k });
   }
@@ -1615,7 +1732,7 @@ function skillHit(p, c, e, amount, o = {}) {
   const trauma = o.trauma !== false && !c.traumaSet.has(e.id);   // 외상은 시전당 대상 1회
   if (trauma) c.traumaSet.add(e.id);
   Combat.damage(p, e, amount, { type: 'skill', source: o.source || c.k, trauma });
-  ItemFx.onSkillDamage(p, e);   // 부패·파열
+  ItemFx.onSkillDamage(p, e, c.k);   // 부패·파열·예열·차원 균열 등
   Events.emit('skillHit', { k: c.k, target: e });
 }
 
@@ -1861,12 +1978,13 @@ const ItemFx = {
   isChar(u) { return u && ['player', 'ranged', 'melee', 'dummy'].includes(u.kind); },
   k(u) { return (u && u.pasK) || {}; },
   // 스킬 사용(QWERD) 직후
-  onCast(p) { if (this.k(p).nianSp && !(p.nianCd > 0)) p.nianT = this.NIAN.dur; },
-  asMul(p) { return p.nianT > 0 && this.k(p).nianSp ? 1 + this.NIAN.as : 1; },
+  onCast(p, k) { if (this.k(p).nianSp && !(p.nianCd > 0)) p.nianT = this.NIAN.dur; this.onCast2(p, k); },
+  asMul(p) { return (p.nianT > 0 && this.k(p).nianSp ? 1 + this.NIAN.as : 1) * this.asMul2(p); },
   // 평타 적중 직후
   onAA(p, t) {
     if (t && t.curseImm > 0) t.curseImm = Math.max(0, t.curseImm - this.CURSE.aaCut);   // 저주: 평타 맞을 때마다 재저주 대기 1초 감소
     this.onAATaser(p, t);
+    this.onAA2(p, t);   // 섬광·발걸음·포톤·열정·개시·현란함·신속·돌풍 (3_y_itemfx2.js)
     const K = this.k(p); if (!K.nianSp || !(p.nianT > 0) || !t || t.dead) return;
     p.nianT = 0; p.nianCd = this.NIAN.cd;
     Combat.damage(p, t, p.sp * K.nianSp, { type: 'skill', source: '의념', noShake: true });
@@ -1881,8 +1999,9 @@ const ItemFx = {
     FX.burst(t.pos, '#9fd8ff', 10, 5); FX.ring(t.pos, 0.2, 1.0, '#9fd8ff', 0.25, 0.06);
   },
   // 캐시 개별 스킬 피해 직후 (skillHit)
-  onSkillDamage(p, e) {
+  onSkillDamage(p, e, k) {
     const K = this.k(p); if (!e || e.dead) return;
+    this.onSkill2(p, e, k);   // 예열·차원 균열·응집·순풍·현란함·신속·돌풍
     if (K.rotHp) e.rot = { t: this.ROT.dur, per: e.maxHp * (K.rotHp + p.sp * K.rotSp), src: p, acc: 0 };
     if (K.curse && !(p.curseCd > 0) && !e.curse && !(e.curseImm > 0)) { p.curseCd = this.CURSE.cd; e.curse = { t: this.CURSE.dur, src: p, dmg: this.CURSE.base + p.sp * this.CURSE.sp }; }
     if (K.rupture && !(p.ruptCd > 0) && this.isChar(e)) { p.ruptCd = this.RUPTURE.cd; (p.itemPending = p.itemPending || []).push({ kind: 'rupture', t: this.RUPTURE.delay, target: e, pos: V.copy(e.pos) }); }
@@ -1892,10 +2011,11 @@ const ItemFx = {
     const K = this.k(src);
     let m = K.executor && type === 'skill' && tgt.maxHp > 0 && tgt.hp / tgt.maxHp <= this.EXEC.hp ? this.EXEC.mul : 1;
     if (type === 'skill' && tgt.taserMark && tgt.taserMark.t > 0 && src && tgt.taserMark.by === src.id) m *= this.TASER.mul;   // 테이저 건 표식
-    return m;
+    return m * this.damageMul2(src, tgt, type);
   },
   // 모든 피해 뒤: 치유 감소
   onDamage(src, tgt) {
+    tgt.lastHurtT = Game.time;   // 명경지수: 마지막으로 맞은 시각
     const K = this.k(src); if (!K.healCut || tgt.dead) return;
     tgt.healCutT = this.HEALCUT.dur; tgt.healCutPct = Math.max(tgt.healCutT > 0 && tgt.healCutPct || 0, K.healCut);
   },
@@ -1915,10 +2035,12 @@ const ItemFx = {
       while (R.acc >= 1 && !u.dead) { R.acc -= 1; Combat.damage(R.src, u, R.per, { type: 'skill', source: '부패', tick: true, noShake: true }); }
       if (R.t <= 1e-9 || u.dead) u.rot = null;
     }
+    this.tick2(u, dt);
     if (u.itemPending && u.itemPending.length) {
       for (const P of u.itemPending) {
         if ((P.t -= dt) > 0) continue;
         P.done = true;
+        if (this.pending2(u, P)) continue;
         if (P.kind === 'rupture') {
           const at = P.target && !P.target.dead ? V.copy(P.target.pos) : P.pos, R = this.RUPTURE, lvl = (u.build && u.build.level) || 1;
           FX.ring(at, 0.3, R.r, '#ff7b3b', 0.35, 0.14); FX.burst(at, '#ff7b3b', 18, 6);
@@ -1929,6 +2051,119 @@ const ItemFx = {
     }
   },
 };
+
+// ============================== 장비 고유 효과 (추가 16종) ==============================
+// 3_y_itemfx.js(ItemFx)에 붙이는 나머지 효과. 수치: 12.5 툴팁(근거리 값). 범위가 툴팁에 없는 것은 ⚠ 가정(RANGE)
+//   충전-섬광 · 가벼운 발걸음 · 신속(루드라) · 현란함 · 포톤 런처 · 예열 · 열정-순환 · 돌풍 · 차원 균열 · 명경지수 · 응집 · 개시 · 달인 · 격동 · 각성 · 순풍
+Object.assign(ItemFx, {
+  RANGE: { gale: 2.5, master: 3, turbulence: 2.5 },   // ⚠ 돌풍·달인 반경은 툴팁에 없음(가정). 격동 2.5m는 툴팁
+  FLASH: { slow: 0.25, dur: 1, cd: 5 }, STEP: { max: 100, slowAt: 100, slow: 0.2, slowDur: 2 },
+  RUDRA: { need: 3, win: 4, dur: 3, ms: 0.2, ad: 0.12, cd: 10 }, DAZZLE: { ms: 0.03, max: 8, dur: 3 },
+  WARMUP: { per: 0.025, max: 6, dur: 5, ms: 0.06 }, PASSION: { dur: 8 },
+  GALE: { need: 3, win: 5, dur: 5, tick: 0.5, base: 20, sp: 0.15, hp: 0.005, cd: 10 },
+  RIFT: { dur: 5, taken: 0.06, base: 12, sp: 0.04, cd: 20 }, CALM: { wait: 5, per: 30, perLv: 5, max: 50, maxLv: 10, maxSp: 0.4 },
+  COHESION: { need: 2, win: 3, delay: 2, slow: 0.5, dur: 1, cd: 12 }, ONSET: { every: 20, dur: 5, sp: 16, as: 0.15, aaCut: 1 },
+  MASTER: { delay: 0.5, base: 40, sp: 0.25, perLv: 2, slow: 0.35, dur: 1, cd: 10 }, TURB: { need: 2, base: 10, bonusHp: 0.12, perLv: 2 },
+  AWAKEN: { dur: 8, pen: 0.1, cd: 20 }, BREEZE: { ms: 0.05, dur: 3 },
+  lvl(u) { return (u.build && u.build.level) || 1; },
+  // 개별 적중 기록(신속·돌풍·응집): 최근 시각 목록
+  mark(u, key, win) { const a = (u[key] = (u[key] || []).filter(t => Game.time - t < win)); a.push(Game.time); return a.length; },
+  // 평타 적중 직후 (onAA에서 부름)
+  onAA2(p, t) {
+    const K = this.k(p); if (!t || t.dead) return;
+    const ch = this.isChar(t);
+    if (K.flash && !(p.flashCd > 0)) { p.flashCd = this.FLASH.cd; t.addSlow(this.FLASH.slow, this.FLASH.dur); }
+    if (K.stepDmg && p.steps > 0) {   // 가벼운 발걸음: 중첩 모두 소모 → 추가 피해, 최대 중첩이면 둔화
+      const n = p.steps; p.steps = 0;
+      Combat.damage(p, t, K.stepDmg * n / this.STEP.max, { type: 'skill', source: '가벼운 발걸음', noShake: true });
+      if (n >= this.STEP.slowAt && !t.dead) t.addSlow(this.STEP.slow, this.STEP.slowDur);
+    }
+    if (K.photon) { p.photonN = (p.photonN || 0) + 1; if (p.photonN >= 3) { p.photonN = 0; const d = Combat.damage(p, t, K.photon + p.sp * K.photonSp, { type: 'skill', source: '포톤 런처', noShake: true }); if (K.photonHeal && d > 0) p.heal(d * K.photonHeal, true); } }
+    if (K.passion && !t.dead) { Combat.damage(p, t, K.passion + p.sp * K.passionSp, { type: 'skill', source: '열정 - 순환', noShake: true }); p.passionT = this.PASSION.dur; }
+    if (K.onset && ch) {
+      if (!(p.onsetCd > 0)) { p.onsetCd = this.ONSET.every; p.onsetT = this.ONSET.dur; if (!p.onsetSp) { p.onsetSp = this.ONSET.sp; p.sp += p.onsetSp; } }
+      else p.onsetCd = Math.max(0, p.onsetCd - this.ONSET.aaCut);
+    }
+    this.onHitAny(p, t);
+  },
+  // 개별 스킬 피해 직후 (onSkillDamage에서 부름) — k: 스킬 키
+  onSkill2(p, e, k) {
+    const K = this.k(p); if (!e || e.dead) return;
+    const ch = this.isChar(e);
+    if (K.warmup && ch) { p.warmN = Math.min(this.WARMUP.max, (p.warmN || 0) + 1); p.warmT = this.WARMUP.dur; if (p.warmN >= this.WARMUP.max) p.addMsBuff(this.WARMUP.ms, this.WARMUP.dur, false, 'warmup'); }
+    if (K.rift && k === 'R' && ch && !(e.riftCd && e.riftCd[p.id] > Game.time)) { (e.riftCd = e.riftCd || {})[p.id] = Game.time + this.RIFT.cd; e.rift = { t: this.RIFT.dur, src: p, acc: 0 }; }
+    if (K.cohesion && ch && !(p.cohCd > 0) && this.mark(p, '_coh', this.COHESION.win) >= this.COHESION.need) { p._coh = []; p.cohCd = this.COHESION.cd; (p.itemPending = p.itemPending || []).push({ kind: 'cohesion', t: this.COHESION.delay, target: e }); }
+    if (K.breeze && ch) p.addMsBuff(this.BREEZE.ms, this.BREEZE.dur, false, 'breeze');
+    this.onHitAny(p, e);
+  },
+  // 평타·개별 스킬 공통 (적 실험체)
+  onHitAny(p, e) {
+    const K = this.k(p); if (!this.isChar(e)) return;
+    if (K.dazzle) { p.dazzleN = Math.min(this.DAZZLE.max, (p.dazzleN || 0) + 1); p.addMsBuff(this.DAZZLE.ms * p.dazzleN, this.DAZZLE.dur, false, 'dazzle'); p.dazzleT = this.DAZZLE.dur; }
+    if (K.rudra && !(p.rudraCd > 0) && this.mark(p, '_rudra', this.RUDRA.win) >= this.RUDRA.need) {
+      p._rudra = []; p.rudraCd = this.RUDRA.cd; p.rudraT = this.RUDRA.dur; p.addMsBuff(this.RUDRA.ms, this.RUDRA.dur, false, 'rudra');
+      if (!p.rudraAd) { p.rudraAd = p.ad * this.RUDRA.ad; p.ad += p.rudraAd; }
+    }
+    if (K.gale && !(p.galeCd > 0) && this.mark(p, '_gale', this.GALE.win) >= this.GALE.need) { p._gale = []; p.galeCd = this.GALE.cd; p.galeT = this.GALE.dur; p.galeAcc = 0; }
+  },
+  // 스킬 사용(onCast에서 부름)
+  onCast2(p, k) {
+    const K = this.k(p);
+    if (K.awaken && k === 'R' && !(p.awakeCd > 0)) { p.awakeCd = this.AWAKEN.cd; p.awakeT = this.AWAKEN.dur; if (!p.awakePen) { p.awakePen = this.AWAKEN.pen; p.penPct += p.awakePen; } }
+    if (K.master && k === 'D' && !(p.masterCd > 0)) { p.masterCd = this.MASTER.cd; (p.itemPending = p.itemPending || []).push({ kind: 'master', t: this.MASTER.delay }); }
+  },
+  asMul2(p) { return (p.passionT > 0 ? 1 + this.k(p).passionAs : 1) * (p.onsetT > 0 ? 1 + this.ONSET.as : 1); },
+  msFlat(u) { const K = this.k(u); return K.stepMs && u.steps > 0 ? K.stepMs * u.steps / this.STEP.max : 0; },
+  damageMul2(src, tgt, type) {
+    let m = 1;
+    if (type === 'skill' && src && src.warmN > 0 && this.k(src).warmup && this.isChar(tgt)) m *= 1 + this.WARMUP.per * src.warmN;
+    if (tgt.rift && tgt.rift.t > 0) m *= 1 + this.RIFT.taken;   // 차원 불안정: 받는 피해 증가
+    return m;
+  },
+  // 매 스텝
+  tick2(u, dt) {
+    const K = this.k(u);
+    for (const k of ['flashCd', 'rudraCd', 'rudraT', 'dazzleT', 'warmT', 'passionT', 'galeCd', 'cohCd', 'onsetCd', 'onsetT', 'masterCd', 'awakeCd', 'awakeT']) if (u[k] > 0) u[k] = Math.max(0, u[k] - dt);
+    if (u.rudraAd && !(u.rudraT > 0)) { u.ad -= u.rudraAd; u.rudraAd = 0; }
+    if (u.dazzleN && !(u.dazzleT > 0)) u.dazzleN = 0;
+    if (u.warmN && !(u.warmT > 0)) u.warmN = 0;
+    if (u.onsetSp && !(u.onsetT > 0)) { u.sp -= u.onsetSp; u.onsetSp = 0; }
+    if (u.awakePen && !(u.awakeT > 0)) { u.penPct -= u.awakePen; u.awakePen = 0; }
+    // 가벼운 발걸음: 이동 거리만큼 중첩
+    if (K.step) { const last = u._stepPos || u.pos, d = V.dist(last, u.pos); u._stepPos = V.copy(u.pos); if (d > 0 && d < 3) { u.stepAcc = (u.stepAcc || 0) + d; while (u.stepAcc >= K.step) { u.stepAcc -= K.step; u.steps = Math.min(this.STEP.max, (u.steps || 0) + 1); } } }
+    // 돌풍: 0.5초마다 주변
+    if (u.galeT > 0) { u.galeAcc = (u.galeAcc || 0) + dt; while (u.galeAcc >= this.GALE.tick) { u.galeAcc -= this.GALE.tick; for (const e of Game.enemies(u)) if (V.dist(e.pos, u.pos) <= this.RANGE.gale + e.r) Combat.damage(u, e, this.GALE.base + u.sp * this.GALE.sp + e.maxHp * this.GALE.hp, { type: 'skill', source: '돌풍', aoe: true, noShake: true, tick: true }); } }
+    // 차원 불안정: 매초 피해 (대상 쪽)
+    if (u.rift) { const R = u.rift; R.t -= dt; R.acc += dt; while (R.acc >= 1 && !u.dead) { R.acc -= 1; Combat.damage(R.src, u, this.RIFT.base + R.src.sp * this.RIFT.sp, { type: 'skill', source: '차원 균열', tick: true, noShake: true }); } if (R.t <= 1e-9 || u.dead) u.rift = null; }
+    // 명경지수: 5초간 안 맞으면 매초 보호막
+    if (K.calm && !u.dead) {
+      const C = this.CALM, lv = this.lvl(u), max = C.max + C.maxLv * lv + u.sp * C.maxSp;
+      if (Game.time - (u.lastHurtT ?? -99) >= C.wait) { u.calmAcc = (u.calmAcc || 0) + dt; while (u.calmAcc >= 1) { u.calmAcc -= 1; u.shield = Math.min(max, (u.shield || 0) + C.per + C.perLv * lv); u.shieldT = Math.max(u.shieldT || 0, 1.5); } }
+      else u.calmAcc = 0;
+    }
+    // 격동: 전투 중 2.5m 안에 적이 2초 있으면 주위 피해
+    if (K.turbulence && !u.dead && Rest.inCombat(u)) {
+      const near = Game.enemies(u).some(e => this.isChar(e) && V.dist(e.pos, u.pos) <= this.RANGE.turbulence + e.r);
+      u.turbT = near ? (u.turbT || 0) + dt : 0;
+      if (u.turbT >= this.TURB.need) {
+        u.turbT = 0; const bonus = Math.max(0, u.maxHp - (u.baseHpAtLv || u.maxHp)), dmg = this.TURB.base + bonus * this.TURB.bonusHp + this.TURB.perLv * this.lvl(u);
+        FX.ring(u.pos, 0.3, this.RANGE.turbulence, '#ffd166', 0.3, 0.1);
+        for (const e of Game.enemies(u)) if (V.dist(e.pos, u.pos) <= this.RANGE.turbulence + e.r) Combat.damage(u, e, dmg, { type: 'skill', source: '격동', aoe: true, noShake: true });
+      }
+    }
+  },
+  // 예약 효과 (tick의 itemPending에서 부름)
+  pending2(u, P) {
+    if (P.kind === 'cohesion') { if (P.target && !P.target.dead) { P.target.addSlow(this.COHESION.slow, this.COHESION.dur); FX.ring(P.target.pos, 0.2, 1.2, '#ff8fd8', 0.3, 0.08); } return true; }
+    if (P.kind === 'master') {
+      const M = this.MASTER, dmg = M.base + u.sp * M.sp + M.perLv * this.lvl(u);
+      FX.ring(u.pos, 0.3, this.RANGE.master, '#9fd8ff', 0.35, 0.12);
+      for (const e of Game.enemies(u)) if (V.dist(e.pos, u.pos) <= this.RANGE.master + e.r) { Combat.damage(u, e, dmg, { type: 'skill', source: '달인', aoe: true }); e.addSlow(M.slow, M.dur); }
+      return true;
+    }
+    return false;
+  },
+});
 
 // ============================== 플레이어블: 다니엘 (단검) ==============================
 // 캐시의 조작·시전·평타 흐름(Cathy)을 그대로 쓰고, 스킬 Q·W·E·R과 평타만 다니엘 것으로 교체
@@ -1941,7 +2176,7 @@ const ItemFx = {
 const DANIEL_SHORT = { Q: '가위', W: '영감', E: '그림자', R: '걸작' };
 class DanielPlayer extends Cathy {
   constructor(x, y) {
-    super(x, y);
+    super(x, y, null);   // 장비 없음(다니엘은 실측 능력치) — 판 옵션의 캐시 장비가 섞이지 않게
     const M = CONFIG.rangedMotifs.daniel, st = ['early', 'mid', 'late'].includes(Game.buildId) ? Game.buildId : 'mid', si = ['early', 'mid', 'late'].indexOf(st);
     this.charKey = 'daniel'; this.name = '다니엘'; this.color = M.color; this.weapon = 'dagger'; this.usesTrauma = false;
     this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si]; this.baseHpAtLv = 920 + 90 * (CONFIG.rangedAI.stages[st].level - 1);
@@ -2422,7 +2657,7 @@ class Duelist extends Unit {
   }
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt);
+    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감
     this.aaCd -= dt;
     if (this.healing) {   // 재생 — 치명적 외상의 치유 감소 적용
       const h = Math.min(dt, this.healing.t); this.healing.t -= dt;
@@ -2549,6 +2784,13 @@ class RangedDuelist extends Duelist {
     this.melee = !!M.melee; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0; if (this.melee) { this.kind = 'melee'; this.r = 0.5; }
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.pen = M.pen[si];
     this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd));
+    // 장비(결투 옵션 「상대 장비」): 인기 빌드로 계산한 능력치 — 없으면 위 실측값 그대로
+    const eg = Game.opts && Game.opts.enemyGear, G = Number.isInteger(eg) ? Builds.resolveAI(motifKey, st, eg) : null;
+    if (G) {
+      Object.assign(this, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, pen: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, pasK: G.passiveK, cdrAi: G.cdr });
+      if (G.aaAmp) this.aaAmp = G.aaAmp;
+      this.gearInfo = G;
+    }
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -2593,7 +2835,7 @@ class RangedDuelist extends Duelist {
   // ---------- 매 스텝 ----------
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt);
+    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감 = 쿨 × 100/(100+쿨감)
     this.aaCd -= dt; if (this.noAA > 0) this.noAA -= dt;
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
@@ -3964,10 +4206,12 @@ Modes.duel = {
     if (e.melee) {   // 근거리 암살자(다니엘): 상태·표식 + 대응 팁
       const st = { stalk: '서성이며 각 재는 중', engage: '진입!', retreat: '후퇴' }[e.mode] + (e.stealthT > 0 ? ' · 은신' : '') + (e.shadow ? ' · 걸작(대상 지정 불가)' : '');
       const mk = e.mark ? kv('영감 표식', e.mark.t >= e.kitCfg.W.ready ? `<b style="color:#ffd1ff">활성 — 공격받으면 폭발 ${Math.round(e.mark.acc)}</b>` : `${fmt(e.kitCfg.W.ready - e.mark.t, 1)}s 후 활성 (축적 ${Math.round(e.mark.acc)})`) : '';
-      return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 공속', `${e.ad} / ${fmt(e.curAs(), 2)}`)}${kv('치명 / 평타 증폭 / 방관', `${Math.round(e.critChance * 100)}% / ${Math.round(e.aaAmp * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('상태', st)}${mk}${['Q', 'W', 'E', 'R', 'D'].map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : (k === 'D' && e.cloakT > 0 ? '단검 재사용 가능' : '준비'))).join('')}
+      const gi2 = e.gearInfo ? `<div style="color:#9fd8ff;margin:4px 0">🛠 ${esc(e.gearInfo.label)}</div>` : '';
+      return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${gi2}${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 공속', `${e.ad} / ${fmt(e.curAs(), 2)}`)}${kv('치명 / 평타 증폭 / 방관', `${Math.round(e.critChance * 100)}% / ${Math.round(e.aaAmp * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('상태', st)}${mk}${['Q', 'W', 'E', 'R', 'D'].map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : (k === 'D' && e.cloakT > 0 ? '단검 재사용 가능' : '준비'))).join('')}
       <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">다니엘은 정면으로 싸우지 않습니다. 6m 근처(부쉬 선호)에서 서성이다가 <b>캐시의 E(수쳐)·Q가 빠지거나 체력이 깎이면</b> 망토 → E 은신 돌진 → 건너편 순간이동 평타 → 가위(Q)+영감(W) → 단검 → R 걸작으로 들어옵니다. 은신 연기를 보면 바로 대비하고 <b>E 수쳐는 진입 순간을 위해 아껴 두세요</b>. 걸작(R) 중엔 대상 지정 불가 + 0.5초 침묵 — 빠져나오는 위치를 노리세요. 보라색 링(영감)이 밝아지면 맞는 순간 축적 피해가 터집니다.</div>`;
     }
-    return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 스킬 증폭', `${e.ad} / ${e.sp}`)}${kv('공속 / 치명 / 방관', `${e.as} / ${Math.round(e.critChance * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('평타 사거리', fmt(e.aaRange(), 2) + 'm' + (e.stance ? (e.stance === 'short' ? ' (단궁)' : ' (화궁)') : ''))}${['Q', 'W', 'E', 'R', 'D'].filter(k => e.kitCfg[k]).map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : '준비')).join('')}
+    const gi = e.gearInfo ? `<div style="color:#9fd8ff;margin:4px 0">🛠 ${esc(e.gearInfo.label)}</div>` : '';
+    return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${gi}${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 스킬 증폭', `${e.ad} / ${e.sp}`)}${kv('공속 / 치명 / 방관', `${e.as} / ${Math.round(e.critChance * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('평타 사거리', fmt(e.aaRange(), 2) + 'm' + (e.stance ? (e.stance === 'short' ? ' (단궁)' : ' (화궁)') : ''))}${['Q', 'W', 'E', 'R', 'D'].filter(k => e.kitCfg[k]).map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : '준비')).join('')}
       <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.</div>`;
   },
   result() {
@@ -3979,7 +4223,7 @@ Modes.duel = {
   },
 };
 
-// ============================== 1:1 온라인 대전 (캐시 vs 캐시) ==============================
+// ============================== 1:1 온라인 대전 (캐시·다니엘) ==============================
 // 결투(Modes.duel)의 라운드·점수·스피어 규칙을 그대로 쓰고, 상대만 AI 대신 「명령으로 조종하는 캐시」(팀 1)
 //   호스트: Game.player = 호스트 캐시, enemy = 손님 캐시(Net이 받은 명령을 적용)
 //   손님: 같은 판을 만들고 상태만 받아 그림. 화면의 점수·승패는 손님 시점으로 뒤집어 보여 줌
@@ -3989,10 +4233,14 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
   start(o) {
     this.o = o; this.diff = 'pvp'; this.need = o.rounds === 1 ? 1 : 2;
     this.guestWeapon = o.guestWeapon === 'dual' ? 'dual' : 'dagger'; this.hostWeapon = o.hostWeapon === 'dual' ? 'dual' : 'dagger';
+    // 캐릭터: 캐시 / 다니엘 (다니엘은 단검 고정·장비 없음)
+    this.hostChar = o.hostChar === 'daniel' ? 'daniel' : 'cathy'; this.guestChar = o.guestChar === 'daniel' ? 'daniel' : 'cathy';
+    if (this.guestChar === 'daniel') this.guestWeapon = 'dagger'; if (this.hostChar === 'daniel') this.hostWeapon = 'dagger';
+    const nm = c => c === 'daniel' ? '다니엘' : '캐시';
     this.motifKey = null; this.stageInfo = { label: '' };
-    this.motif = { name: '상대 캐시', weapon: CONFIG.basicAttack[this.guestWeapon].label, color: '#5aa9ff' };
+    this.motif = { name: '상대 ' + nm(this.guestChar), weapon: CONFIG.basicAttack[this.guestWeapon].label, color: '#5aa9ff' };
     this.animals = false; this.sphere = !!o.sphere;
-    this.title = '1:1 온라인 대전 · 캐시 vs 캐시' + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '') + (this.sphere ? ' · 크로노 스피어' : '');
+    this.title = `1:1 온라인 대전 · ${nm(this.hostChar)} vs ${nm(this.guestChar)}` + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '') + (this.sphere ? ' · 크로노 스피어' : '');
     // 손님 캐릭터 전용 통계 (판 전체 누적). 숨김 속성 → 스냅샷에 안 실림(라운드 끝에 따로 보냄)
     Object.defineProperty(this, 'rs', { value: Stats.make(), enumerable: false, writable: true, configurable: true });
     this.wins = { p: 0, e: 0 }; this.round = 0; this.history = []; this.newRound();
@@ -4002,18 +4250,18 @@ Modes.pvp = Object.assign(Object.create(Modes.duel), {
     this.round++; Game.units = []; Game.projectiles = []; Game.zones = [];
     const sp = Game.map.spawns, keep = { c: Settings.character, w: Settings.weapon };
     try {
-      Settings.character = 'cathy'; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
-      Settings.weapon = this.guestWeapon;
-      const g = new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(없으면 실측)
-      Object.assign(g, { team: 1, name: '캐시 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
+      Settings.character = this.hostChar; Settings.weapon = this.hostWeapon; Scene.player(sp.p.x, sp.p.y);
+      Settings.character = this.guestChar; Settings.weapon = this.guestWeapon;
+      const g = this.guestChar === 'daniel' ? new DanielPlayer(sp.e.x, sp.e.y) : new Cathy(sp.e.x, sp.e.y, this.o.guestGear || null);   // 손님 장비(캐시만, 없으면 실측)
+      Object.assign(g, { team: 1, name: (this.guestChar === 'daniel' ? '다니엘' : '캐시') + ' 2P', color: '#5aa9ff', facing: Math.PI, stats: { dodges: 0, s1Hits: 0, s1Casts: 0 } });
       Object.defineProperty(g, 'rstats', { value: this.rs, enumerable: false, writable: true, configurable: true });   // 스냅샷에 안 실리게(따로 보냄)
       this.rs.owner = g; Game.units.push(g); this.enemy = g;
     } finally { Settings.character = keep.c; Settings.weapon = keep.w; }
-    Game.player.name = '캐시 1P';
+    Game.player.name = (this.hostChar === 'daniel' ? '다니엘' : '캐시') + ' 1P';
     VisionItems.give(Game.player); VisionItems.give(this.enemy); Game.drones = []; Vision.reveals = []; Vision.noises = [];
     if (this.sphere) Sphere.start(); else Sphere.stop();
     this.snap = Stats.snapshot(); this.rsnap = this.rs.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
-    Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: 'VS 상대 캐시 (온라인)' };
+    Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} (온라인)` };
   },
   update(dt, frozen) { Modes.duel.update.call(this, dt, frozen); if (!frozen && this.rs) this.rs.tick(dt); },
   // 라운드 끝: 손님 캐릭터 기준 요약을 붙이고 손님에게 통계를 보냄
@@ -4373,7 +4621,7 @@ const Net = {
   // ---------- 호스트 ----------
   startHost(link, opts = {}) {
     this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = []; this.rtt = 0;
-    const o = Object.assign({ build: Settings.build, hostWeapon: Settings.weapon, guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
+    const o = Object.assign({ build: Settings.build, hostChar: Settings.character === 'daniel' ? 'daniel' : 'cathy', hostWeapon: Settings.weapon, guestChar: 'cathy', guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
     if (o.seed === undefined) o.seed = (Math.random() * 4294967296) >>> 0;
     this.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: null };
     Game.start('pvp', o); this.hello();
@@ -4621,7 +4869,7 @@ const Rtc = {
   },
   onOpen() {
     // 손님: 버전·무기 알림 → 호스트가 대전 시작
-    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
+    if (this.role === 'guest') { Net.startGuest(this.link()); this.dc.send(JSON.stringify({ t: 'join', v: BUILD_ID, char: Settings.character === 'daniel' ? 'daniel' : 'cathy', weapon: Settings.weapon === 'dual' ? 'dual' : 'dagger', gear: Builds.current() })); }
     this.watch();
     this.onStatus('open');
   },
@@ -4631,7 +4879,8 @@ const Rtc = {
       if (m.t !== 'join') return;
       if (m.v !== BUILD_ID) { this.lost('상대의 게임 버전이 다릅니다'); return; }
       const gw = m.weapon === 'dual' ? 'dual' : 'dagger', gg = m.gear ? Builds.clean(m.gear, gw) : null;   // 손님 장비는 검사 후
-      Net.startHost(this.link(), Object.assign({}, this.opts, { guestWeapon: gw, guestGear: Builds.any(gg) ? gg : null, gear: Builds.current() }));
+      const gc = m.char === 'daniel' ? 'daniel' : 'cathy';
+      Net.startHost(this.link(), Object.assign({}, this.opts, { guestChar: gc, guestWeapon: gw, guestGear: gc === 'cathy' && Builds.any(gg) ? gg : null, gear: Builds.current() }));
       this.onStatus('started');
       return;
     }
@@ -4709,17 +4958,118 @@ const Replay = {
   },
   restore() { if (!this.active) return; Object.assign(Settings, this.active.backup); },
   // 매 스텝 뒤: 기록 끝에 닿으면 종료
-  afterStep() { if (this.active && Game.state === 'play' && Game.tick >= this.active.r.ticks) this.end(); },
+  afterStep() { if (this.active && !this.analyzing && Game.state === 'play' && Game.tick >= this.active.r.ticks) this.end(); },   // 분석·이동 중엔 끝내지 않음
   end() {
     if (!this.active) return;
-    const r = this.active.r; Game.state = 'result'; this.restore(); this.active = null;
+    const r = this.active.r; Game.state = 'result'; this.restore(); this.active = null; this.paused = false; Game.paused = false; this.bar && this.bar();   // 타임라인 닫기
     UI.show(`<h2>📼 리플레이 끝</h2><div class="sub">${esc(r.title || r.mode)} · ${fmt(r.ticks * r.step, 1)}초</div>
       <div class="row" style="margin-top:14px"><button class="btn primary" data-a="again">다시 보기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`,
-      { again: () => this.start(r), menu: () => UI.showMenu() }, { r: 'again', m: 'menu', Escape: 'menu' });
+      { again: () => (this.markers && this.markers.length ? this.watch(r) : this.start(r)), menu: () => UI.showMenu() }, { r: 'again', m: 'menu', Escape: 'menu' });
   },
-  stop() { if (this.active) { this.restore(); this.active = null; } },
+  stop() { if (this.active) { this.restore(); this.active = null; } this.paused = false; this.markers = []; if (this.bar) this.bar(); },
   label() { const A = this.active; if (!A) return ''; const t = A.r.ticks * A.r.step; return `📼 리플레이 ${fmt(Math.min(Game.tick * A.r.step, t), 1)} / ${fmt(t, 1)}초${A.warn ? ' · ⚠ 다른 버전' : ''}`; },
 };
+
+// ============================== 리플레이 분석 (실수 타임라인) ==============================
+// 리플레이를 열면 화면 없이 먼저 끝까지 돌려 「표시할 지점」을 모음 → 화면 아래 타임라인에 점으로 → 누르면 그 장면으로
+//   ⚠ 실수(코칭과 같은 실수 기록) · ✕ 빗나간 스킬 · ▼ 큰 피격(최대 체력 12% 이상 한 번에) · ★ 치명적 외상 · ☠ 쓰러짐 · ⚔ 처치 · 🏁 라운드 끝
+//   이동(seek): 결정성 덕분에 처음부터 그 틱까지 화면 없이 다시 계산 → 정확히 그 장면 (뒤로 가면 처음부터)
+//   조작: 일시정지 P · 이전/다음 표시 [ ] · 속도 − = (0.5×·1×·2×·4×) · 점 클릭 = 그 2초 전 · 막대 클릭 = 그 시점
+Object.assign(Replay, {
+  SPEEDS: [0.5, 1, 2, 4], speed: 1, paused: false, markers: [], analyzing: false,
+  KIND: { mistake: { icon: '⚠', color: '#ffb347', label: '실수' }, miss: { icon: '✕', color: '#ff6b6b', label: '빗나감' }, hurt: { icon: '▼', color: '#ff3b5c', label: '큰 피격' },
+    crit: { icon: '★', color: '#ffd166', label: '치명적 외상' }, death: { icon: '☠', color: '#c0c4cc', label: '쓰러짐' }, kill: { icon: '⚔', color: '#5dff9a', label: '처치' }, round: { icon: '🏁', color: '#9fd8ff', label: '라운드 끝' } },
+  // ---------- 분석: 끝까지 돌리며 지점 수집 (관찰만 — 판 결과는 그대로) ----------
+  analyze(r) {
+    this.check(r);
+    const marks = [], push = (kind, text) => { const last = marks[marks.length - 1]; if (last && last.kind === kind && last.text === text && Game.tick - last.tick < 30) return; marks.push({ tick: Game.tick, kind, text }); };
+    const orig = { mistake: Stats.mistake, shot: Stats.resolveShot, damage: Combat.damage, kill: Combat.kill, critical: Passive.critical, sound: Settings.sound };
+    let roundN = 0;
+    Stats.mistake = function (txt) { if (this === Stats) push('mistake', txt); return orig.mistake.apply(this, arguments); };
+    Stats.resolveShot = function (k, hit) { if (this === Stats && ['Q', 'W', 'E'].includes(k) && !hit) push('miss', `${k} 빗나감`); return orig.shot.apply(this, arguments); };
+    Combat.damage = function (src, tgt, amount, o = {}) { const before = tgt && tgt.hp; const d = orig.damage.apply(this, arguments); if (tgt === Game.player && !o.tick && d >= tgt.maxHp * 0.12) push('hurt', `큰 피격 ${Math.round(d)}${src && src.name ? ' ← ' + src.name : ''}`); return d; };
+    Combat.kill = function (src, tgt) { const r2 = orig.kill.apply(this, arguments); if (tgt === Game.player) push('death', '쓰러짐'); else if (src === Game.player && !tgt.infinite && tgt.kind !== 'ward') push('kill', `처치: ${tgt.name || tgt.kind}`); return r2; };
+    Passive.critical = function (t, by, p = Game.player) { const was = t && t.crit > 0; const r2 = orig.critical.apply(this, arguments); if (p === Game.player && !was && t && t.crit > 0) push('crit', '치명적 외상'); return r2; };
+    Settings.sound = false; this.analyzing = true;
+    try {
+      this.start(r); const S = CONFIG.sim.step;
+      let lastRound = Game.mode && Game.mode.history ? Game.mode.history.length : 0;
+      while (Game.tick < r.ticks && Game.state === 'play') {
+        Game.step(S);
+        const H = Game.mode && Game.mode.history; if (H && H.length > lastRound) { lastRound = H.length; const s = H[H.length - 1]; push('round', `R${s.round} ${s.winner === 'p' ? '승' : '패'}`); roundN++; }
+      }
+    } finally {
+      Object.assign(Stats, { mistake: orig.mistake, resolveShot: orig.shot }); Combat.damage = orig.damage; Combat.kill = orig.kill; Passive.critical = orig.critical;
+      Settings.sound = orig.sound; this.analyzing = false; this.restore(); this.active = null; FX.reset();
+    }
+    return marks;
+  },
+  // ---------- 보기: 분석 → 처음부터 재생 + 타임라인 ----------
+  watch(r) {
+    const marks = this.analyze(r);
+    this.markers = marks; this.speed = 1; this.paused = false;
+    this.start(r); this.bar(); return marks;
+  },
+  // 그 틱으로 이동 (뒤면 처음부터 다시 계산)
+  seek(tick) {
+    const A = this.active; if (!A) return;
+    const r = A.r, keepMarks = this.markers, keepSpeed = this.speed, snd = Settings.sound;
+    tick = clamp(Math.round(tick), 0, r.ticks);
+    if (tick < Game.tick || Game.state !== 'play') { this.analyzing = true; this.start(r); this.analyzing = false; }
+    Settings.sound = false; this.analyzing = true;
+    try { const S = CONFIG.sim.step; while (Game.tick < tick && Game.state === 'play') Game.step(S); }
+    finally { this.analyzing = false; Settings.sound = snd; }
+    FX.reset(); this.markers = keepMarks; this.speed = keepSpeed;
+    if (Game.tick >= r.ticks) this.end(); else this.bar();
+  },
+  jump(dir) {   // 이전(-1)/다음(+1) 표시
+    const t = Game.tick, list = this.markers;
+    const m = dir > 0 ? list.find(x => x.tick - 120 * 2 > t + 5) : [...list].reverse().find(x => x.tick - 120 * 2 < t - 30);
+    if (m) this.seek(m.tick - 120 * 2);
+  },
+  setSpeed(dir) { const i = clamp(this.SPEEDS.indexOf(this.speed) + dir, 0, this.SPEEDS.length - 1); this.speed = this.SPEEDS[i]; this.bar(); },
+  togglePause() { if (!this.active) return; this.paused = !this.paused; Game.paused = this.paused; this.bar(); },
+  key(k) {
+    if (!this.active) return false;
+    if (k === 'p') { this.togglePause(); return true; }
+    if (k === '[') { this.jump(-1); return true; }
+    if (k === ']') { this.jump(1); return true; }
+    if (k === '-') { this.setSpeed(-1); return true; }
+    if (k === '=' || k === '+') { this.setSpeed(1); return true; }
+    return false;
+  },
+  // ---------- 타임라인 (화면 아래 DOM) ----------
+  bar() {
+    const A = this.active; let el = document.getElementById('replay-bar');
+    if (!A) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'replay-bar'; document.body.appendChild(el); }
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:118px;width:min(760px,94vw);z-index:40;background:rgba(14,17,24,.92);border:1px solid #2a3140;border-radius:10px;padding:8px 10px;font:12px ' + FONT + ';color:#e6e9ef;box-sizing:border-box';
+    const T = A.r.ticks || 1, counts = {};
+    for (const m of this.markers) counts[m.kind] = (counts[m.kind] || 0) + 1;
+    const dots = this.markers.map((m, i) => { const K = this.KIND[m.kind]; return `<span data-rm="${i}" title="${fmt(m.tick * A.r.step, 1)}초 · ${esc(m.text)}" style="position:absolute;left:${(m.tick / T * 100).toFixed(2)}%;top:-1px;transform:translateX(-50%);cursor:pointer;color:${K.color};font-size:12px;line-height:14px">${K.icon}</span>`; }).join('');
+    const legend = Object.entries(counts).map(([k, n]) => `<span style="color:${this.KIND[k].color}">${this.KIND[k].icon} ${this.KIND[k].label} ${n}</span>`).join(' · ') || '<span style="color:#8a93a6">표시할 지점 없음</span>';
+    el.innerHTML = `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <button class="btn" data-rb="prev" title="이전 표시 [">⏮</button><button class="btn" data-rb="pause" title="일시정지 P">${this.paused ? '▶' : '⏸'}</button><button class="btn" data-rb="next" title="다음 표시 ]">⏭</button>
+        <button class="btn" data-rb="slow" title="느리게 −">−</button><b>${this.speed}×</b><button class="btn" data-rb="fast" title="빠르게 =">+</button>
+        <span id="replay-now" style="margin-left:6px;color:#9fd8ff"></span><span style="margin-left:auto">${legend}</span></div>
+      <div id="replay-track" style="position:relative;height:16px;background:#1b2130;border-radius:6px;cursor:pointer">${dots}<i id="replay-head" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;left:0"></i></div>`;
+    el.onclick = e => {
+      const rm = e.target.closest('[data-rm]'), rb = e.target.closest('[data-rb]'), tr = e.target.closest('#replay-track');
+      if (rm) { const m = this.markers[+rm.dataset.rm]; this.seek(Math.max(0, m.tick - 120 * 2)); return; }
+      if (rb) { ({ prev: () => this.jump(-1), next: () => this.jump(1), pause: () => this.togglePause(), slow: () => this.setSpeed(-1), fast: () => this.setSpeed(1) })[rb.dataset.rb](); return; }
+      if (tr) { const b = tr.getBoundingClientRect(); this.seek((e.clientX - b.left) / Math.max(1, b.width) * T); }
+    };
+    this.updateBar();
+  },
+  // 매 프레임: 재생 위치·지금 지점 설명
+  updateBar() {
+    const A = this.active; if (!A) return;
+    const head = document.getElementById('replay-head'), now = document.getElementById('replay-now'); if (!head) return;
+    head.style.left = (Game.tick / Math.max(1, A.r.ticks) * 100).toFixed(2) + '%';
+    const near = this.markers.filter(m => Math.abs(m.tick - Game.tick) < 120 * 1.5).pop();
+    if (now) now.textContent = `${fmt(Game.tick * A.r.step, 1)} / ${fmt(A.r.ticks * A.r.step, 1)}초` + (near ? ` · ${this.KIND[near.kind].icon} ${near.text}` : '');
+  },
+});
 
 // ============================== 게임 ==============================
 const Game = {
@@ -4775,6 +5125,7 @@ const Game = {
     Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
+    if (this.opts && Number.isInteger(this.opts.enemyGear) && r.key) { r.key += '|eg' + this.opts.enemyGear; r.recTitle = (r.recTitle || r.title) + ` · 상대 장비 ${this.opts.enemyGear + 1}`; }
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
   togglePause() {
@@ -4905,7 +5256,8 @@ const Input = {
       if (!Game.paused && this.amove) { this.amove = false; return; }
       Game.togglePause(); return;
     }
-    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
+    if (e.key === ' ' && Game.state === 'play') { e.preventDefault(); this.spaceHeld = true; return; }
+    if (Replay.active && Game.state === 'play' && !e.repeat && Replay.key(e.key.toLowerCase())) { e.preventDefault(); return; }   // 리플레이: P · [ ] · − =   // 스페이스(누르고 있기): 카메라를 내 캐릭터로
     if (Game.state !== 'play' || Game.paused || e.repeat || !Game.player) return;
     if (Game.modeId === 'combo' && e.key.toLowerCase() === 'g' && !Object.values(Settings.keys).includes('g')) { e.preventDefault(); Modes.combo.startDemo(); return; }   // 콤보 시범 보기
     if (Game.demoLock) return;   // 시범 중엔 입력 막음
@@ -5276,7 +5628,7 @@ const ScreenLayer = {
     this.drawOverheads(ctx);
     this.drawTexts(ctx);
     if (Game.mode && Game.mode.drawScreen) Game.mode.drawScreen(ctx, L, 0);
-    if (Replay.active) Draw.text(ctx, Replay.label(), L.W / 2, L.H - 150, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });
+    if (Replay.active && !document.getElementById('replay-bar')) Draw.text(ctx, Replay.label(), L.W / 2, 64, { size: 14, bold: true, align: 'center', color: '#9fd8ff', stroke: true });   // 타임라인이 없을 때만
     HUD.draw(ctx, L);
     this.drawTopInfo(ctx, L);
     this.drawToasts(ctx, L);
@@ -6950,7 +7302,7 @@ const NetLab = {
         const t1 = H.Game.time, r1 = performance.now();
         const g0 = performance.now(); while (performance.now() - g0 < 3000) { G.Net.fakeNow = performance.now(); G.Net.guestTick(1 / 60); await sleep(16); }
         const ran = H.Game.time - t1, real = (performance.now() - r1) / 1000;
-        ok('호스트 탭이 숨겨져도 게임 진행', ran > real * 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
+        ok('호스트 탭이 숨겨져도 게임 진행', ran >= 0.5 && G.Rtc.state === 'open', `실제 ${real.toFixed(1)}초 동안 게임 ${ran.toFixed(1)}초 (${Math.round(ran / real * 100)}%) — 시험 창이 숨겨지면 바깥 페이지도 멈춰 비율이 낮아질 수 있음, 멈춤(0%) 재발 검사`);
         H.Net.hidden = () => false; hw.requestAnimationFrame = raf; raf.call(hw, H.loop); hostPump = true;   // 원래대로
       }
       // 둘 다 창을 숨긴 것처럼(양쪽 계산·화면 멈춤) 7.5초 → 연결 유지 신호 덕에 끊김으로 오판하지 않음
@@ -7040,7 +7392,7 @@ const NetLab = {
       // ---------- 3단계: 손님 이동 예측 ----------
       const waitPlay = () => { let w = 0; while (w++ < 3000 && !(H.Game.state === 'play' && H.Game.freeze <= 0 && !H.Game.mode.inter && !H.Game.player.dead && !H.Game.mode.enemy.dead)) run(5); };
       const runQuiet = n => { const b = bot; bot = false; run(n); bot = b; };
-      bot = false; waitPlay(); runQuiet(60);
+      bot = false; waitPlay(); G.Cmd.stop(); runQuiet(LAT * 2 + 60);   // 남은 이동이 끝나 완전히 멈춘 뒤 측정
       const me = G.Game.player, srv0 = H.V.copy(me._to), tgt = { x: me._to.x + (me._to.x < 16 ? 5 : -5), y: me._to.y };
       G.Cmd.move(tgt); runQuiet(3);
       const early = G.V.dist(G.Game.player.pos, srv0), srvMoved = G.V.dist(G.Game.player._to, srv0);
@@ -7083,6 +7435,18 @@ const NetLab = {
       // 호스트 「다시 하기」 → 손님도 새 판
       H.Game.restart(); run(LAT + 30);
       ok('다시 하기 → 손님도 새 판', G.Game.state === 'play' && G.Game.mode.round === 1 && G.Game.player && G.Game.player.team === 1);
+      // 다니엘 손님: 새 방(같은 연결)으로 다시 시작 → 손님 화면의 내 캐릭터가 다니엘, 걸작(R)도 호스트에서 실행
+      bot = false;   // 이 시나리오는 봇을 멈추고 진행 (위치를 맞춰 둔 뒤 움직이지 않게)
+      H.Net.startHost(link('g'), { guestChar: 'daniel', hostChar: 'cathy', map: 'basic', rounds: 3, seed: 77 }); run(LAT + 30);
+      { let w = 0; while (H.Game.freeze > 0 && w++ < 400) run(5); }
+      const gd = G.Game.player, hd = H.Game.mode.enemy;
+      ok('다니엘 손님: 손님 화면 내 캐릭터 = 다니엘', gd && gd.charKey === 'daniel' && gd.team === 1 && hd && hd.charKey === 'daniel' && !gd.gear);
+      const r0 = hd.skills.R.cd; hd.pos = { x: H.Game.player.pos.x + 1.5, y: H.Game.player.pos.y }; H.Combat.damage(hd, H.Game.player, 1, { type: 'skill', source: 't' }); run(2);
+      const c0 = H.Net.stats.cmds, j0 = H.Net.stats.rejected, gs = G.Net.stats.sent;
+      G.Cmd.skill('R', { x: H.Game.player.pos.x, y: H.Game.player.pos.y }); run(LAT + 20); bot = true;
+      ok('다니엘 손님: 걸작(R) 명령이 호스트에서 실행', hd.skills.R.cd > r0 || !!hd.shadow, `R 쿨 ${hd.skills.R.cd.toFixed(1)} · 받은 명령 +${H.Net.stats.cmds - c0} 거부 +${H.Net.stats.rejected - j0} 보냄 +${G.Net.stats.sent - gs} · 손님 상태 ${G.Game.state} 손님 플레이어 ${G.Game.player && G.Game.player.charKey} 호스트 ${H.Game.state} freeze ${H.Game.freeze.toFixed(2)} 거리 ${H.V.dist(hd.pos, H.Game.player.pos).toFixed(2)} R lv ${hd.skills.R.lv}`);
+      let sc = 0, sn = 0; for (let i = 0; i < 6; i++) { run(30); sn++; if (close(hist.get(G.Game.tick), digest(G, true))) sc++; }
+      ok('다니엘 손님: 화면 = 호스트 상태', sc === sn, `${sc}/${sn}`);
       ok('오류 없음', !err.length, err.slice(0, 3).join(' / '));
     } catch (x) { ok('예외 없이 실행', false, x.message + ' ' + (x.stack || '').split('\n')[1]); }
     const fail = res.filter(r => !r.c);
@@ -7209,14 +7573,14 @@ const UI = {
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'duel') return { diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
+    if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
     if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
-    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}`;
+    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
   },
   lastLabel() {
@@ -7258,7 +7622,7 @@ const UI = {
       mode: d => this.showModeOptions(d.v),
       online: () => this.showOnline(),
       gear: () => this.showGear(),
-      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.start(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
+      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.watch(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
       quick: d => this.start(d.v, this.quickOpts(d.v)),
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
@@ -7317,6 +7681,7 @@ const UI = {
         <div class="sub" style="margin:2px 0 6px">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[dm][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'}</div>
         <div class="row"><label>난이도</label>${db}</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
+        <div class="row"><label>상대 장비</label>${[[-1, '실측 (기본)'], [0, '인기 1'], [1, '인기 2'], [2, '시작 (영웅)']].map(([v, l]) => `<button class="btn ${(Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : -1) === v ? 'sel' : ''}" data-a="egear" data-v="${v}">${l}</button>`).join('')}<span class="sub" style="margin:0 0 0 8px">시즌 12 dak.gg 인기 빌드로 계산 (능력치·쿨감·관통·흡혈, 고유 효과는 공통 효과만)</span></div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
@@ -7332,6 +7697,7 @@ const UI = {
         diff: d => { Settings.duelDiff = d.v; saveSettings(); this.showModeOptions('duel'); },
         motif: d => { Settings.duelMotif = d.v === 'random' ? null : d.v; saveSettings(); this.showModeOptions('duel'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('duel'); },
+        egear: d => { const v = +d.v; Settings.duelEnemyGear = v >= 0 ? v : null; saveSettings(); this.showModeOptions('duel'); },
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
         'in:sphere': el => { Settings.duelSphere = el.checked; saveSettings(); },
@@ -7380,10 +7746,10 @@ const UI = {
   showOnline() {
     const ok = Rtc.ok(), w = CONFIG.basicAttack[Settings.weapon === 'dual' ? 'dual' : 'dagger'].label;
     this.show(`<h2>🌐 온라인 대전 (시험)</h2>
-      <div class="sub">친구와 브라우저끼리 직접 연결해 <b>캐시 vs 캐시 1:1</b>. 서버 없이 <b>연결 코드</b>를 메신저로 한 번씩 주고받습니다.</div>
+      <div class="sub">친구와 브라우저끼리 직접 연결해 <b>1:1 대전</b>(캐시·다니엘 — 메뉴에서 고른 실험체로). 서버 없이 <b>연결 코드</b>를 메신저로 한 번씩 주고받습니다.</div>
       ${ok ? '' : '<div class="sub" style="color:#ff6b6b">이 브라우저는 WebRTC를 지원하지 않습니다.</div>'}
       <div class="row" style="margin-top:12px"><button class="btn primary" data-a="host" ${ok ? '' : 'disabled'}>방 만들기 (호스트)</button><button class="btn" data-a="join" ${ok ? '' : 'disabled'}>참가하기 (손님)</button></div>
-      <div class="sub" style="margin-top:8px">내 무기: <b>${w}</b> (메뉴에서 변경) · 빌드·맵은 호스트 설정을 따름 · 공개 STUN: <b>${Settings.netStun === false ? '꺼짐 (같은 네트워크에서만)' : '켜짐'}</b> (설정에서 변경)</div>
+      <div class="sub" style="margin-top:8px">내 실험체: <b>${(Settings.character || 'cathy') === 'daniel' ? '다니엘 (단검)' : '캐시 · ' + w}</b> (메뉴에서 변경) · 빌드·맵은 호스트 설정을 따름 · 공개 STUN: <b>${Settings.netStun === false ? '꺼짐 (같은 네트워크에서만)' : '켜짐'}</b> (설정에서 변경)</div>
       <div class="sub" style="color:#ffb347">⚠ 연결 코드에는 접속 정보(IP 주소)가 들어 있습니다. 믿을 수 있는 상대에게만 보내세요.</div>
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>${NOTICE.html()}`,
       { host: () => this.showOnlineHost(), join: () => this.showOnlineJoin(), back: () => { Rtc.close(); this.showMenu(); } }, { Escape: 'back' });
@@ -7576,14 +7942,14 @@ const UI = {
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
-    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
+    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), rwatch: () => { if (Replay.last) Replay.watch(Replay.last); }, replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
     const coach = Coach.html(St);   // 7_a_coach.js
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
           ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
-          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
+          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="rwatch">🔍 리플레이로 실수 보기</button><button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
@@ -7611,7 +7977,7 @@ function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
   if (Net.role === 'guest') { Net.guestTick(dt); return; }   // 온라인 손님: 계산 없이 받은 상태를 그림
   if (Game.state === 'play' && !Game.paused) {
     // 온라인 대전은 항상 1배속
-    acc += dt * (Net.role ? 1 : Settings.gameSpeed); let n = 0;
+    acc += dt * (Net.role ? 1 : Replay.active ? Replay.speed : Settings.gameSpeed); let n = 0;   // 리플레이는 자체 속도
     while (acc >= CONFIG.sim.step && n < maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
     if (n >= maxSteps) acc = 0;
   } else acc = 0;
@@ -7623,6 +7989,7 @@ function loop(now) {
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);
   advanceSim(now);
   try { Renderer.frame(); } catch (e) { console.error(e); }
+  if (Replay.active) Replay.updateBar();   // 리플레이 타임라인 위치
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);
 }

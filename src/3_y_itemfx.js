@@ -12,12 +12,13 @@ const ItemFx = {
   isChar(u) { return u && ['player', 'ranged', 'melee', 'dummy'].includes(u.kind); },
   k(u) { return (u && u.pasK) || {}; },
   // 스킬 사용(QWERD) 직후
-  onCast(p) { if (this.k(p).nianSp && !(p.nianCd > 0)) p.nianT = this.NIAN.dur; },
-  asMul(p) { return p.nianT > 0 && this.k(p).nianSp ? 1 + this.NIAN.as : 1; },
+  onCast(p, k) { if (this.k(p).nianSp && !(p.nianCd > 0)) p.nianT = this.NIAN.dur; this.onCast2(p, k); },
+  asMul(p) { return (p.nianT > 0 && this.k(p).nianSp ? 1 + this.NIAN.as : 1) * this.asMul2(p); },
   // 평타 적중 직후
   onAA(p, t) {
     if (t && t.curseImm > 0) t.curseImm = Math.max(0, t.curseImm - this.CURSE.aaCut);   // 저주: 평타 맞을 때마다 재저주 대기 1초 감소
     this.onAATaser(p, t);
+    this.onAA2(p, t);   // 섬광·발걸음·포톤·열정·개시·현란함·신속·돌풍 (3_y_itemfx2.js)
     const K = this.k(p); if (!K.nianSp || !(p.nianT > 0) || !t || t.dead) return;
     p.nianT = 0; p.nianCd = this.NIAN.cd;
     Combat.damage(p, t, p.sp * K.nianSp, { type: 'skill', source: '의념', noShake: true });
@@ -32,8 +33,9 @@ const ItemFx = {
     FX.burst(t.pos, '#9fd8ff', 10, 5); FX.ring(t.pos, 0.2, 1.0, '#9fd8ff', 0.25, 0.06);
   },
   // 캐시 개별 스킬 피해 직후 (skillHit)
-  onSkillDamage(p, e) {
+  onSkillDamage(p, e, k) {
     const K = this.k(p); if (!e || e.dead) return;
+    this.onSkill2(p, e, k);   // 예열·차원 균열·응집·순풍·현란함·신속·돌풍
     if (K.rotHp) e.rot = { t: this.ROT.dur, per: e.maxHp * (K.rotHp + p.sp * K.rotSp), src: p, acc: 0 };
     if (K.curse && !(p.curseCd > 0) && !e.curse && !(e.curseImm > 0)) { p.curseCd = this.CURSE.cd; e.curse = { t: this.CURSE.dur, src: p, dmg: this.CURSE.base + p.sp * this.CURSE.sp }; }
     if (K.rupture && !(p.ruptCd > 0) && this.isChar(e)) { p.ruptCd = this.RUPTURE.cd; (p.itemPending = p.itemPending || []).push({ kind: 'rupture', t: this.RUPTURE.delay, target: e, pos: V.copy(e.pos) }); }
@@ -43,10 +45,11 @@ const ItemFx = {
     const K = this.k(src);
     let m = K.executor && type === 'skill' && tgt.maxHp > 0 && tgt.hp / tgt.maxHp <= this.EXEC.hp ? this.EXEC.mul : 1;
     if (type === 'skill' && tgt.taserMark && tgt.taserMark.t > 0 && src && tgt.taserMark.by === src.id) m *= this.TASER.mul;   // 테이저 건 표식
-    return m;
+    return m * this.damageMul2(src, tgt, type);
   },
   // 모든 피해 뒤: 치유 감소
   onDamage(src, tgt) {
+    tgt.lastHurtT = Game.time;   // 명경지수: 마지막으로 맞은 시각
     const K = this.k(src); if (!K.healCut || tgt.dead) return;
     tgt.healCutT = this.HEALCUT.dur; tgt.healCutPct = Math.max(tgt.healCutT > 0 && tgt.healCutPct || 0, K.healCut);
   },
@@ -66,10 +69,12 @@ const ItemFx = {
       while (R.acc >= 1 && !u.dead) { R.acc -= 1; Combat.damage(R.src, u, R.per, { type: 'skill', source: '부패', tick: true, noShake: true }); }
       if (R.t <= 1e-9 || u.dead) u.rot = null;
     }
+    this.tick2(u, dt);
     if (u.itemPending && u.itemPending.length) {
       for (const P of u.itemPending) {
         if ((P.t -= dt) > 0) continue;
         P.done = true;
+        if (this.pending2(u, P)) continue;
         if (P.kind === 'rupture') {
           const at = P.target && !P.target.dead ? V.copy(P.target.pos) : P.pos, R = this.RUPTURE, lvl = (u.build && u.build.level) || 1;
           FX.ring(at, 0.3, R.r, '#ff7b3b', 0.35, 0.14); FX.burst(at, '#ff7b3b', 18, 6);

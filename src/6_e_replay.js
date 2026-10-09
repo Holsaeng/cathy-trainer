@@ -42,14 +42,14 @@ const Replay = {
   },
   restore() { if (!this.active) return; Object.assign(Settings, this.active.backup); },
   // 매 스텝 뒤: 기록 끝에 닿으면 종료
-  afterStep() { if (this.active && Game.state === 'play' && Game.tick >= this.active.r.ticks) this.end(); },
+  afterStep() { if (this.active && !this.analyzing && Game.state === 'play' && Game.tick >= this.active.r.ticks) this.end(); },   // 분석·이동 중엔 끝내지 않음
   end() {
     if (!this.active) return;
-    const r = this.active.r; Game.state = 'result'; this.restore(); this.active = null;
+    const r = this.active.r; Game.state = 'result'; this.restore(); this.active = null; this.paused = false; Game.paused = false; this.bar && this.bar();   // 타임라인 닫기
     UI.show(`<h2>📼 리플레이 끝</h2><div class="sub">${esc(r.title || r.mode)} · ${fmt(r.ticks * r.step, 1)}초</div>
       <div class="row" style="margin-top:14px"><button class="btn primary" data-a="again">다시 보기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>`,
-      { again: () => this.start(r), menu: () => UI.showMenu() }, { r: 'again', m: 'menu', Escape: 'menu' });
+      { again: () => (this.markers && this.markers.length ? this.watch(r) : this.start(r)), menu: () => UI.showMenu() }, { r: 'again', m: 'menu', Escape: 'menu' });
   },
-  stop() { if (this.active) { this.restore(); this.active = null; } },
+  stop() { if (this.active) { this.restore(); this.active = null; } this.paused = false; this.markers = []; if (this.bar) this.bar(); },
   label() { const A = this.active; if (!A) return ''; const t = A.r.ticks * A.r.step; return `📼 리플레이 ${fmt(Math.min(Game.tick * A.r.step, t), 1)} / ${fmt(t, 1)}초${A.warn ? ' · ⚠ 다른 버전' : ''}`; },
 };

@@ -115,14 +115,14 @@ const UI = {
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'duel') return { diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
+    if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
     if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
-    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}`;
+    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
   },
   lastLabel() {
@@ -164,7 +164,7 @@ const UI = {
       mode: d => this.showModeOptions(d.v),
       online: () => this.showOnline(),
       gear: () => this.showGear(),
-      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.start(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
+      'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.watch(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
       quick: d => this.start(d.v, this.quickOpts(d.v)),
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
@@ -223,6 +223,7 @@ const UI = {
         <div class="sub" style="margin:2px 0 6px">${cur ? `${cur.build} 빌드 · 평타 사거리 ${cur.aaRange}m · ` + ['P', 'Q', 'W', 'E', 'R', 'D'].map(k => CONFIG.rangedKits[dm][k]).filter(Boolean).map(s => s.name).join(' · ') : '시작할 때마다 5명 중 무작위'}</div>
         <div class="row"><label>난이도</label>${db}</div>
         <div class="row"><label>상대 레벨</label>${this.enemyBuildBtns()}</div>
+        <div class="row"><label>상대 장비</label>${[[-1, '실측 (기본)'], [0, '인기 1'], [1, '인기 2'], [2, '시작 (영웅)']].map(([v, l]) => `<button class="btn ${(Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : -1) === v ? 'sel' : ''}" data-a="egear" data-v="${v}">${l}</button>`).join('')}<span class="sub" style="margin:0 0 0 8px">시즌 12 dak.gg 인기 빌드로 계산 (능력치·쿨감·관통·흡혈, 고유 효과는 공통 효과만)</span></div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
@@ -238,6 +239,7 @@ const UI = {
         diff: d => { Settings.duelDiff = d.v; saveSettings(); this.showModeOptions('duel'); },
         motif: d => { Settings.duelMotif = d.v === 'random' ? null : d.v; saveSettings(); this.showModeOptions('duel'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('duel'); },
+        egear: d => { const v = +d.v; Settings.duelEnemyGear = v >= 0 ? v : null; saveSettings(); this.showModeOptions('duel'); },
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
         'in:sphere': el => { Settings.duelSphere = el.checked; saveSettings(); },
@@ -286,10 +288,10 @@ const UI = {
   showOnline() {
     const ok = Rtc.ok(), w = CONFIG.basicAttack[Settings.weapon === 'dual' ? 'dual' : 'dagger'].label;
     this.show(`<h2>🌐 온라인 대전 (시험)</h2>
-      <div class="sub">친구와 브라우저끼리 직접 연결해 <b>캐시 vs 캐시 1:1</b>. 서버 없이 <b>연결 코드</b>를 메신저로 한 번씩 주고받습니다.</div>
+      <div class="sub">친구와 브라우저끼리 직접 연결해 <b>1:1 대전</b>(캐시·다니엘 — 메뉴에서 고른 실험체로). 서버 없이 <b>연결 코드</b>를 메신저로 한 번씩 주고받습니다.</div>
       ${ok ? '' : '<div class="sub" style="color:#ff6b6b">이 브라우저는 WebRTC를 지원하지 않습니다.</div>'}
       <div class="row" style="margin-top:12px"><button class="btn primary" data-a="host" ${ok ? '' : 'disabled'}>방 만들기 (호스트)</button><button class="btn" data-a="join" ${ok ? '' : 'disabled'}>참가하기 (손님)</button></div>
-      <div class="sub" style="margin-top:8px">내 무기: <b>${w}</b> (메뉴에서 변경) · 빌드·맵은 호스트 설정을 따름 · 공개 STUN: <b>${Settings.netStun === false ? '꺼짐 (같은 네트워크에서만)' : '켜짐'}</b> (설정에서 변경)</div>
+      <div class="sub" style="margin-top:8px">내 실험체: <b>${(Settings.character || 'cathy') === 'daniel' ? '다니엘 (단검)' : '캐시 · ' + w}</b> (메뉴에서 변경) · 빌드·맵은 호스트 설정을 따름 · 공개 STUN: <b>${Settings.netStun === false ? '꺼짐 (같은 네트워크에서만)' : '켜짐'}</b> (설정에서 변경)</div>
       <div class="sub" style="color:#ffb347">⚠ 연결 코드에는 접속 정보(IP 주소)가 들어 있습니다. 믿을 수 있는 상대에게만 보내세요.</div>
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>${NOTICE.html()}`,
       { host: () => this.showOnlineHost(), join: () => this.showOnlineJoin(), back: () => { Rtc.close(); this.showMenu(); } }, { Escape: 'back' });
@@ -482,14 +484,14 @@ const UI = {
     }).join('');
     const mist = Object.entries(St.mistakes).sort((a, b) => b[1] - a[1]);
     const comp = r.components.filter(x => x.w > 0).map(x => `<div class="sbar" style="height:16px"><i style="width:${Math.round(x.v * 100)}%;background:${gc}44;border-right:2px solid ${gc}"></i><em style="line-height:16px;font-size:11px">${x.label} ${Math.round(x.v * 100)}% (가중치 ${x.w})</em></div>`).join('');
-    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
+    const H = { retry: () => Game.restart(), menu: () => this.showMenu(), rwatch: () => { if (Replay.last) Replay.watch(Replay.last); }, replay: () => { if (Replay.download()) FX.toast('리플레이를 저장했습니다 — 메뉴 「리플레이 열기」로 다시 보기', '#9fd8ff'); }, drill: d => Coach.startDrill(Coach.last && Coach.last.top[+d.v] && Coach.last.top[+d.v].drill) };
     const coach = Coach.html(St);   // 7_a_coach.js
     this.show(`<div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
         <div class="grade" style="color:${gc}">${r.grade}</div>
         <div style="flex:1;min-width:220px"><h2 style="margin:0">${esc(r.title)}</h2>
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
           ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
-          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
+          <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="rwatch">🔍 리플레이로 실수 보기</button><button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
@@ -517,7 +519,7 @@ function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
   if (Net.role === 'guest') { Net.guestTick(dt); return; }   // 온라인 손님: 계산 없이 받은 상태를 그림
   if (Game.state === 'play' && !Game.paused) {
     // 온라인 대전은 항상 1배속
-    acc += dt * (Net.role ? 1 : Settings.gameSpeed); let n = 0;
+    acc += dt * (Net.role ? 1 : Replay.active ? Replay.speed : Settings.gameSpeed); let n = 0;   // 리플레이는 자체 속도
     while (acc >= CONFIG.sim.step && n < maxSteps && Game.state === 'play') { Game.step(CONFIG.sim.step); acc -= CONFIG.sim.step; n++; }
     if (n >= maxSteps) acc = 0;
   } else acc = 0;
@@ -529,6 +531,7 @@ function loop(now) {
   fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);
   advanceSim(now);
   try { Renderer.frame(); } catch (e) { console.error(e); }
+  if (Replay.active) Replay.updateBar();   // 리플레이 타임라인 위치
   if ((sideT -= dt) <= 0) { sideT = 0.25; Side.update(); }
   requestAnimationFrame(loop);
 }

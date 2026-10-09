@@ -48,7 +48,7 @@ const Net = {
   // ---------- 호스트 ----------
   startHost(link, opts = {}) {
     this.init(); this.resetStats(); this.role = 'host'; this.link = link; this.inbox = []; this.ev = []; this.rtt = 0;
-    const o = Object.assign({ build: Settings.build, hostWeapon: Settings.weapon, guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
+    const o = Object.assign({ build: Settings.build, hostChar: Settings.character === 'daniel' ? 'daniel' : 'cathy', hostWeapon: Settings.weapon, guestChar: 'cathy', guestWeapon: 'dagger', rounds: 3, map: 'basic', time: 'day' }, opts);
     if (o.seed === undefined) o.seed = (Math.random() * 4294967296) >>> 0;
     this.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: null };
     Game.start('pvp', o); this.hello();

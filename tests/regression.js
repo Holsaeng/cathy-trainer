@@ -382,6 +382,25 @@
     const rec = Cmd.record(), h = Cmd.hash();
     Game.start('pvp', o); Cmd.replay(rec.log); run(120 * 15);
     T.ok('결정성: 손님 명령이 섞인 대전 재생', Cmd.hash() === h && rec.log.some(c => c.p === 1) && rec.log.some(c => !c.p), `${rec.log.filter(c => c.p).length}개 손님 명령`);
+    // 다니엘도 대전: 호스트·손님 각자 실험체, 다니엘은 장비 없음, 손님 다니엘 걸작까지 재생 결정성
+    for (const [hc, gc] of [['daniel', 'cathy'], ['cathy', 'daniel'], ['daniel', 'daniel']]) {
+      const od = { seed: 21, hostChar: hc, guestChar: gc, hostWeapon: 'dagger', guestWeapon: 'dual', build: 'late', map: 'basic', rounds: 3, gear: CONFIG.gearPresets.daggerD1.gear };
+      Game.start('pvp', od);
+      try {
+        Net.init(); Net.resetStats(); Net.role = 'host'; Net.link = null; Net.inbox = []; Net.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: Game.opts };
+        for (let i = 0; i < 120 * 12; i++) {
+          const p = Game.player, e = Game.mode.enemy, t = Game.tick;
+          if (e && !e.dead) { if (t % 70 === 0) Net.inbox.push({ t: 'move', x: p.pos.x + 1.5, y: p.pos.y }); if (t % 150 === 40) Net.inbox.push({ t: 'sk', s: ['Q', 'W', 'E'][(t / 150 | 0) % 3], x: p.pos.x, y: p.pos.y }); if (t % 400 === 300) Net.inbox.push({ t: 'sk', s: 'R', x: p.pos.x, y: p.pos.y }); if (e.shadow && t % 20 === 0) Net.inbox.push({ t: 'cur', x: p.pos.x - 2, y: p.pos.y }); }
+          if (p && !p.dead) { if (t % 90 === 20) Cmd.move({ x: e.pos.x - 1.5, y: e.pos.y }); if (t % 160 === 60) Cmd.skill(['Q', 'W', 'E'][(t / 160 | 0) % 3], e.pos); }
+          step();
+        }
+      } finally { Net.role = role0; Net.inbox = []; }
+      const P = Game.player, E = Game.mode.enemy, rd = Cmd.record(), hd = Cmd.hash();
+      const okc = (u, c) => (c === 'daniel') === (u instanceof DanielPlayer);
+      T.ok(`대전 ${hc} vs ${gc}: 실험체·장비`, okc(P, hc) && okc(E, gc) && E.team === 1 && (hc === 'daniel' ? !P.gear : !!P.gear) && !E.gear && new RegExp((hc === 'daniel' ? '다니엘' : '캐시') + ' vs ' + (gc === 'daniel' ? '다니엘' : '캐시')).test(Game.mode.title));
+      Game.start('pvp', od); Cmd.replay(rd.log); run(120 * 12);
+      T.ok(`대전 ${hc} vs ${gc}: 재생 결정성`, Cmd.hash() === hd && rd.log.some(c => c.p));
+    }
     T.ok('온라인 중 일시정지 막힘', (() => { Net.role = 'host'; try { Game.togglePause(); return !Game.paused; } finally { Net.role = role0; } })());
   });
 
@@ -407,6 +426,27 @@
     T.ok('리플레이: 같은 결과로 끝남', !Replay.active && Cmd.hash() === h, `${h} / ${Cmd.hash()}`);
     T.ok('리플레이: 끝나면 설정 원래대로', Settings.weapon === 'dual' && Settings.tactical === 'quake');
     T.ok('리플레이: 끝 화면·기록에 안 남음', /리플레이 끝/.test(document.querySelector('#card').innerText) && Object.keys(Records.all()).length === recN && Game.state === 'result');
+    // 리플레이 분석: 표시 지점·이동(같은 장면)·조작·끝나면 정리
+    {
+      Settings.weapon = 'dagger'; Settings.tactical = 'blink';
+      const o2 = { diff: 'hard', motif: 'aya', enemyBuild: 'late', map: 'basic', rounds: 3, animals: false, sphere: false, time: 'day', seed: 31 };
+      Game.start('duel', o2);
+      for (let i = 0; i < 120 * 40 && Game.state === 'play'; i++) { const p = Game.player, e = Modes.duel.enemy, t = Game.tick; if (p && e && !p.dead) { if (t % 60 === 0) Cmd.move({ x: e.pos.x - 2 + Math.sin(t * 0.01) * 3, y: e.pos.y + 1 }); if (t % 110 === 30) Cmd.skill(['Q', 'W', 'E', 'R'][(t / 110 | 0) % 4], { x: e.pos.x + 1.5, y: e.pos.y - 1 }); if (t % 170 === 90) Cmd.attack(e); } step(); }
+      const r2 = JSON.parse(JSON.stringify(Replay.capture())), mistakes0 = Object.values(Stats.mistakes).reduce((a, b) => a + b, 0);
+      const marks = Replay.watch(r2), kinds = new Set(marks.map(m => m.kind));
+      T.ok('리플레이 분석: 실수·빗나감·피격 지점', marks.length >= 5 && kinds.has('mistake') && kinds.has('miss') && kinds.has('hurt') && marks.every((m, i) => i === 0 || m.tick >= marks[i - 1].tick), `${marks.length}개 ${[...kinds].join(',')}`);
+      T.ok('리플레이 분석: 실수 수 = 실제 판의 실수 기록', marks.filter(m => m.kind === 'mistake').length <= mistakes0 && marks.filter(m => m.kind === 'mistake').length > 0);
+      T.ok('리플레이 분석: 타임라인 표시', !!document.getElementById('replay-bar') && document.querySelectorAll('#replay-bar [data-rm]').length === marks.length && Replay.active && Game.tick === 0);
+      const tk = Math.round(r2.ticks * 0.6); Replay.seek(tk); const hs = Cmd.hash();
+      Replay.seek(10); const back = Game.tick; Replay.seek(tk);
+      T.ok('리플레이 이동: 앞·뒤로 정확히 그 장면', back === 10 && Game.tick === tk && Cmd.hash() === hs);
+      Replay.seek(0); Replay.jump(1); const firstAfter = marks.find(m => m.tick - 240 > 5);
+      T.ok('리플레이: 다음 표시로', !firstAfter || Game.tick === firstAfter.tick - 240);
+      Replay.key('='); Replay.key('='); T.ok('리플레이 속도', Replay.speed === 4); Replay.key('-'); Replay.key('-'); Replay.key('-'); T.ok('리플레이 속도 내리기', Replay.speed === 0.5);
+      Replay.key('p'); T.ok('리플레이 일시정지', Replay.paused && Game.paused); Replay.key('p'); T.ok('리플레이 다시 재생', !Replay.paused && !Game.paused);
+      Replay.seek(r2.ticks); T.ok('리플레이 끝: 타임라인 닫힘', !Replay.active && !document.getElementById('replay-bar') && /리플레이 끝/.test(document.querySelector('#card').innerText));
+      UI.showMenu(); T.ok('메뉴로 나가면 정리', !Replay.active && !Replay.markers.length);
+    }
     // 잘못된 파일
     const bad = [null, { kind: 'x' }, Object.assign({}, rec, { mode: 'hack' }), Object.assign({}, rec, { log: [{ k: 1, t: 'boom' }] }), Object.assign({}, rec, { ticks: -1 })];
     T.ok('리플레이: 잘못된 파일 거부', bad.every(b => { try { Replay.check(b); return false; } catch (e) { return true; } }));
@@ -469,6 +509,32 @@
       p5.skills.Q.cd = 0; Cmd.skill('Q', d5.pos); run(40); const cursed = !!d5.curse; run(120 * 4 + 20);
       T.ok('저주: 4초 뒤 고정 피해 → 재저주 대기', cursed && (Stats.dmgBy['저주'] || 0) > 0 && !d5.curse && d5.curseImm > 0, `${Math.round(Stats.dmgBy['저주'] || 0)}`); }
     Settings.weapon = 'dagger';
+    // 나머지 고유 효과 16종 (허수아비 방어 0)
+    {
+      const setup = (w, gear) => { Settings.weapon = w; Game.start('dummy', { count: 1, hp: 20000, def: 0, infinite: true, seed: 3, gear }); run(5); const q = Game.player, dd = Game.units.find(u => u.kind === 'dummy'); q.pos = { x: dd.pos.x - 1.2, y: dd.pos.y }; run(2); return [q, dd]; };
+      const dm = k => Stats.dmgBy[k] || 0, res = [];
+      let [q, dd] = setup('dagger', { weapon: 101401 }); Cmd.attack(dd); run(60); res.push(['충전 - 섬광', dd.slows.length > 0 && q.flashCd > 0]);
+      [q, dd] = setup('dagger', { weapon: 101405 }); q.pos = { x: dd.pos.x - 12, y: dd.pos.y }; run(1); Cmd.move({ x: dd.pos.x - 1.2, y: dd.pos.y }); run(420); const st = q.steps; Cmd.attack(dd); run(120);
+      res.push(['가벼운 발걸음', st > 10 && Math.abs(dm('가벼운 발걸음') - 100 * st / 100) < 0.5 && q.steps < st]);
+      [q, dd] = setup('dagger', { weapon: 101502 }); const ad0 = q.ad; Cmd.attack(dd); run(360); res.push(['신속 - 루드라의 단검', q.rudraCd > 0 && (q.rudraT > 0 ? Math.abs(q.ad - ad0 * 1.12) < 0.01 : q.ad === ad0)]);
+      [q, dd] = setup('dual', { weapon: 103503 }); Cmd.attack(dd); run(300); res.push(['현란함', q.dazzleN >= 1 && q.msBuffs.some(m => m.tag === 'dazzle')]);
+      [q, dd] = setup('dagger', { head: 201505 }); Cmd.attack(dd); run(500); res.push(['포톤 런처', dm('포톤 런처') > 0]);
+      [q, dd] = setup('dagger', { head: 201526 }); for (const k of ['Q', 'W', 'E']) { q.skills[k].cd = 0; Cmd.skill(k, dd.pos); run(90); } res.push(['예열 - 증강', q.warmN >= 2]);
+      [q, dd] = setup('dagger', { arm: 203413 }); const as0 = q.atkSpd(); Cmd.attack(dd); run(60); res.push(['열정 - 순환', dm('열정 - 순환') > 0 && Math.abs(q.atkSpd() / as0 - 1.15) < 1e-6]);
+      [q, dd] = setup('dagger', { chest: 202518 }); Cmd.attack(dd); run(600); res.push(['돌풍', dm('돌풍') > 0]);
+      [q, dd] = setup('dagger', { chest: 202526 }); q.skills.R.cd = 0; Cmd.skill('R', dd.pos); run(240); res.push(['차원 균열', dm('차원 균열') > 0]);
+      [q, dd] = setup('dagger', { chest: 202209 }); q.shield = 0; run(120 * 8); const lvq = q.build.level; res.push(['명경지수', q.shield > 0 && q.shield <= 50 + 10 * lvq + q.sp * 0.4 + 1e-6]);
+      [q, dd] = setup('dagger', { chest: 202502 }); for (const k of ['Q', 'W']) { q.skills[k].cd = 0; Cmd.skill(k, dd.pos); run(60); } run(240); res.push(['응집', q.cohCd > 0]);
+      [q, dd] = setup('dagger', { head: 201701 }); const sp0 = q.sp; Cmd.attack(dd); run(40); res.push(['개시', q.sp === sp0 + 16 && q.onsetT > 0]);
+      [q, dd] = setup('dagger', { arm: 205406 }); q.skills.D.cd = 0; Cmd.skill('D', dd.pos); run(120); res.push(['달인', Math.abs(dm('달인') - (40 + q.sp * 0.25 + 2 * q.build.level)) < 0.5]);
+      [q, dd] = setup('dagger', { leg: 204409 }); Combat.damage(dd, q, 1, { type: 'true' }); Combat.damage(q, dd, 1, { type: 'true' }); run(300); res.push(['격동', dm('격동') > 0]);
+      [q, dd] = setup('dagger', { leg: 204511 }); q.skills.R.cd = 0; Cmd.skill('R', dd.pos); run(60); res.push(['각성', Math.abs(q.penPct - 0.1) < 1e-9]);
+      [q, dd] = setup('dagger', { leg: 204513 }); q.skills.Q.cd = 0; Cmd.skill('Q', dd.pos); run(60); res.push(['순풍', q.msBuffs.some(m => m.tag === 'breeze')]);
+      const bad = res.filter(r => !r[1]).map(r => r[0]);
+      T.ok('고유 효과 16종 동작', !bad.length && res.length === 16, bad.join(', '));
+      T.ok('모든 고유 효과 적용 표시', Object.values(CONFIG.itemPassives).every(p => p.impl));
+      Settings.weapon = 'dagger';
+    }
     // 리플레이: 장비 판도 같은 결과
     const opts = { diff: 'normal', motif: 'nadine', enemyBuild: 'late', map: 'basic', rounds: 3, animals: false, sphere: false, time: 'day', seed: 55, gear: D1 };
     Game.start('duel', opts);
@@ -490,6 +556,27 @@
     Game.start('pvp', { seed: 9, hostWeapon: 'dagger', guestWeapon: 'dual', build: 'late', gear: P.daggerD1.gear, guestGear: P.dualS1.gear }); run(3);
     T.ok('대전: 호스트·손님 장비 따로', Game.player.sp === b.sp && Game.mode.enemy.sp === Builds.resolve('late', P.dualS1.gear, 'dual').sp && Game.mode.enemy.weapon === 'dual');
     Settings.gearOn = false; Settings.gearSets = null;
+    // AI 상대 장비 (결투 옵션 「상대 장비」)
+    T.ok('AI 장비 데이터: 5명 × 빌드 3개, 아이템 다 있음', ['aya', 'rio', 'nadine', 'katja', 'daniel'].every(m => { const C = CONFIG.aiGear.characters[m]; return C && C.builds.length === 3 && C.builds.every(b => Builds.SLOTS.every(s => { const it = Builds.aiItem(b.gear[s]); return it && it.slot === s; })); }));
+    const ga = Builds.resolveAI('aya', 'late', 0), Ca = CONFIG.aiGear.characters.aya, lvA = CONFIG.rangedAI.stages.late.level;
+    T.ok('AI 장비 계산: 레벨 공식·캐릭터 숙련도', ga.hp === Math.round(Ca.base.hp[0] + Ca.base.hp[1] * (lvA - 1)) && ga.as === +Math.min(2.5, (Ca.weaponAs + Ca.base.asBonus) * (1 + Ca.mastery.as * Builds.MASTERY_LV.late + 40 / 100)).toFixed(3), `${ga.hp} ${ga.as}`);
+    const gr = Builds.resolveAI('rio', 'late', 0);
+    T.ok('AI 장비: 원거리 기본 공격 증폭·치명 상한', gr.aaAmp > 0 && gr.crit <= 1 && gr.sp === 0);
+    const late = CONFIG.rangedMotifs.katja, gk = Builds.resolveAI('katja', 'late', 0);
+    T.ok('AI 장비: 실측과 같은 범위(공격력 ±15%)', Math.abs(gk.ad - late.ad[2]) / late.ad[2] <= 0.15, `${gk.ad} / ${late.ad[2]}`);
+    Settings.character = 'cathy'; Settings.weapon = 'dagger';
+    Game.start('duel', { diff: 'normal', motif: 'aya', enemyBuild: 'late', map: 'basic', rounds: 3, enemyGear: 0, seed: 3 }); run(5);
+    const ea = Modes.duel.enemy;
+    T.ok('AI 장비 적용', ea.gearInfo && ea.ad === ga.ad && ea.sp === ga.sp && ea.as === ga.as && ea.cdrAi === ga.cdr && ea.maxHp === ga.hp);
+    { let w = 0; while (Game.freeze > 0 && w++ < 1000) step(); }   // 라운드 시작 배너 동안은 멈춰 있음
+    ea.cds.Q = 10; step(); T.ok('AI 장비 쿨감 = 쿨 × 100/(100+쿨감)', Math.abs((10 - ea.cds.Q) - CONFIG.sim.step * (1 + ga.cdr / 100)) < 1e-9);
+    Game.start('duel', { diff: 'normal', motif: 'aya', enemyBuild: 'late', map: 'basic', rounds: 3, seed: 3 }); run(5);
+    T.ok('AI 장비 없으면 실측', !Modes.duel.enemy.gearInfo && Modes.duel.enemy.ad === CONFIG.rangedMotifs.aya.ad[2]);
+    UI.showModeOptions('duel'); T.ok('결투 옵션: 상대 장비', document.querySelectorAll('[data-a="egear"]').length === 4);
+    click('[data-a="egear"][data-v="1"]'); T.ok('상대 장비 고르기 → 바로 시작 옵션', Settings.duelEnemyGear === 1 && UI.quickOpts('duel').enemyGear === 1 && /상대 장비 인기 2/.test(UI.quickLabel('duel')));
+    click('[data-a="egear"][data-v="-1"]'); T.ok('상대 장비 실측으로', Settings.duelEnemyGear === null && UI.quickOpts('duel').enemyGear === undefined);
+    Game.start('duel', { diff: 'normal', motif: 'nadine', enemyBuild: 'late', map: 'basic', rounds: 1, enemyGear: 0, seed: 4 }); run(5); Game.finish('test');
+    T.ok('기록은 상대 장비별로', Object.keys(Records.all()).some(k => k.includes('|eg0')));
   });
 
   // ---------------- 온라인 연결 (연결 코드·메뉴) — 실제 연결 시험은 ?netlab&rtc&test ----------------

@@ -24,7 +24,7 @@ class Unit {
     let b = 0; for (const m of this.msBuffs) b += m.p * (m.decay ? m.t / m.dur : 1);
     return Math.max(0.1, (1 - s) * (1 + b));
   }
-  speed() { return this.baseMs * this.msMul(); }
+  speed() { return (this.baseMs + ItemFx.msFlat(this)) * this.msMul(); }   // 고정 이속(장비: 가벼운 발걸음)
   applyCC(type, dur) {
     if (this.dead || this.unstoppable > 0) return false;
     this[type] = Math.max(this[type], dur);
@@ -199,6 +199,7 @@ class Cathy extends Unit {
       FX.ring(this.pos, 0.3, 1.5, '#5ff0e6', 0.45, 0.1);
       for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.random(); FX.slash(this.pos, a, 1.3, 0.7, '#5ff0e6', 0.4, 0.7); }
       FX.burst(this.pos, '#7fb2ff', 14, 3); Sfx.play('blink'); Events.emit('action', { k: 'D1' });
+      ItemFx.onCast(this, 'D');   // 무기 스킬 사용: 의념·달인 (1차는 시전 과정 없이 바로라 여기서)
       return true;
     }
     if (this.dualRecast > 0) { this.beginCast('D', aim, Impl.Ddual2, {}); return true; }
@@ -232,7 +233,7 @@ class Cathy extends Unit {
     const qwer = 'QWERD'.includes(c.k);   // 시즌 12: 무기 스킬 사용 후에도 강화 평타 발동
     if (qwer && this.enhanced > 0) this.S.mistake('강화 평타를 쓰지 않고 다음 스킬 연계');
     c.impl.fire(this, c);
-    if (qwer) ItemFx.onCast(this);   // 의념 충전
+    if (qwer) ItemFx.onCast(this, c.k);   // 의념 충전·각성·달인
     if (qwer) this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // Q 지속 효과: 스킬 사용 후 다음 평타 강화
     Events.emit('action', { k: c.impl.action || c.k });
   }
@@ -384,7 +385,7 @@ function skillHit(p, c, e, amount, o = {}) {
   const trauma = o.trauma !== false && !c.traumaSet.has(e.id);   // 외상은 시전당 대상 1회
   if (trauma) c.traumaSet.add(e.id);
   Combat.damage(p, e, amount, { type: 'skill', source: o.source || c.k, trauma });
-  ItemFx.onSkillDamage(p, e);   // 부패·파열
+  ItemFx.onSkillDamage(p, e, c.k);   // 부패·파열·예열·차원 균열 등
   Events.emit('skillHit', { k: c.k, target: e });
 }
 

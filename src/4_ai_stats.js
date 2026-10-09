@@ -21,7 +21,7 @@ class Duelist extends Unit {
   }
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt);
+    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감
     this.aaCd -= dt;
     if (this.healing) {   // 재생 — 치명적 외상의 치유 감소 적용
       const h = Math.min(dt, this.healing.t); this.healing.t -= dt;
@@ -148,6 +148,13 @@ class RangedDuelist extends Duelist {
     this.melee = !!M.melee; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0; if (this.melee) { this.kind = 'melee'; this.r = 0.5; }
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.pen = M.pen[si];
     this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd));
+    // 장비(결투 옵션 「상대 장비」): 인기 빌드로 계산한 능력치 — 없으면 위 실측값 그대로
+    const eg = Game.opts && Game.opts.enemyGear, G = Number.isInteger(eg) ? Builds.resolveAI(motifKey, st, eg) : null;
+    if (G) {
+      Object.assign(this, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, pen: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, pasK: G.passiveK, cdrAi: G.cdr });
+      if (G.aaAmp) this.aaAmp = G.aaAmp;
+      this.gearInfo = G;
+    }
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -192,7 +199,7 @@ class RangedDuelist extends Duelist {
   // ---------- 매 스텝 ----------
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt);
+    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감 = 쿨 × 100/(100+쿨감)
     this.aaCd -= dt; if (this.noAA > 0) this.noAA -= dt;
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
