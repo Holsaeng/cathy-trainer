@@ -176,7 +176,8 @@ Kits.daniel = {
       const opening = !herE || (!herQ && dk !== 'easy') || herHp < 0.4;   // 캐시의 수쳐(E)·돌진(Q)이 빠진 순간 = 진입각
       const tools = ai.cds.E <= 0 || ai.cds.D <= 0;
       const forced = gap < 2.0;                                               // 캐시가 먼저 붙으면 맞받아침
-      if (forced || (tools && (killable || (opening && (ai.cds.R <= 0 || herHp < 0.5)))) || (dk === 'easy' && ai.modeT > 6)) this.setMode(ai, 'engage');
+      const allowed = !Game.mode || !Game.mode.mayEngage || Game.mode.mayEngage(ai, p);   // 팀 대전: 측면 대기 — 아군이 먼저 교전에 들어간 뒤 진입
+      if (forced || (allowed && ((tools && (killable || (opening && (ai.cds.R <= 0 || herHp < 0.5)))) || (dk === 'easy' && ai.modeT > 6)))) this.setMode(ai, 'engage');
     }
     if (ai.mode === 'engage' && ai.modeT > 3 && gap > 6 && ai.cds.E > 0 && ai.cds.D > 0 && ai.cloakT <= 0) this.setMode(ai, 'stalk');   // 놓쳤으면 다시 서성이기
     if (!ai.canAct()) return false;

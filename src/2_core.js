@@ -541,7 +541,8 @@ const Combat = {
       const vs = tgt.kind === 'animal' ? 0.6 : 1, aoe = o.aoe ? 0.5 : 1;
       const h = dmg * ((type === 'normal' ? src.ls || 0 : 0) + (src.omni || 0) * aoe) * vs; if (h > 0) src.heal(h, true);
     }
-    if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);   // 다니엘: 영감 축적·최근 피해
+    if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);
+    if (typeof Game !== 'undefined' && Game.mode && Game.mode.onDamage) Game.mode.onDamage(src, tgt, dmg, o);   // 팀 대전: 압박·집중 대상 기록   // 다니엘: 영감 축적·최근 피해
     if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준(온라인 대전 상대 캐시도)
     return dmg;
   },

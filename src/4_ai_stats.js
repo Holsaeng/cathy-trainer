@@ -396,7 +396,7 @@ class RangedDuelist extends Duelist {
       const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
       let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
       const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
-      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q);
+      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -408,7 +408,7 @@ class RangedDuelist extends Duelist {
     for (let i = 0; i < 16; i++) {
       const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), step)), this.r);
       const dq = V.dist(q, p.pos), da = angDiff(V.ang(V.sub(q, p.pos)), base), sideOk = Math.sign(da) === this.side ? 0.4 : 0;
-      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + rnd() * 0.2 - Sphere.penalty(q);   // 크로노 스피어 차단벽 근처 회피
+      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + rnd() * 0.2 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);   // 크로노 스피어 차단벽 근처 회피
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;

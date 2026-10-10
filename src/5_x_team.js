@@ -2,23 +2,7 @@
 // ============================== 5. AI 팀 대전 (2:2 · 3:3) ==============================
 // 나 + 아군 AI vs 상대 AI 팀. 맵 기본 = 원형 투기장(LoL 아레나풍), 라운드제(3판 2선승) — 한 팀이 모두 쓰러지면 라운드 끝
 // AI는 1:1 결투와 같은 실험체 AI(RangedDuelist + 키트)를 쓰고, 팀 판단만 이 모드가 더함:
-//   · 대상 고르기(pickFoe): 가까움 · 잡기 쉬움(유효 체력) · 아군이 치는 대상(집중 공격) · 내가 찍은 대상(아군 AI가 따라감) · CC 걸린 대상 · 아군 원딜에 붙은 암살자(견제)
-//   · 팀 움직임(teamThink): 수적 열세 + 체력 낮음 → 아군 쪽으로 후퇴 / 혼자 떨어지면 합류
-//   규칙·수치 근거: docs/er_notes_teamfight.md (⚠ 추정 수치는 CONFIG.teamAI)
-CONFIG.teamAI = {
-  spread: 2.4,          // 시작 위치 간격(m)
-  focus: 2.2,           // 아군 한 명이 치고 있는 대상 가산점
-  leader: 2.5,          // 내(플레이어)가 평타로 찍은 대상 가산점 — 아군 AI가 따라 침
-  inRange: 2.0,         // 지금 사거리 안
-  cc: 2.0,              // 기절·속박·공포 중인 대상
-  revenge: 1.5,         // 방금 나를 친 대상(2.5초)
-  peel: 2.5,            // 아군 원딜 3.5m 안에 붙은 근접 상대(견제)
-  stick: 1.2,           // 지금 대상 유지(흔들림 방지)
-  distW: 0.6,           // 거리 1m당 감점
-  retreatHp: 0.55,      // 이 체력 비율 밑에서 수적 열세면 후퇴
-  localR: 8,            // 「근처」 반경(수적 우세 판정)
-  regroup: 10,          // 아군 중심에서 이만큼 떨어지면 합류
-};
+//   팀 판단(역할·대상 점수·후퇴·핑퐁·추격 한계)은 TeamAI (src/5_x_teamai.js, 근거 docs/er_notes_teamfight.md)
 Modes.team = {
   name: 'AI 팀 대전',
   start(o) {
@@ -31,6 +15,7 @@ Modes.team = {
     this.stage = CONFIG.rangedAI.stages[eb] ? eb : 'mid'; this.stageInfo = CONFIG.rangedAI.stages[this.stage];
     this.sphere = !!o.sphere;
     this.title = `AI 팀 대전 ${this.size}:${this.size} (${CONFIG.enemy.difficulty[this.diff].label})` + ` · ${Game.map.name}` + (this.sphere ? ' · 크로노 스피어' : '');
+    TeamAI.reset();
     Events.on('kill', a => { if (a.unit && isHero(a.unit) && !this.ended) this.kills[a.unit.team === 0 ? 'e' : 'p']++; });   // 처치 수 (Game.start마다 이벤트 초기화)
     this.wins = { p: 0, e: 0 }; this.round = 0; this.history = []; this.newRound();
   },
@@ -46,6 +31,7 @@ Modes.team = {
     Scene.player(P.x, P.y); VisionItems.give(Game.player); Game.drones = []; Vision.reveals = []; Vision.noises = []; Vision.ghosts = {};
     this.allies = this.allyKeys.map((k, i) => { const q = this.spot(sp.p, i + 1), u = new RangedDuelist(q.x, q.y, this.diff, k, this.stage, 0); u.facing = 0; Game.units.push(u); return u; });
     this.enemies = this.enemyKeys.map((k, i) => { const q = this.spot(sp.e, i), u = new RangedDuelist(q.x, q.y, this.diff, k, this.stage, 1); Game.units.push(u); return u; });
+    TeamAI.reset(); TeamAI.assign(0); TeamAI.assign(1);   // 역할: 앞라인·측면·견제·딜러
     if (this.sphere) Sphere.start(); else Sphere.stop();
     this.snap = Stats.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false; this.kills = { p: 0, e: 0 };
     Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `${this.size}:${this.size} · ${this.enemyKeys.map(k => CONFIG.rangedMotifs[k].name).join(' · ')}` };
@@ -78,47 +64,7 @@ Modes.team = {
     if (this.wins.p >= this.need || this.wins.e >= this.need) { Game.finish('duelEnd'); return; }
     this.inter = { t: 4.5, sum }; Game.freeze = 999;
   },
-  // ---------- 팀 AI: 대상 고르기 ----------
-  pickFoe(ai, es, cur) {
-    const T = CONFIG.teamAI, alive = es.filter(u => !u.dead); if (!alive.length) return null;
-    const vis = alive.filter(u => Vision.visible(ai, u));   // 팀 시야 공유 포함
-    if (!vis.length) return cur && !cur.dead ? cur : null;   // 아무도 안 보이면 쫓던 상대(추정 위치)
-    const mates = Game.units.filter(a => a !== ai && a.team === ai.team && !a.dead && isHero(a)), lead = Game.player && Game.player.team === ai.team && !Game.player.dead ? Game.player : null;
-    const range = ai.aaRange();
-    let best = null, bs = -Infinity;
-    for (const u of vis) {
-      const d = V.dist(ai.pos, u.pos), ehp = Math.max(1, u.hp) * (1 + (u.def || 0) / 100) + (u.shield || 0);
-      let s = -d * T.distW + clamp(1 - ehp / 4000, 0, 1) * 4 + (1 - u.hp / u.maxHp) * 3;
-      if (d - u.r - (ai.melee ? ai.r : 0) <= range + 0.5) s += T.inRange;
-      s += mates.filter(a => a.foe === u || a.attackTarget === u).length * T.focus;
-      if (lead && lead.attackTarget === u) s += T.leader;
-      if (u.stun > 0 || u.root > 0 || u.fear > 0) s += T.cc;
-      if (ai.lastHitBy && ai.lastHitBy.u === u && Game.time - ai.lastHitBy.t < 2.5) s += T.revenge;
-      if ((u.melee || (u.kind === 'player' && !u.motifKey)) && mates.some(a => !a.melee && a.kind !== 'player' && V.dist(a.pos, u.pos) < 3.5)) s += T.peel;
-      if (u === cur) s += T.stick;
-      if (s > bs) { bs = s; best = u; }
-    }
-    return best;
-  },
-  // ---------- 팀 AI: 움직임 (RangedDuelist.think에서 키트 판단 전에 호출) ----------
-  teamThink(ai, p, d) {
-    const T = CONFIG.teamAI, mates = Game.units.filter(a => a !== ai && a.team === ai.team && !a.dead && isHero(a));
-    if (!mates.length) return false;
-    const foes = Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead && Vision.visible(ai, u));
-    const near = (arr, c) => arr.filter(u => V.dist(u.pos, c) <= T.localR).length;
-    const c = mates.reduce((s, a) => V.add(s, V.mul(a.pos, 1 / mates.length)), { x: 0, y: 0 });
-    // 수적 열세 + 체력 낮음: 아군 쪽으로 빠짐(근처 적 중심 반대 + 아군 중심)
-    if (foes.length && near(foes, ai.pos) > near(mates, ai.pos) + 1 && ai.hp / ai.maxHp < T.retreatHp && ai.kiteT <= 0) {
-      const fc = foes.reduce((s, u) => V.add(s, V.mul(u.pos, 1 / foes.length)), { x: 0, y: 0 });
-      const dir = V.norm(V.add(V.norm(V.sub(ai.pos, fc)), V.mul(V.norm(V.sub(c, ai.pos)), 0.8)));
-      ai.moveTarget = Geo.pushOut(V.add(ai.pos, V.mul(dir, 3)), ai.r); ai.kiteT = 0.6; ai.stats.retreats = (ai.stats.retreats || 0) + 1; return true;
-    }
-    // 혼자 떨어짐: 근처에 적이 없으면 아군 쪽으로 합류
-    if (V.dist(ai.pos, c) > T.regroup && (!p || p.dead || d > 9) && ai.kiteT <= 0) {
-      ai.moveTarget = Geo.pushOut(V.lerp(ai.pos, c, 0.6), ai.r); ai.kiteT = 0.5; return true;
-    }
-    return false;
-  },
+  // 팀 AI(대상 고르기·움직임)는 5_x_teamai.js (TeamAI)
   drawWorld(ctx) { if (this.sphere) Sphere.draw(ctx); for (const u of Game.units) if (u.drawExtra && u !== Game.player) u.drawExtra(ctx); },
   drawScreen(ctx, L, oy = 0) {
     const a = this.alive(0).length, e = this.alive(1).length;
