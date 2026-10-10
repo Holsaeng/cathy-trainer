@@ -13,7 +13,7 @@ const Game = {
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
     { const nw = this.map.world || CONFIG.worldBase || CONFIG.world; if (nw.w !== CONFIG.world.w || nw.h !== CONFIG.world.h) { CONFIG.world = Object.assign({}, nw); if (Render.cv) Renderer.resize(); } }   // 맵마다 공간 크기(원형 투기장 = 별개 공간)
     CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = []; Sphere.stop();
-    Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
+    Vision.fogOn = (id === 'duel' || id === 'team') && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
@@ -271,7 +271,7 @@ const Render = {
   // 따라가는 카메라: 내 캐릭터(없으면 공간 가운데)를 화면 가운데로 — 커서의 월드 좌표도 다시 계산
   followCam() {
     const L = this.L; if (!L.follow) return;
-    const p = Game.player, t = p && !p.dead && Game.state !== 'menu' ? p.pos : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 };
+    const p0 = Game.player, p = p0 && p0.dead ? Vision.allies(p0)[0] || p0 : p0, t = p && !p.dead && Game.state !== 'menu' ? p.pos : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 };
     if (!this.cam) this.cam = V.copy(t); else { const k = Math.min(1, ((performance.now() - (this.camT || 0)) / 1000) * 8); this.cam = V.lerp(this.cam, t, k); }
     this.camT = performance.now();
     L.ox = L.W / 2 - this.cam.x * L.ppm; L.oy = (L.H - HUD_H) / 2 - this.cam.y * L.ppm;
@@ -369,7 +369,7 @@ const Render = {
     f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, fc.width, fc.height);
     f.fillStyle = Vision.night ? `rgba(2,4,12,${V0.nightFog})` : `rgba(4,6,10,${V0.fogAlpha})`; f.fillRect(0, 0, fc.width, fc.height);
     f.setTransform(ctx.getTransform()); f.globalCompositeOperation = 'destination-out'; f.fillStyle = '#000';
-    if (!p.dead) { const pts = Vision.poly(p); f.beginPath(); f.moveTo(pts[0].x, pts[0].y); for (const q of pts) f.lineTo(q.x, q.y); f.closePath(); f.fill(); }
+    for (const v of p.dead ? Vision.allies(p) : [p, ...Vision.allies(p)]) { const pts = Vision.poly(v); f.beginPath(); f.moveTo(pts[0].x, pts[0].y); for (const q of pts) f.lineTo(q.x, q.y); f.closePath(); f.fill(); }   // 팀 시야 공유: 아군 시야도 밝게
     for (const z of Vision.reveals) if (z.team === p.team) { f.beginPath(); f.arc(z.pos.x, z.pos.y, z.r, 0, Math.PI * 2); f.fill(); }
     for (const w of Vision.wards(p.team)) {   // 카메라 시야(벽에 가려짐) — 설치 위치가 고정이라 캐시
       const R = w.sightR(); if (!w._poly || w._polyR !== R) { w._poly = Vision.polyFrom(w.pos, R); w._polyR = R; }

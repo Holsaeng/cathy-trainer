@@ -109,12 +109,14 @@ const UI = {
       ['dummy', '🎯', '허수아비', 'DPS·스킬별 피해 비율 측정. 개수·체력·방어력 설정.'],
       ['combo', '🧩', '콤보 트레이너', '콤보 순서·입력 간격(ms) 판정. 입문 / 숙련 / 마스터.'],
       ['dodge', '💨', '회피 수련', '점점 빨라지는 투사체·장판. 생존 시간과 피격 히트맵.'],
+      ['team', '👥', 'AI 팀 대전', '나 + 아군 AI vs 상대 AI 팀 (2:2 · 3:3). 원형 투기장, 팀 시야 공유, 집중 공격·후퇴하는 팀 AI.'],
     ];
   },
   // 각 모드의 「바로 시작」 옵션 (마지막으로 고른 값)
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
+    if (id === 'team') return { size: Settings.teamSize || 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
     if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
@@ -122,6 +124,7 @@ const UI = {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
     if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
+    if (id === 'team') { const nm = (a, n) => Array.from({ length: n }, (_, i) => a[i] && CONFIG.rangedMotifs[a[i]] ? CONFIG.rangedMotifs[a[i]].name : '랜덤').join('·'); return `${o.size}:${o.size} · 아군 ${nm(o.allies, o.size - 1)} vs ${nm(o.enemies, o.size)} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.arena).name}`; }
     if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
   },
@@ -130,6 +133,7 @@ const UI = {
     const name = (this.modeList().find(m => m[0] === L.id) || [])[2] || L.id, o = L.opts || {};
     if (L.id === 'duel') return `${name} — ${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤'} · ${CONFIG.enemy.difficulty[o.diff || 'normal'].label}`;
     if (L.id === 'combo') return `${name} — ${o.combo ? o.combo.name : ''}`;
+    if (L.id === 'team') return `${name} — ${o.size || 3}:${o.size || 3} · ${CONFIG.enemy.difficulty[o.diff || 'normal'].label}`;
     return name;
   },
 
@@ -153,7 +157,7 @@ const UI = {
         <small style="color:#9fb3d1;margin-top:6px">${esc(this.quickLabel(id))}</small>
         <div class="row" style="margin-top:auto;padding-top:8px"><button class="btn primary" data-a="quick" data-v="${id}">▶ 바로 시작</button><button class="btn" data-a="mode" data-v="${id}">옵션</button></div></div>`).join('')}</div>
       <div class="row" style="margin-top:16px"><label class="btn" style="cursor:pointer">📼 리플레이 열기<input type="file" accept=".json,application/json" data-in="replayFile" style="display:none"></label><button class="btn" data-a="records">📊 기록</button><button class="btn" data-a="settings">⚙ 설정</button><button class="btn" data-a="help">❔ 조작법</button>
-        <span class="sub" style="margin:0 0 0 8px">숫자 1~4: 모드 옵션 · Enter: 최근 플레이</span></div>
+        <span class="sub" style="margin:0 0 0 8px">숫자 1~5: 모드 옵션 · Enter: 최근 플레이</span></div>
       ${NOTICE.html()}`, {
       weapon: d => { Settings.weapon = d.v; saveSettings(); this.showMenu(); },
       char: d => { Settings.character = d.v; saveSettings(); this.showMenu(); },
@@ -210,6 +214,30 @@ const UI = {
       }), K);
     } else if (id === 'dodge') {
       this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·블링크로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
+    } else if (id === 'team') {
+      const o = this.quickOpts('team'), n = o.size;
+      const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
+      const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
+      const me = Settings.character === 'daniel' ? '다니엘' : '캐시';
+      this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
+        <div class="row"><label>인원</label>${sb('size', 2, '2 : 2', n)}${sb('size', 3, '3 : 3', n)}</div>
+        <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
+        <div class="row"><label>상대 (레드)</label>${Array.from({ length: n }, (_, i) => slot('e', i)).join('')}</div>
+        <div class="row"><label>난이도</label>${Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => sb('diff', k, d.label, o.diff)).join('')}<span class="sub" style="margin:0 0 0 8px">아군·상대 AI 모두 같은 난이도</span></div>
+        <div class="row"><label>AI 레벨</label>${this.enemyBuildBtns()}</div>
+        <div class="row"><label>시간대</label>${[['day', '☀ 낮'], ['night', '🌙 밤'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => sb('ttime', k, l, o.time)).join('')}</div>
+        <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => sb('tmap', k, m.name, o.map)).join('')}</div>
+        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 — 끝까지 승부가 안 나면 팀 남은 체력으로 판정)</label></div>
+        <div class="row" style="margin-top:12px">${back}${go}</div>`, Object.assign(H, {
+        size: d => { Settings.teamSize = +d.v; saveSettings(); this.showModeOptions('team'); },
+        diff: d => { Settings.teamDiff = d.v; saveSettings(); this.showModeOptions('team'); },
+        ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('team'); },
+        ttime: d => { Settings.teamTime = d.v; saveSettings(); this.showModeOptions('team'); },
+        tmap: d => { Settings.teamMap = d.v; saveSettings(); this.showModeOptions('team'); },
+        'in:tsphere': el => { Settings.teamSphere = el.checked; saveSettings(); },
+        'in:slot': el => { const k = el.dataset.side === 'a' ? 'teamAllies' : 'teamEnemies', a = (Settings[k] || []).slice(); a[+el.dataset.i] = el.value || null; Settings[k] = a; saveSettings(); },
+        go: () => this.start('team', this.quickOpts('team')),
+      }), K);
     } else if (id === 'duel') {
       const dd = Settings.duelDiff || 'normal', dm = Settings.duelMotif || null;
       const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${dd === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');

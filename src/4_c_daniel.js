@@ -16,7 +16,7 @@ Kits.daniel = {
 
   // ---------- 매 스텝 ----------
   update(ai, dt) {
-    const K = ai.kitCfg, p = Game.player;
+    const K = ai.kitCfg;
     ai.modeT += dt; ai.lastHitT += dt;
     // P 고독한 예술가: 밤에 시야·이동 속도 증가
     ai.sightMul = Vision.night ? 1 + ai.pick(K.P.sight, 'P') : 1;
@@ -27,7 +27,7 @@ Kits.daniel = {
     if (ai.mark) {
       const M = ai.mark; M.t += dt;
       if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
-      else if (M.target === p) Vision.reveals.push({ team: ai.team, pos: V.copy(p.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
+      else Vision.reveals.push({ team: ai.team, pos: V.copy(M.target.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
     }
     for (const o of ai.objs) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; this.qLand(ai, o); } }
     ai.objs = ai.objs.filter(o => o.t < o.dur + 0.25);
@@ -62,7 +62,7 @@ Kits.daniel = {
 
   // ---------- 피해 훅: 영감 축적·폭발, 최근 피해(궁 조건) ----------
   dealt(ai, u, dmg, o) {
-    if (u !== Game.player) return;
+    if (!isHero(u) || u.team === ai.team) return;
     ai.lastHitT = 0; u.blindT = 0;   // 다니엘에게 맞으면 시야 감소 해제
     const M = ai.mark, W = ai.kitCfg.W; if (!M || M.target !== u || (o && o.markPop)) return;
     if (M.t >= W.ready) {   // 영감의 대상 공격 → 폭발
@@ -114,7 +114,7 @@ Kits.daniel = {
       if (u.dead || u.team === ai.team || u.untargetable > 0) continue;
       if (!Geo.inSector(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
       const center = V.dist(u.pos, o.pos) <= K.centerR + u.r;
-      if (u === Game.player) { ai.hitP(u, ai.calc(center ? K.center : K, 'Q'), { name: K.name + (center ? ' (중앙)' : '') }); hit = true; }
+      if (isHero(u)) { ai.hitP(u, ai.calc(center ? K.center : K, 'Q'), { name: K.name + (center ? ' (중앙)' : '') }); hit = true; }
       else Combat.damage(ai, u, ai.calc(K, 'Q'), { type: 'skill', source: '적 ' + K.name });
       if (center) u.addSlow(K.slow, K.slowDur);
     }
@@ -150,6 +150,7 @@ Kits.daniel = {
     const K = ai.kitCfg.R; ai.cds.R = ai.pick(K.cd, 'R'); ai.act = null; ai.moveTarget = null; ai.shadowT = 0;
     ai.shadow = { target: p, t: 0, n: 0 }; p.silence = Math.max(p.silence, K.silence); ai.stats.rUses++;
     if (p.cast && p.cast.phase === 'windup' && p.cancelCast) p.cancelCast(false);   // 침묵: 시전 중이던 스킬 취소
+    if (p.act && (p.act.type === 'cast' || p.act.type === 'channel')) { if (p.act.onEnd) p.act.onEnd(p.act, true); p.act = null; }   // AI 상대: 시전·정신집중 취소
     FX.text(p.pos, K.name + ' — 침묵', ai.motif.color, 15, { bold: true }); FX.ring(p.pos, 1.5, 0.3, '#2a1840', 0.4); Sfx.play('ult');
   },
 
@@ -166,7 +167,7 @@ Kits.daniel = {
   think(ai, p, d) {
     const K = ai.kitCfg, MA = CONFIG.meleeAI, dk = ai.diffKey, gap = d - p.r - ai.r;
     const myHp = ai.hp / ai.maxHp, herHp = p.hp / p.maxHp;
-    const herE = p.skills.E.lv > 0 && p.skills.E.cd <= 0.8, herQ = p.skills.Q.lv > 0 && p.skills.Q.cd <= 0.8;
+    const herE = foeCd(p, 'E') <= 0.8, herQ = foeCd(p, 'Q') <= 0.8;
     // --- 모드 전환 ---
     if (ai.mode !== 'retreat' && myHp < MA.lowHp && ai.cds.R > 0 && herHp > myHp + 0.1 && dk !== 'easy') this.setMode(ai, 'retreat');
     if (ai.mode === 'retreat' && (myHp > MA.engageHp || (ai.modeT > 4 && gap > 8))) this.setMode(ai, 'stalk');
@@ -249,7 +250,7 @@ Kits.daniel = {
     ai.moveTarget = ai.pickSpot(p, MA.stalk, 1.4);
   },
   dodge(ai) {   // 투사체·수쳐 회피: 붙어 있고 궁이 되면 걸작으로 피함, 아니면 걸어서
-    const p = Game.player, d = V.dist(ai.pos, p.pos);
+    const p = ai.foe; if (!p) return false; const d = V.dist(ai.pos, p.pos);
     if (ai.diffKey !== 'easy' && this.canR(ai, p, d) && ai.mode === 'engage') { this.castR(ai, p); return true; }
     return false;
   },
@@ -269,12 +270,11 @@ Kits.daniel = {
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 0.5; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
     }
-    const p = Game.player;
     if (ai.mark && !ai.mark.target.dead) {   // 영감 표식: 4초 뒤 활성(밝아짐)
       const M = ai.mark, ready = M.t >= ai.kitCfg.W.ready, u = M.target;
       KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.9 : 0.5, !ready);
       if (!ready) { ctx.save(); ctx.globalAlpha = 0.8; ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / ai.kitCfg.W.ready); ctx.stroke(); ctx.restore(); }
     }
-    if (ai.shadow) { KU.fill(ctx, p.pos, p.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, p.pos, p.r + 0.3 + 0.1 * Math.sin(Game.time * 20), '#b07cff', 0.9); }   // 걸작: 캐시 그림자 속
+    if (ai.shadow) { const p = ai.shadow.target; KU.fill(ctx, p.pos, p.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, p.pos, p.r + 0.3 + 0.1 * Math.sin(Game.time * 20), '#b07cff', 0.9); }   // 걸작: 캐시 그림자 속
   },
 };

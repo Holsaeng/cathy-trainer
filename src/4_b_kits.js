@@ -34,7 +34,7 @@ const Kits = {
     think(ai, p, d) {
       const K = ai.kitCfg;
       // R 정밀 조준: 캐시가 멀고 진입이 어려울 때 — 0.8초 스캔(제자리 고정) 후 회피 불가 탄
-      if (ai.cds.R <= 0 && d > 7.5 && d < K.R.range && (p.skills.Q.cd > 1 || d > 9.5)) {
+      if (ai.cds.R <= 0 && d > 7.5 && d < K.R.range && (foeCd(p, 'Q') > 1 || d > 9.5)) {
         const pos = Geo.pushOut(ai.predict(p, K.R.scan), 0.3);
         ai.cds.R = ai.pick(K.R.cd, 'R');
         ai.startChannel(K.R.scan, { tele: { kind: 'circle', pos, r: K.R.radius, color: '#ff4d4d' }, cancelIfClose: 3.5,
@@ -48,7 +48,7 @@ const Kits = {
         return true;
       }
       // 무기 스킬 저격: 멀리서 제자리 고정 저격 모드 (저지 사격 2발 → 데드아이)
-      if (ai.cds.D <= 0 && d > 7.5 && d < K.D.range - 1 && (p.skills.Q.cd > 1 || d > 9)) { this.snipe(ai, p); return true; }
+      if (ai.cds.D <= 0 && d > 7.5 && d < K.D.range - 1 && (foeCd(p, 'Q') > 1 || d > 9)) { this.snipe(ai, p); return true; }
       // Q 조준 사격
       if (ai.cds.Q <= 0 && d <= K.Q.range - 0.5) {
         const dir = ai.aimDir(p, K.Q.windup, K.Q.speed); ai.cds.Q = ai.pick(K.Q.cd, 'Q');
@@ -144,13 +144,13 @@ const Kits = {
     },
     onHit(ai, u, o) { if (o.kc !== false) this.gainKc(ai); if (o.hanare) for (const k of ['Q', 'E', 'R', 'D']) ai.cds[k] = Math.max(0, ai.cds[k] - ai.kitCfg.W.cdReduce); },
     update(ai, dt) {
-      const p = Game.player;
+      const foes = Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead);
       for (const z of ai.zones) {   // 단궁 하나레 둔화 바람 / 곡사 착탄
         z.t += dt;
-        if (z.type === 'wind' && p && !p.dead && V.dist(p.pos, z.pos) <= z.r + p.r * 0.5) p.addSlow(z.slow, 0.1);
+        if (z.type === 'wind') for (const p of foes) if (V.dist(p.pos, z.pos) <= z.r + p.r * 0.5) p.addSlow(z.slow, 0.1);
         if (z.type === 'arc' && !z.hit && z.t >= z.delay) {
-          z.hit = true; const D = ai.kitCfg.D, dd = p ? V.dist(p.pos, z.pos) : 99;
-          if (p && !p.dead && dd <= D.radius + p.r * 0.5) { const inner = dd <= D.innerR; ai.hitP(p, ai.calc(inner ? { base: D.inner, bad: D.innerBad, sp: D.innerSp } : D, 'D'), { name: D.name }); p.addSlow(D.slow, D.slowDur); }
+          z.hit = true; const D = ai.kitCfg.D;
+          for (const p of foes) { const dd = V.dist(p.pos, z.pos); if (dd <= D.radius + p.r * 0.5) { const inner = dd <= D.innerR; ai.hitP(p, ai.calc(inner ? { base: D.inner, bad: D.innerBad, sp: D.innerSp } : D, 'D'), { name: D.name }); p.addSlow(D.slow, D.slowDur); } }
           FX.ring(z.pos, 0.5, D.radius, ai.motif.color, 0.35, 0.12); FX.burst(z.pos, ai.motif.color, 16, 5);
         }
       }
@@ -162,7 +162,7 @@ const Kits = {
       const want = d <= 5.0 ? 'short' : 'long';
       if (ai.stance !== want && ai.cds.Q <= 0) { ai.stance = want; ai.cds.Q = K.Q.cd; FX.text(ai.pos, want === 'short' ? '단궁' : '화궁', ai.motif.color, 12, { bold: true }); }
       // R: 단궁 연사(붙은 캐시를 밀쳐냄, 벽꿍 기절) / 화궁 정사필중(장거리 둔화)
-      if (ai.cds.R <= 0 && ai.stance === 'long' && d > 7 && (p.skills.Q.cd > 1 || d > 9)) { this.rLong(ai, p); return true; }
+      if (ai.cds.R <= 0 && ai.stance === 'long' && d > 7 && (foeCd(p, 'Q') > 1 || d > 9)) { this.rLong(ai, p); return true; }
       // 무기 스킬 곡사
       if (ai.cds.D <= 0 && d > 6 && d < K.D.range) {
         const pos = Geo.pushOut(ai.predict(p, K.D.windup + K.D.delay), 0.2); ai.cds.D = ai.pick(K.D.cd, 'D');
@@ -245,7 +245,7 @@ const Kits = {
       if (ai.cds.E > 0) return false;
       this.leap(ai, p, dir); return true;
     },
-    dodge(ai, pd) { if (ai.cds.E > 0) return false; this.leap(ai, Game.player, pd); return true; },
+    dodge(ai, pd) { if (ai.cds.E > 0) return false; this.leap(ai, ai.foe, pd); return true; },
     // E 비상: 5m 도약 후 사거리 내 적에게 화살 (카이츄 최대)
     leap(ai, p, dir) {
       const E = ai.kitCfg.E; ai.cds.E = ai.pick(E.cd, 'E'); ai.dashTo(dir, E.leap, E.leapTime, false, E.name);
@@ -349,7 +349,7 @@ const Kits = {
 
   // ---------------- 나딘 (석궁) ----------------
   nadine: {
-    init(ai) { ai.wire = null; ai.wolfT = 0; ai.wolfN = 0; ai.traps = []; ai.mark = null; ai.lastP = null; },
+    init(ai) { ai.wire = null; ai.wolfT = 0; ai.wolfN = 0; ai.traps = []; ai.mark = null; ai.lastP = {}; },
     wireAs(ai) { const E = ai.kitCfg.E; ai.addAs(ai.pick(E.as, 'E') + ai.sp * 0.0005, ai.wire ? E.life : E.after, 'wire'); },
     onAAHit(ai, u) {
       // R 늑대 맹습: 평타 3번마다 늑대
@@ -360,18 +360,19 @@ const Kits = {
     onHit(ai, u, o) { if (!o.mark) this.markHit(ai); },
     markHit(ai) { const m = ai.mark; if (!m) return; const M = ai.kitCfg.D.mark; m.t -= M.cut; m.bonus += ai.pick(M.inc, 'D') + ai.bonusAd * ai.pick(M.incBad, 'D'); },
     update(ai, dt) {
-      const p = Game.player, K = ai.kitCfg;
+      const K = ai.kitCfg, foes = Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead);
       if (ai.wolfT > 0) ai.wolfT -= dt;
       if (ai.wire && (ai.wire.t -= dt) <= 0) ai.wire = null;
-      // 다람쥐 덫: 캐시가 연결선을 지나가면 발동
-      if (p && !p.dead && ai.lastP) for (const tr of ai.traps) {
+      // 다람쥐 덫: 상대가 연결선을 지나가면 발동 (상대별 직전 위치)
+      if (!ai.lastP) ai.lastP = {};
+      for (const p of foes) { const lp = ai.lastP[p.id]; if (lp) for (const tr of ai.traps) {
         if (tr.used || !tr.b) continue;
-        if (KU.segCross(ai.lastP, p.pos, tr.a, tr.b) || Geo.segDist(p.pos, tr.a, tr.b) < p.r * 0.5) {
+        if (KU.segCross(lp, p.pos, tr.a, tr.b) || Geo.segDist(p.pos, tr.a, tr.b) < p.r * 0.5) {
           tr.used = true; const W = K.W; ai.hitP(p, ai.calc(W, 'W'), { name: W.name }); p.addSlow(ai.pick(W.slow, 'W'), W.slowDur); FX.text(p.pos, '덫!', ai.motif.color, 15, { bold: true });
         }
-      }
+      } }
       ai.traps = ai.traps.filter(tr => !tr.used && (tr.life -= dt) > 0);
-      if (p) ai.lastP = V.copy(p.pos);
+      for (const p of foes) ai.lastP[p.id] = V.copy(p.pos);
       // 강노 표식 폭발
       if (ai.mark && (ai.mark.t -= dt) <= 0) { const M = K.D.mark, m = ai.mark, u = m.u; ai.mark = null;   // 적중마다 쌓인 추가 피해 포함
         if (!u.dead) { ai.hitP(u, ai.calc(M, 'D') + m.bonus * ai.diff.dmgMul, { name: '강노 폭발', mark: true }); FX.burst(u.pos, ai.motif.color, 18, 6); } }

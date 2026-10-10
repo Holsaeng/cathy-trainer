@@ -14,6 +14,11 @@ const rnd = () => Rng.next();
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
 const BUILD_ID = '__BUILD__';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
+// 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
+const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
+const isHero = u => !!u && HERO_KINDS.has(u.kind);
+// 상대 실험체의 스킬 쿨(플레이어 = skills, AI = cds) — 배우지 않았거나 없으면 99
+const foeCd = (u, k) => u && u.skills ? (u.skills[k] && u.skills[k].lv > 0 ? u.skills[k].cd : 99) : (u && u.cds && u.cds[k] !== undefined ? u.cds[k] : 99);
 const rand = (a, b) => a + Rng.next() * (b - a);
 const vrand = (a, b) => a + Math.random() * (b - a);   // 화면 효과용 (판정 난수를 소모하지 않음)
 const V = {
@@ -175,7 +180,9 @@ const Vision = {
   },
   detects(team, pt) { return Vision.wards(team).some(w => w.detect && V.dist(w.pos, pt) <= w.sightR() && Vision.los(w.pos, pt)); },   // 은신 감지(망원 카메라)
   // 플레이어 기준으로 이 지점이 보이는가 (투사체·잔상·흔들림 표시용)
-  pointVisible(pt) { const p = Game.player; return !Vision.fogOn || !p || (!p.dead && Vision.inSight(p, pt)) || Vision.zoneSees(p.team, pt); },
+  pointVisible(pt) { const p = Game.player; return !Vision.fogOn || !p || (!p.dead && Vision.inSight(p, pt)) || Vision.zoneSees(p.team, pt) || Vision.allies(p).some(a => Vision.inSight(a, pt)); },
+  // 같은 팀의 살아 있는 다른 실험체 (팀 시야 공유)
+  allies(u) { return u ? Game.units.filter(a => a !== u && a.team === u.team && !a.dead && isHero(a)) : []; },
   // 시야 다각형: 반경까지 광선을 쏴서 시야 차단 벽에 막히는 지점들
   polyFrom(pos, R) {
     const N = CONFIG.vision.rays, pts = [];
@@ -186,10 +193,14 @@ const Vision = {
   bushAt(p) { return (CONFIG.bushes || []).findIndex(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h); },
   // 점에서 부쉬 사각형까지 거리
   rectDist(p, b) { const dx = Math.max(b.x - p.x, 0, p.x - (b.x + b.w)), dy = Math.max(b.y - p.y, 0, p.y - (b.y + b.h)); return Math.hypot(dx, dy); },
-  // viewer가 target을 볼 수 있는가
+  // viewer가 target을 볼 수 있는가 — 팀원이 보는 것도 보임(팀 시야 공유)
   visible(viewer, target) {
     if (!viewer || !target) return true;
     if (viewer.team === target.team) return true;
+    if (Vision.soloSees(viewer, target)) return true;
+    return Vision.fogOn && Vision.allies(viewer).some(a => Vision.soloSees(a, target));
+  },
+  soloSees(viewer, target) {
     const pt = target.pos, zone = () => Vision.zoneSees(viewer.team, pt, target.r);
     if (target.stealthT > 0) return Vision.detects(viewer.team, pt);                                     // 은신: 카메라만 감지
     if (viewer.blindT > 0 && V.dist(viewer.pos, pt) > (viewer.blindR || 4.5)) return zone();             // 시야 감소(다니엘 W) — 설치물 시야는 그대로
@@ -518,7 +529,7 @@ const Combat = {
     if (src && src.S) src.S.dealt(o.source || '?', dmg);   // 통계는 캐릭터별(내 캐릭터 = Stats)
     if (tgt.S) { tgt.S.takenTotal += dmg; tgt.S.playerHits++; }
     if (tgt === Game.player) Events.emit('playerHit', { dmg });
-    if (tgt.kind === 'player') tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal);   // 피격 시 위치 노출 (사람이 조종하는 캐릭터 — 온라인 대전 양쪽 모두)
+    if (isHero(tgt)) tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal);   // 피격 시 위치 노출 (실험체)
     if (!o.tick) { Sfx.playFor(tgt, 'hurt'); Sfx.play(Sfx.hitKind(src, type, o) || 'hit', tgt.pos); }   // 맞은 사람에겐 아픈 소리 추가
     Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);

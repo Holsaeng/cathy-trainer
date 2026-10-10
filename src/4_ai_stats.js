@@ -12,7 +12,7 @@ const AI = {
 // ============================== AI: 1:1 결투 상대 ==============================
 class Duelist extends Unit {
   constructor(x, y, diffKey) {
-    const E = CONFIG.enemy, p = Game.player;
+    const E = CONFIG.enemy, p = Game.player || { maxHp: 2000, build: { def: 100 }, ad: 200 };
     super({ team: 1, x, y, r: E.r, hp: Math.round(p.maxHp * E.hpMul), def: p.build.def * E.defMul, ms: E.ms, color: E.color, name: E.name, kind: 'duelist', facing: Math.PI });
     this.diff = E.difficulty[diffKey]; this.diffKey = diffKey; this.ad = p.ad * E.adMul; this.as = E.as;
     this.cds = { s1: 2, s2: 4, s3: 0 }; this.aaCd = 0; this.act = null; this.thinkT = 0.5; this.dodgeQ = null;
@@ -35,7 +35,7 @@ class Duelist extends Unit {
     this.watchThreats(dt);
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + rnd() * 0.6); this.think(); if (this.act) return; }
-    const p = Game.player;
+    const p = this.foe || Game.player;
     if (this.attacking && p && !p.dead) {
       const d = V.dist(this.pos, p.pos) - p.r - this.r;
       if (d <= CONFIG.enemy.range) { this.moveTarget = null; if (this.aaCd <= 0) { this.act = { type: 'aa', t: 0, dur: CONFIG.enemy.aaWindup }; return; } }
@@ -60,7 +60,7 @@ class Duelist extends Unit {
     else { this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(pd, 2.2)), this.r); this.thinkT = 0.5; }
   }
   think() {
-    const p = Game.player; if (!p || p.dead) return;
+    const p = this.foe || Game.player; if (!p || p.dead) return;
     const E = CONFIG.enemy, d = V.dist(this.pos, p.pos), hpR = this.hp / this.maxHp, pR = p.hp / p.maxHp;
     if (hpR < 0.4 && this.cds.s3 <= 0 && !this.healing) {
       this.healing = { t: E.s3.dur, rate: this.maxHp * E.s3.healPct / E.s3.dur }; this.cds.s3 = E.s3.cd; FX.text(this.pos, E.s3.name, '#5dff9a', 14, { bold: true });
@@ -68,7 +68,7 @@ class Duelist extends Unit {
     // 어려움: 캐시의 이동기(Q/블링크)·E 쿨타임을 보고 진입 여부 결정
     let engage = true;
     if (this.diff.kite) {
-      engage = p.skills.Q.cd > 1.5 || p.skills.F.cd > 1.5 || p.skills.E.cd > 2 || pR < 0.4 || hpR > pR + 0.3;
+      engage = foeCd(p, 'Q') > 1.5 || foeCd(p, 'F') > 1.5 || foeCd(p, 'E') > 2 || pR < 0.4 || hpR > pR + 0.3;
       this.kiteT = (this.kiteT || 0) + this.diff.react;   // 너무 오래 견제만 하면 4초간 진입
       if (this.kiteT > 8) { this.commitT = 4; this.kiteT = 0; }
       if (this.commitT > 0) { this.commitT -= this.diff.react; engage = true; }
@@ -102,7 +102,7 @@ class Duelist extends Unit {
     this.cds.s2 = CONFIG.enemy.s2.cd; this.moveTarget = null;
   }
   updateAct(dt) {
-    const a = this.act, p = Game.player, E = CONFIG.enemy; a.t += dt;
+    const a = this.act, p = this.foe || Game.player, E = CONFIG.enemy; a.t += dt;
     if (a.type === 'aa') {
       if (p && !p.dead) this.facing = V.ang(V.sub(p.pos, this.pos));
       if (a.t >= a.dur) {
@@ -121,7 +121,7 @@ class Duelist extends Unit {
   fireS1(dir) {
     const E = CONFIG.enemy.s1; Sfx.play('throw');
     Game.projectiles.push(new Projectile({
-      team: 1, owner: this, kind: 'spear', pos: V.copy(this.pos), dir, speed: E.speed, range: E.range, width: E.width,
+      team: this.team, owner: this, kind: 'spear', pos: V.copy(this.pos), dir, speed: E.speed, range: E.range, width: E.width,
       onUnit: (pr, u) => { Combat.damage(this, u, (this.ad * E.adRatio + E.flat) * this.diff.dmgMul, { type: 'skill', source: '적 스킬' }); u.addSlow(E.slow, E.slowDur); this.stats.s1Hits++; FX.burst(u.pos, '#b56cff', 10, 5); return 'stop'; },
     }));
   }
@@ -137,8 +137,9 @@ function wallClearance(q) {
   return c;
 }
 class RangedDuelist extends Duelist {
-  constructor(x, y, diffKey, motifKey, stageKey) {
-    super(x, y, diffKey);
+  // team: 0 = 내 편(팀 대전 아군 AI) / 1 = 상대 (기본)
+  constructor(x, y, diffKey, motifKey, stageKey, team = 1) {
+    super(x, y, diffKey); this.team = team; this.foe = null;
     const M = CONFIG.rangedMotifs[motifKey], RA = CONFIG.rangedAI;
     const st = RA.stages[stageKey] ? stageKey : (RA.stages[Game.buildId] ? Game.buildId : 'mid'), si = ['early', 'mid', 'late'].indexOf(st), S0 = RA.stages[st];
     this.motif = M; this.motifKey = motifKey; this.kind = 'ranged';
@@ -183,7 +184,7 @@ class RangedDuelist extends Duelist {
     this.stats.s1Hits++; if (this.kit.onHit) this.kit.onHit(this, u, o, dmg);
   }
   shoot(o) {
-    const pr = new Projectile({ team: 1, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
+    const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
       speed: o.speed, range: o.range, width: o.width, onUnit: (pr, u) => { o.onHit(u, pr); return o.pierce ? 'continue' : 'stop'; } });
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = 999; }   // 대상 지정(회피 불가)
     Game.projectiles.push(pr); return pr;
@@ -195,10 +196,25 @@ class RangedDuelist extends Duelist {
     this.act = { type: 'dash', t: 0, dur: time, from: V.copy(this.pos), to: V.add(this.pos, V.mul(dir, len)) }; this.moveTarget = null;
     if (name) FX.text(this.pos, name, this.motif.color, 12, { bold: true });
   }
-  onDamaged(dmg, src) { if (this.kit.onDamaged) this.kit.onDamaged(this, dmg, src); }
+  onDamaged(dmg, src) { if (this.kit.onDamaged) this.kit.onDamaged(this, dmg, src); if (src && isHero(src) && src.team !== this.team) this.lastHitBy = { u: src, t: Game.time }; }
+  // 노릴 상대: 1:1이면 유일한 상대. 여럿이면 지금 상대를 유지하다가(보이는 동안) 안 보이면 보이는 상대 중 가까운 쪽 — 팀 대전은 모드의 판단(Game.mode.pickFoe)
+  pickFoe() {
+    const cur = this.foe, es = Game.units.filter(u => isHero(u) && u.team !== this.team && u.team !== 2);
+    if (!es.length) return null;
+    if (Game.mode && Game.mode.pickFoe) { const t = Game.mode.pickFoe(this, es, cur); if (t) return t; }
+    const alive = es.filter(u => !u.dead); if (!alive.length) return cur && es.includes(cur) ? cur : es[0];
+    if (alive.length === 1) return alive[0];
+    const vis = alive.filter(u => Vision.visible(this, u));
+    if (cur && !cur.dead && (vis.includes(cur) || !vis.length)) return cur;
+    if (vis.length) return vis.sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0];
+    return cur && !cur.dead ? cur : alive[0];
+  }
+  // 상대가 바뀌면 추적 정보(마지막 본 위치·추정) 초기화
+  setFoe(f) { if (f !== this.foe) { this.foe = f; this.belief = null; this.lastSeen = null; this.lastSeenVel = null; this.unseenT = 0; } }
   // ---------- 매 스텝 ----------
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
+    this.setFoe(this.pickFoe());
     for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감 = 쿨 × 100/(100+쿨감)
     this.aaCd -= dt; if (this.noAA > 0) this.noAA -= dt;
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
@@ -209,14 +225,19 @@ class RangedDuelist extends Duelist {
     for (const ps of this.pendingShots) if ((ps.t -= dt) <= 0) { ps.fn(); ps.done = true; }
     this.pendingShots = this.pendingShots.filter(ps => !ps.done);
     if (this.forced || this.stun > 0) { if (this.act && this.act.type === 'channel' && this.act.onEnd) this.act.onEnd(this.act, true); this.act = null; this.vel = { x: 0, y: 0 }; return; }
+    if (this.fear > 0) {   // 공포: 시전 취소, 시전자 반대로 걸어감 (아야 공포탄 등)
+      if (this.act && this.act.type !== 'dash') { if (this.act.onEnd) this.act.onEnd(this.act, true); this.act = null; }
+      if (!this.act) { if (this.fearFrom) this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(V.norm(V.sub(this.pos, this.fearFrom)), 2)), this.r); this.moveStep(dt); } else this.updateAct(dt);
+      return;
+    }
     this.watchThreats(dt);
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
-    const p0 = Game.player; this.seesP = !p0 || Vision.visible(this, p0);
+    const p0 = this.foe; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
     if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남
       const before = this.lastHeard; this.listen();
-      const near = this.seesP && Game.player && V.dist(this.pos, Game.player.pos) < CONFIG.rest.ai.safe;   // 시즌 12: 전투 중에도 쉴 수 있으니 멀리 보이는 정도로는 계속 쉼
+      const near = this.seesP && p0 && V.dist(this.pos, p0.pos) < CONFIG.rest.ai.safe;   // 시즌 12: 전투 중에도 쉴 수 있으니 멀리 보이는 정도로는 계속 쉼
       if (near || (this.lastHeard !== before && V.dist(this.pos, Vision.noises[Vision.noises.length - 1]?.pos || this.pos) < 7)) Rest.stop(this, null, true); else { this.vel = { x: 0, y: 0 }; return; }
     }
     if (this.killWard(p0)) { this.moveStep(dt); return; }   // 시야에 들어온 캐시의 카메라 파괴
@@ -231,17 +252,16 @@ class RangedDuelist extends Duelist {
     }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + rnd() * 0.6); this.think(); if (this.act) return; }
-    const p = Game.player;
+    const p = this.foe;
     if (this.kiteT > 0) { this.kiteT -= dt; this.moveStep(dt); return; }   // ① 쏘고 움직이는 중
     if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - (this.melee ? this.r : 0) <= this.aaRange()) {
-      this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()) }; return;
+      this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()), target: p }; return;
     }
     this.moveStep(dt);
   }
   // 바닥 예고 범위(플레이어 다니엘 Q 그림자 가위)를 보고 밖으로 — 시야 안에서 보인 예고만
   watchZones(dt) {
-    const p = Game.player;
-    if (p && p.pendingQ && p.K) for (const o of p.pendingQ) {
+    for (const p of Game.units) if (isHero(p) && p.team !== this.team && !p.dead && p.pendingQ && p.K) for (const o of p.pendingQ) {
       if (o.done) continue; o.seen = o.seen || new Set(); if (o.seen.has(this.id)) continue;
       if (!Vision.inSight(this, o.pos) && !Vision.zoneSees(this.team, o.pos)) continue;
       o.seen.add(this.id);
@@ -255,27 +275,28 @@ class RangedDuelist extends Duelist {
     // 부채꼴 축에서 옆으로 + 중앙(강화 피해·둔화)에서 멀어지는 쪽
     const rel = V.sub(this.pos, Z.apex), side = (Z.o.dir.x * rel.y - Z.o.dir.y * rel.x) >= 0 ? 1 : -1;
     let pd = V.mul(V.perp(Z.o.dir), side); if (wallClearance(V.add(this.pos, V.mul(pd, 2))) < 0.8) pd = V.mul(pd, -1);
-    if (this.kit.dodge && this.diffKey === 'hard' && rnd() < 0.4 && this.kit.dodge(this, pd)) { this.stats.dodges++; return; }
+    if (this.kit.dodge && this.silence <= 0 && this.diffKey === 'hard' && rnd() < 0.4 && this.kit.dodge(this, pd)) { this.stats.dodges++; return; }
     this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(pd, 2.6)), this.r); this.kiteT = 0.5; this.stats.dodges++;
   }
   // ② 좌우 무빙: 캐시 E 선딜(예고선)을 보고 옆으로
   watchCathyCast(dt) {
-    const p = Game.player;
     if (this.castDodge && (this.castDodge.t -= dt) <= 0) this.doSideStep();
-    if (!p || !p.cast || p.cast.phase !== 'windup' || p.cast.k !== 'E' || p.cast.id === this.castSeen || !Vision.visible(this, p)) return;
-    this.castSeen = p.cast.id;
-    if (rnd() < Math.min(0.95, this.diff.dodge + 0.15)) this.castDodge = { t: this.diff.react * 0.8, dir: p.cast.dir };
+    for (const p of Game.units) {
+      if (!isHero(p) || p.team === this.team || p.dead || !p.cast || p.cast.phase !== 'windup' || p.cast.k !== 'E' || p.charKey || (this.castSeenBy || (this.castSeenBy = {}))[p.id] === p.cast.id || !Vision.visible(this, p)) continue;
+      this.castSeenBy[p.id] = p.cast.id;
+      if (rnd() < Math.min(0.95, this.diff.dodge + 0.15)) this.castDodge = { t: this.diff.react * 0.8, dir: p.cast.dir, from: V.copy(p.pos) };
+    }
   }
-  sideDir(dir) {
-    const rel = V.sub(this.pos, Game.player.pos), sd = (dir.x * rel.y - dir.y * rel.x) >= 0 ? 1 : -1;
+  sideDir(dir, from) {
+    const o = from || (this.foe ? this.foe.pos : this.pos), rel = V.sub(this.pos, o), sd = (dir.x * rel.y - dir.y * rel.x) >= 0 ? 1 : -1;
     let pd = V.mul(V.perp(dir), sd); if (wallClearance(V.add(this.pos, V.mul(pd, 2))) < 0.8) pd = V.mul(pd, -1);   // 벽 쪽이면 반대로
     return pd;
   }
   doSideStep() {
     const c = this.castDodge; this.castDodge = null; if (!c || !this.canMove()) return;
     if (this.act) { if (this.act.type === 'aa') this.act = null; else return; }   // 평타 선딜은 끊고 피함 (시전·돌진 중엔 불가)
-    const pd = this.sideDir(c.dir);
-    if (this.kit.dodge && this.kit.dodge(this, pd)) { this.stats.sideSteps++; return; }   // 이동기로 회피(아야 무빙턴 등)
+    const pd = this.sideDir(c.dir, c.from);
+    if (this.silence <= 0 && this.kit.dodge && this.kit.dodge(this, pd)) { this.stats.sideSteps++; return; }   // 이동기로 회피(아야 무빙턴 등)
     this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(pd, 2.0)), this.r); this.kiteT = 0.55; this.stats.sideSteps++;
   }
   watchThreats(dt) {
@@ -288,16 +309,16 @@ class RangedDuelist extends Duelist {
     const pr = this.dodgeQ.pr; this.dodgeQ = null;
     if (pr.dead || !this.canMove()) return;
     if (this.act) { if (this.act.type === 'aa') this.act = null; else return; }
-    const pd = this.sideDir(pr.dir); this.stats.dodges++;
-    if ((this.diffKey === 'hard' || rnd() < 0.3) && this.kit.dodge && this.kit.dodge(this, pd)) return;
+    const pd = this.sideDir(pr.dir, pr.pos); this.stats.dodges++;
+    if ((this.diffKey === 'hard' || rnd() < 0.3) && this.silence <= 0 && this.kit.dodge && this.kit.dodge(this, pd)) return;
     this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(pd, 2.2)), this.r); this.kiteT = 0.45;
   }
   think() {
-    const p = Game.player; if (!p || p.dead) return;
+    const p = this.foe; if (!p || p.dead) return;
     const RA = CONFIG.rangedAI, d = V.dist(this.pos, p.pos);
     // ⑥ 위협(캐시가 붙음 / Q·R 돌진) → 키트별 이탈·반격 (벽 쪽은 피해서)
     // 플레이어 다니엘: 그림자 평타(3m) 상태면 더 멀리서부터 위협, 영감 표식이 걸리면 빠짐 ("표식 = 암살 선언")
-    const dan = p.charKey === 'daniel', marked = dan && p.mark && p.mark.target === this && d < 7 && !this.melee;
+    const dan = (p.charKey || p.motifKey) === 'daniel', marked = dan && p.mark && p.mark.target === this && d < 7 && !this.melee;
     if (marked && this.kiteT <= 0 && this.diffKey !== 'easy') { this.moveTarget = this.pickSpot(p, 8.5, 2.4); this.kiteT = 0.5; }
     const close = d < (this.diffKey === 'hard' ? 3.6 : 2.8) + (dan && p.shadowT > 0 ? 1.2 : 0), diving = p.cast && (p.cast.k === 'Q' || p.cast.k === 'R' || (dan && p.cast.k === 'E')) && d < 7;
     if (!this.melee && (close || (diving && this.diffKey !== 'easy')) && (this.diffKey !== 'easy' || rnd() < 0.5)) {
@@ -307,9 +328,10 @@ class RangedDuelist extends Duelist {
         const sc = -Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + V.dist(q, p.pos) * 0.5;
         if (sc > bs) { bs = sc; best = dir; }
       }
-      if (this.kit.escape && this.kit.escape(this, p, best, d)) return;
+      if (this.silence <= 0 && this.kit.escape && this.kit.escape(this, p, best, d)) return;
     }
-    if (this.canAct() && this.kit.think && this.kit.think(this, p, d)) { this.stats.s1Casts++; return; }
+    if (Game.mode && Game.mode.teamThink && Game.mode.teamThink(this, p, d)) return;   // 팀 대전: 후퇴·합류
+    if (this.canAct() && this.silence <= 0 && this.kit.think && this.kit.think(this, p, d)) { this.stats.s1Casts++; return; }   // 침묵 중엔 스킬 없이 평타만
     // ④ 압박: 사거리 밖이면 쏠 수 있는 거리까지 들어감
     if (this.kit.move) { this.kit.move(this, p, d); return; }
     if (this.kiteT <= 0 && d > this.aaRange() - 0.2) this.moveTarget = this.pickSpot(p, this.aaRange() - 0.4, 2.2);
@@ -332,7 +354,7 @@ class RangedDuelist extends Duelist {
   listen() {
     const nz = Vision.heard(this, this.lastHeard);
     if (nz) { this.lastHeard = nz.born; this.belief = { pos: V.copy(nz.pos), vel: { x: 0, y: 0 }, bush: Vision.bushAt(nz.pos), t: 0, heard: nz.kind }; }
-    for (const r of Vision.rustles) if (r.team === 0 && r.born > this.lastRustle && !r.skill && Vision.inSight(this, r.pt)) { this.lastRustle = r.born; this.belief = { pos: V.copy(r.pt), vel: { x: 0, y: 0 }, bush: r.b, t: 0, heard: 'rustle' }; }
+    for (const r of Vision.rustles) if (r.team !== this.team && r.team !== 2 && r.born > this.lastRustle && !r.skill && Vision.inSight(this, r.pt)) { this.lastRustle = r.born; this.belief = { pos: V.copy(r.pt), vel: { x: 0, y: 0 }, bush: r.b, t: 0, heard: 'rustle' }; }
   }
   // 시야 아이템: 오래 안 보이면 정찰 드론으로 추정 지점(부쉬)을 확인하고, 그래도 못 찾으면 망원 카메라를 설치
   useVisionItem(est, B) {
@@ -351,7 +373,7 @@ class RangedDuelist extends Duelist {
     if (!Vision.fogOn || this.act || !this.canAct()) return false;
     const engaged = this.seesP && p && !p.dead && V.dist(this.pos, p.pos) < 7.5;
     if (engaged || (this.mode === 'engage')) return false;
-    const w = Vision.wards(0).filter(x => Vision.visible(this, x) && V.dist(x.pos, this.pos) < 9).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0];
+    const w = Game.units.filter(x => x.kind === 'ward' && !x.dead && x.team !== this.team).filter(x => Vision.visible(this, x) && V.dist(x.pos, this.pos) < 9).sort((a, b) => V.dist(a.pos, this.pos) - V.dist(b.pos, this.pos))[0];
     if (!w) return false;
     const reach = (this.melee ? this.motif.aaRange : this.aaRange()) + w.r + this.r;
     if (V.dist(this.pos, w.pos) <= reach && this.aaCd <= 0) { this.aaTarget = w; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup }; this.moveTarget = null; return true; }
@@ -362,7 +384,7 @@ class RangedDuelist extends Duelist {
     const est = this.estimate();
     if (this.canAct() && this.useVisionItem(est, B)) return;
     // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
-    if (this.unseenT > H.checkAfter && this.canAct() && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
+    if (this.unseenT > H.checkAfter && this.canAct() && this.silence <= 0 && this.kit.checkBush && this.kit.checkBush(this, est, B)) { this.stats.s1Casts++; return; }
     if (B.t > H.forget) { this.belief.bush = -1; this.belief.pos = V.copy(est); this.belief.vel = { x: 0, y: 0 }; }   // 오래 못 봤으면 추정 갱신
     this.moveTarget = this.kit.huntSpot ? this.kit.huntSpot(this, est, B) : this.huntSpot(est); this.kiteT = 0;
   }
@@ -395,12 +417,12 @@ class RangedDuelist extends Duelist {
   startKite(p) {
     if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
-    const danger = p.charKey === 'daniel' ? (p.skills.E.cd <= 0.8 || p.daggerReady > 0 || p.shadowT > 0) : (p.skills.E.cd <= 0.8 || p.skills.Q.cd <= 0.8);
+    const danger = (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
     const want = danger ? Math.max(this.threatRange(p) + 0.4, this.aaRange()) : this.aaRange() - 0.3;
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { return p.charKey === 'daniel' ? (p.skills.E.cd <= 0.8 ? p.K.E.dist + p.K.E.aaRange + 0.5 : 3.5) : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {
@@ -414,7 +436,7 @@ class RangedDuelist extends Duelist {
     if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
   }
   updateAct(dt) {
-    const a = this.act, p = Game.player; a.t += dt;
+    const a = this.act, p = (a.type === 'aa' && a.target) || this.foe; a.t += dt;
     if (a.type === 'aa') {
       if (p && !p.dead) this.facing = V.ang(V.sub(p.pos, this.pos));
       if (a.t >= a.dur) {

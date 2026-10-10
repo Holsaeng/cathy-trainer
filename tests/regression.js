@@ -19,15 +19,15 @@
   // ---------------- 메뉴·UI ----------------
   G('메뉴·UI', () => {
     reset(); UI.showMenu();
-    T.ok('모드 카드 4개', document.querySelectorAll('.mode').length === 4);
+    T.ok('모드 카드 5개', document.querySelectorAll('.mode').length === 5);
     T.ok('비공식 표기', document.getElementById('card').innerText.includes('비공식 팬 제작'));
-    T.ok('바로 시작 4개', document.querySelectorAll('[data-a="quick"]').length === 4);
+    T.ok('바로 시작 5개', document.querySelectorAll('[data-a="quick"]').length === 5);
     T.ok('전술 스킬 10개', document.querySelectorAll('[data-in="tac"] option').length === 10);
     click('[data-a="char"][data-v="daniel"]'); T.ok('다니엘 제목', document.querySelector('#card h1').innerText.includes('DANIEL'));
     click('[data-a="char"][data-v="cathy"]'); click('[data-a="weapon"][data-v="dual"]'); T.ok('쌍검 선택', Settings.weapon === 'dual'); click('[data-a="weapon"][data-v="dagger"]');
     click('[data-a="build"][data-v="early"]'); T.ok('빌드 선택', Settings.build === 'early'); click('[data-a="build"][data-v="mid"]');
     const sel = document.querySelector('[data-in="tac"]'); sel.value = 'quake'; sel.dispatchEvent(new Event('change', { bubbles: true })); T.ok('전술 스킬 저장', Settings.tactical === 'quake'); Settings.tactical = 'blink';
-    for (const [i, h] of [['1', '결투'], ['2', '허수아비'], ['3', '콤보'], ['4', '회피']]) { key(i); T.ok('키 ' + i, document.querySelector('#card h2').innerText.includes(h)); key('Escape'); T.ok('Esc ' + i, !!document.querySelector('[data-a="quick"]')); }
+    for (const [i, h] of [['1', '결투'], ['2', '허수아비'], ['3', '콤보'], ['4', '회피'], ['5', '팀 대전']]) { key(i); T.ok('키 ' + i, document.querySelector('#card h2').innerText.includes(h)); key('Escape'); T.ok('Esc ' + i, !!document.querySelector('[data-a="quick"]')); }
     click('[data-a="mode"][data-v="duel"]'); click('[data-a="diff"][data-v="hard"]'); click('[data-a="motif"][data-v="aya"]'); click('[data-a="map"][data-v="jungle"]'); click('[data-a="dtime"][data-v="night"]');
     const sph = document.querySelector('[data-in="sphere"]'); sph.checked = true; sph.dispatchEvent(new Event('change', { bubbles: true }));
     T.ok('결투 옵션 저장', Settings.duelDiff === 'hard' && Settings.duelMotif === 'aya' && Settings.duelMap === 'jungle' && Settings.duelTime === 'night' && Settings.duelSphere === true);
@@ -316,6 +316,36 @@
     T.ok('상대 캐시: 외상 주인은 상대 캐시', (p.bleeds || []).length > 0 && p.bleeds.every(b => b.src === u2) || p.crit > 0, `외상 ${p.trauma}`);
     T.ok('상대 캐시: 내 통계에 안 섞임', JSON.stringify([Stats.casts, Stats.mistakes, Stats.inputs]) === st0);
     T.ok('적 목록은 기준 유닛에 따라', Game.enemies(u2).includes(p) && !Game.enemies(u2).includes(d) && Game.enemies(p).includes(u2) && Game.enemies().includes(d));
+  });
+
+  // ---------------- AI 팀 대전 (2:2 · 3:3) ----------------
+  G('팀 대전', () => {
+    reset(); Settings.character = 'cathy'; Settings.fog = true;
+    Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 11, allies: ['aya', 'rio'], enemies: ['katja', 'nadine', 'daniel'] }); run(2);
+    const M = Game.mode, p = Game.player;
+    T.ok('팀 구성: 블루 3(나+AI 2) vs 레드 3', M.team(0).length === 3 && M.team(1).length === 3 && M.allies.every(u => u.team === 0 && u.kind !== 'player') && M.enemies.map(u => u.motifKey).join() === 'katja,nadine,daniel');
+    T.ok('팀 대전 = 원형 투기장 · 시야 시스템', Game.mapKey === 'arena' && Vision.fogOn);
+    // 팀 시야 공유: 나는 못 보고 아군만 보는 적 → 나도 보임
+    const a = M.allies[0], e = M.enemies[0]; p.pos = { x: 4, y: 18 }; a.pos = { x: 20, y: 18 }; e.pos = { x: 24, y: 18 }; e.revealT = 0;
+    T.ok('팀 시야 공유: 아군이 보는 적은 나도 보임', !Vision.soloSees(p, e) && Vision.soloSees(a, e) && Vision.visible(p, e));
+    // 아군 AI는 내가 찍은 대상을 함께 침(집중 공격)
+    const e2 = M.enemies[1]; e.pos = { x: 22, y: 16.5 }; e2.pos = { x: 22, y: 19.5 }; p.pos = { x: 19, y: 18 };
+    p.attackTarget = e2; const f2 = M.pickFoe(a, M.team(1), null); p.attackTarget = e; const f1 = M.pickFoe(a, M.team(1), null); p.attackTarget = null;
+    T.ok('아군 AI: 내가 찍은 대상을 따라 침', f1 === e && f2 === e2, `${f1 && f1.motifKey} / ${f2 && f2.motifKey}`);
+    T.ok('AI 상대 쿨 읽기(플레이어 skills · AI cds)', foeCd(p, 'Q') === p.skills.Q.cd && foeCd(e, 'Q') === e.cds.Q && foeCd(e, 'Z') === 99);
+    // 끝까지 진행: 봇(나) + AI 6명, 오류 없이 라운드가 끝남
+    const bot = () => { const q = Game.player; if (q.dead || Game.freeze > 0) return; const t = Game.nearestEnemy(q.pos, 9, q); if (t) { if (q.attackTarget !== t) q.cmdAttack(t); } else if (!q.moveTarget) q.cmdMove({ x: 18, y: 18 }); };
+    const e0 = errs.length; let g = 0; Game.start('team', { size: 3, diff: 'hard', map: 'arena', rounds: 1, seed: 5 });
+    while (Game.state === 'play' && g < 120 * 120) { step(); g++; if (g % 12 === 0) bot(); if (g % 240 === 0) Renderer.frame(); }
+    T.ok('3:3 한 판이 오류 없이 끝남', Game.state === 'result' && errs.length === e0, `${Game.state} ${(g / 120).toFixed(1)}s ${errs.slice(e0).join('/')}`);
+    // 2:2 + 다니엘(나) · 숲길
+    Settings.character = 'daniel'; g = 0; Game.start('team', { size: 2, diff: 'normal', map: 'jungle', rounds: 1, seed: 8 });
+    while (Game.state === 'play' && g < 120 * 120) { step(); g++; if (g % 12 === 0) bot(); }
+    T.ok('2:2 (다니엘·숲길) 한 판이 끝남', Game.state === 'result' && errs.length === e0 && Game.mode.team(0).length === 2);
+    Settings.character = 'cathy';
+    // 결정성: 같은 시드 + 같은 입력 → 같은 판
+    const h = () => { Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 77 }); run(120 * 8); return Cmd.hash(); };
+    T.ok('팀 대전 결정성: 같은 시드 = 같은 판', h() === h());
   });
 
   // ---------------- 리플레이 (저장·다시 보기) ----------------

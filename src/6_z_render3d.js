@@ -288,7 +288,7 @@ const Render3D = {
   },
   // ---------- 카메라·조명 ----------
   updateCamera(dt) {
-    const p = Game.player, W = CONFIG.world.w, H = CONFIG.world.h;
+    const p0 = Game.player, p = p0 && p0.dead ? Vision.allies(p0)[0] || p0 : p0, W = CONFIG.world.w, H = CONFIG.world.h;   // 내가 쓰러지면 살아 있는 아군을 따라감(팀 대전 관전)
     const C = this.CAM, play = Game.state !== 'menu' && p && !p.dead;
     // 카메라 잠금(Y 전환, 기본 잠금): 잠금이면 내 캐릭터를 따라감 / 풀면 마우스를 화면 가장자리에 대 이동, 스페이스를 누르고 있으면 내 캐릭터로
     const follow = !play ? null : (Settings.camLock !== false || Input.spaceHeld) ? new THREE.Vector3(p.pos.x, 0, p.pos.y) : null;
