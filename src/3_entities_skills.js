@@ -3,7 +3,7 @@
 let UID = 0;
 class Unit {
   // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(온라인 대전 상대 캐릭터 등)은 버림
-  get S() { return this === Game.player ? Stats : (this.rstats || NullStats); }   // rstats: 온라인 손님 캐릭터 전용 통계(호스트에서)
+  get S() { return this === Game.player ? Stats : (this.rstats || NullStats); }   // 내 캐릭터만 통계 기록
   constructor(o) {
     this.id = ++UID; this.team = o.team ?? 1; this.name = o.name || ''; this.kind = o.kind || 'unit';
     this.pos = { x: o.x, y: o.y }; this.spawn = { x: o.x, y: o.y }; this.r = o.r || 0.5;

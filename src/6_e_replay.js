@@ -19,7 +19,7 @@ const Replay = {
     if (!Modes[r.mode] || r.mode === 'combo' && !(r.opts && r.opts.combo)) throw new Error('알 수 없는 모드: ' + r.mode);
     if (!Array.isArray(r.log) || !Number.isInteger(r.ticks) || r.ticks < 0 || r.ticks > 120 * 60 * 60) throw new Error('리플레이 내용이 올바르지 않습니다');
     if (r.step !== CONFIG.sim.step) throw new Error('시뮬레이션 간격이 다른 리플레이입니다');
-    for (const c of r.log) if (!c || !Number.isInteger(c.k) || !Net.validCmd(c)) throw new Error('리플레이 명령이 올바르지 않습니다');
+    for (const c of r.log) if (!c || !Number.isInteger(c.k) || !Cmd.valid(c)) throw new Error('리플레이 명령이 올바르지 않습니다');
     return r;
   },
   download(r = this.last) {

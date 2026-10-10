@@ -106,18 +106,20 @@ const Render3D = {
     const ground = new T3.Mesh(new T3.PlaneGeometry(W, H), this.noLine(this.std('#ffffff', { map: this.groundTexture(Game.mapKey) })));
     ground.rotation.x = -Math.PI / 2; ground.position.set(W / 2, 0, H / 2); ground.receiveShadow = true; G.add(ground);
     // 아레나 바깥 (어두운 바닥) + 경계 연석
+    const rd = Game.map && Game.map.round;   // 원형 맵: 별개 공간 — 직사각형 바깥 바닥·연석 없이 원만 보임
+    if (!rd) {
     const out = new T3.Mesh(new T3.PlaneGeometry(W + 60, H + 60), this.noLine(this.std('#1d232e'))); out.rotation.x = -Math.PI / 2; out.position.set(W / 2, -0.02, H / 2); G.add(out);
     const curbM = this.toonify(this.std('#7d838d'));   // 카툰이면 지형도 툰 재질(벽·연석은 외곽선 O, 부쉬는 X)
     for (const [x, z, w, d] of [[W / 2, -0.15, W + 0.6, 0.3], [W / 2, H + 0.15, W + 0.6, 0.3], [-0.15, H / 2, 0.3, H], [W + 0.15, H / 2, 0.3, H]]) { const m = new T3.Mesh(new T3.BoxGeometry(w, 0.25, d), curbM); m.position.set(x, 0.12, z); m.castShadow = m.receiveShadow = true; G.add(m); }
+    }
     // 벽: 높은 벽(콘크리트) · 낮은 턱(화단) · 창문 벽(유리)
     const concrete = this.toonify(this.std('#8d939c')), concreteTop = this.toonify(this.std('#b4b9bf')), planter = this.toonify(this.std('#7f7a70')), hedge = this.toonify(this.std('#4f7d3f')), frame = this.toonify(this.std('#3c4452', { roughness: 0.5, metalness: 0.4 }));
     const glass = this.noLine(this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false }));
-    const rd = Game.map && Game.map.round;
     if (rd) {   // 원형 맵: 원통 벽(안쪽 면) + 위 테두리 + 원 바깥 바닥 덮개
       const side = this.toonify(this.std('#8d939c', { side: T3.BackSide })), wall = new T3.Mesh(new T3.CylinderGeometry(rd.r + 0.15, rd.r + 0.15, 2.0, 96, 1, true), side);
       wall.position.set(rd.c.x, 1.0, rd.c.y); wall.receiveShadow = true; G.add(wall);
       const rim = new T3.Mesh(new T3.RingGeometry(rd.r + 0.1, rd.r + 0.45, 96), this.toonify(this.std('#b4b9bf', { side: T3.DoubleSide }))); rim.rotation.x = -Math.PI / 2; rim.position.set(rd.c.x, 2.02, rd.c.y); G.add(rim);
-      const cover = new T3.Mesh(new T3.RingGeometry(rd.r + 0.15, rd.r + 40, 96), this.noLine(this.std('#1d232e', { side: T3.DoubleSide }))); cover.rotation.x = -Math.PI / 2; cover.position.set(rd.c.x, 0.01, rd.c.y); G.add(cover);
+      const cover = new T3.Mesh(new T3.RingGeometry(rd.r + 0.15, rd.r + 40, 96), this.noLine(new T3.MeshBasicMaterial({ color: this.scene.background, side: T3.DoubleSide, toneMapped: false, fog: false }))); cover.rotation.x = -Math.PI / 2; cover.position.set(rd.c.x, 0.06, rd.c.y); cover.renderOrder = 3; G.add(cover);   // 배경색 그대로(안개 데칼 위) → 원 바깥은 빈 공간
     }
     for (const w of CONFIG.walls) {
       if (w.edge && rd) continue;

@@ -159,7 +159,7 @@
     T.ok('Q 80% 못 넘음', !tryDash('cathy', 'Q', 0.8, 4)); T.ok('Q 90% 넘음', tryDash('cathy', 'Q', 0.9, 4));
     T.ok('R 75% 못 넘음', !tryDash('cathy', 'R', 0.75, 6)); T.ok('R 85% 넘음', tryDash('cathy', 'R', 0.85, 6));
     T.ok('다니엘 E 40% 못 넘음', !tryDash('daniel', 'E', 0.4, 3)); T.ok('다니엘 E 60% 넘음', tryDash('daniel', 'E', 0.6, 3));
-    const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: 16, y: 9 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && Math.random() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && Math.random() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
+    const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && Math.random() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && Math.random() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
     let done = 0, n = 0, outC = 0;
     for (const ch of ['cathy', 'daniel']) for (const m of ['katja', 'rio', 'aya', 'nadine', 'daniel']) {
       n++; reset(); Settings.character = ch; Settings.build = ['early', 'mid', 'late'][n % 3]; Settings.tactical = TACTICAL_ORDER[n % 10];
@@ -179,6 +179,9 @@
       T.ok('원형 투기장: 경계로 돌진해도 원 안', V.dist(p.pos, rd.c) <= rd.r + 0.3, V.dist(p.pos, rd.c));
       Sphere.start(); let sm = 0; for (let i = 0; i < 100; i++) sm = Math.max(sm, V.dist(Sphere.pickTarget(), rd.c)); Sphere.stop();
       T.ok('원형 투기장: 크로노 스피어 이동 목표가 원 안', sm <= rd.r - 3, sm);
+      T.ok('원형 투기장: 별개 공간(36×36)·지름 34.4m·2D 카메라 따라감', CONFIG.world.w === 36 && CONFIG.world.h === 36 && Math.abs(rd.r * 2 - 34.4) < 1e-6 && Render.L.follow === true);
+      reset(); Game.start('duel', { map: 'basic', motif: 'rio', rounds: 1 }); run(2);
+      T.ok('원형 투기장 다음 다른 맵: 공간 크기 원래대로', CONFIG.world.w === 32 && CONFIG.world.h === 18 && !Render.L.follow && !Geo.round());
       T.ok('원형 투기장: 시작 위치 원 안', V.dist(M.spawns.p, rd.c) < rd.r - 1 && V.dist(M.spawns.e, rd.c) < rd.r - 1); }
   });
 
@@ -236,7 +239,7 @@
     Settings.ambient = true; Vision.setTime('day');
   });
 
-  // ---------------- 명령 계층·결정성 (리플레이·온라인 대전 준비) ----------------
+  // ---------------- 명령 계층·결정성 (리플레이) ----------------
   G('명령·결정성', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.fog = true;
     const opts = { diff: 'normal', motif: 'aya', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'night', seed: 777 };
@@ -295,7 +298,7 @@
     Settings.character = 'cathy';
   });
 
-  // ---------------- 상대 팀 사람 캐릭터 (온라인 대전 준비) ----------------
+  // ---------------- 상대 팀 사람 캐릭터 ----------------
   //   팀 1에 두 번째 캐시를 세우고 명령(Cmd.apply)으로 조종 → 내 캐릭터를 맞히고, 자기·자기 편은 안 맞고, 외상은 그 캐시 기준, 내 통계엔 안 섞임
   G('상대 팀 캐릭터', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
@@ -313,112 +316,6 @@
     T.ok('상대 캐시: 외상 주인은 상대 캐시', (p.bleeds || []).length > 0 && p.bleeds.every(b => b.src === u2) || p.crit > 0, `외상 ${p.trauma}`);
     T.ok('상대 캐시: 내 통계에 안 섞임', JSON.stringify([Stats.casts, Stats.mistakes, Stats.inputs]) === st0);
     T.ok('적 목록은 기준 유닛에 따라', Game.enemies(u2).includes(p) && !Game.enemies(u2).includes(d) && Game.enemies(p).includes(u2) && Game.enemies().includes(d));
-  });
-
-  // ---------------- 상태 스냅샷 (온라인 대전 2단계) ----------------
-  //   호스트 판을 진행하며 스냅샷 → 같은 옵션으로 새로 시작한 판(손님 역할)에 적용 → 상태 요약이 같아야 함
-  G('스냅샷', () => {
-    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.fog = true;
-    const opts = { diff: 'hard', motif: 'nadine', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'night', seed: 5 };
-    const bot = () => {
-      const p = Game.player, e = Modes.duel.enemy, t = Game.tick; if (!p || !e || p.dead) return;
-      if (t % 60 === 0) Cmd.move({ x: e.pos.x + Math.sin(t * 0.01) * 3, y: e.pos.y + 2 });
-      if (t % 120 === 30) Cmd.skill(['Q', 'W', 'E', 'D'][(t / 120 | 0) % 4], e.pos);
-      if (t % 170 === 90) Cmd.attack(e);
-      if (t === 900) Cmd.camera({ x: p.pos.x + 3, y: p.pos.y });
-      if (t === 1300) Cmd.drone({ x: e.pos.x, y: e.pos.y });
-    };
-    Game.start('duel', opts); const shots = [];
-    for (let i = 0; i < 120 * 60; i++) { bot(); step(); const last = shots[shots.length - 1]; if (i % 240 === 0 || !last || last.n !== Game.units.length || last.round !== Modes.duel.round || (Game.projectiles.length && !shots.some(s => s.np))) shots.push({ s: Snap.pack(), h: Cmd.hash(), np: Game.projectiles.length, n: Game.units.length, round: Modes.duel.round }); }
-    T.ok('스냅샷: 여러 상황 포함(라운드 변화·유닛 수 변화·투사체)', new Set(shots.map(s => s.round)).size >= 2 && new Set(shots.map(s => s.n)).size >= 2 && shots.some(s => s.np > 0), `${shots.length}개`);
-    Game.start('duel', opts); let bad = [], err = '';
-    for (const [i, sh] of shots.entries()) { try { Snap.unpack(sh.s); if (Cmd.hash() !== sh.h) bad.push(i); } catch (x) { err = x.message; break; } }
-    T.ok('스냅샷: 손님 상태 = 호스트 상태', !bad.length && !err, err || bad.join(','));
-    const big = Math.max(...shots.map(s => s.s.length));
-    T.ok('스냅샷: 크기(20KB 이하)', big < 20000, `${big}B`);
-    // 투사체·참조·설정 객체 복원
-    const ps = shots.find(s => s.np > 0); Snap.unpack(ps.s); const pr = Game.projectiles[0], E = Modes.duel.enemy;
-    T.ok('스냅샷: 투사체 복원', pr instanceof Projectile && pr.hit instanceof Set && Game.units.includes(pr.owner));
-    T.ok('스냅샷: 유닛 참조', Game.units.includes(E) && E instanceof RangedDuelist && Game.player instanceof Cathy && Game.units.includes(Game.player));
-    T.ok('스냅샷: 설정 객체는 같은 객체로', E.kit === Kits[E.motifKey] && E.motif === CONFIG.rangedMotifs[E.motifKey] && Game.player.build === CONFIG.builds[Game.buildId]);
-    const u1 = Game.units[1]; Snap.unpack(ps.s); T.ok('스냅샷: 다시 적용하면 같은 객체 재사용', Game.units[1] === u1 && Game.projectiles[0] === pr);
-    let rerr = ''; try { Renderer.frame(); } catch (x) { rerr = x.message; }
-    T.ok('스냅샷: 적용 후 그리기', !rerr, rerr);
-    let ferr = ''; try { Snap.apply({ v: 999 }); } catch (x) { ferr = x.message; } T.ok('스냅샷: 형식이 다르면 거부', !!ferr);
-  });
-
-  // ---------------- 온라인 대전: 델타·명령 검사·시점 이벤트·대전 모드 (두 창 시험은 ?netlab&test) ----------------
-  G('온라인 대전', () => {
-    reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
-    // 델타 왕복
-    const A = { a: 1, b: { c: [1, 2], d: { $u: 3 } }, e: 'x', n: NaN, gone: 5 }, B = { a: 2, b: { c: [1, 2, 3], d: { x: 1, y: 2 } }, e: { v: 1 }, n: NaN, add: null };
-    const P = Snap.patch(A, JSON.parse(JSON.stringify(Snap.diff(A, B))));
-    T.ok('델타: 바뀐 값만 보내고 그대로 복원', JSON.stringify(P) === JSON.stringify(B) && Snap.diff(B, B) === undefined && !('gone' in P), JSON.stringify(P));
-    // 명령 검사
-    T.ok('명령 검사', Net.validCmd({ t: 'sk', s: 'Q', x: 1, y: 2 }) && Net.validCmd({ t: 'atk', id: 2 }) && !Net.validCmd({ t: 'sk', s: 'Z', x: 1, y: 2 }) && !Net.validCmd({ t: 'move', x: NaN, y: 1 }) && !Net.validCmd({ t: 'hack' }) && !Net.validCmd({ t: 'move' }) && !Net.validCmd(null));
-    // 대전 모드 구성
-    Net.init(); const role0 = Net.role;
-    Game.start('pvp', { seed: 7, guestWeapon: 'dual', hostWeapon: 'dagger', build: 'late', map: 'basic', rounds: 3 }); run(5);
-    const M = Game.mode, me = Game.player, op = M.remote();
-    T.ok('대전 모드: 캐시 두 명(팀 0·1), 옵션대로 무기', me instanceof Cathy && op instanceof Cathy && me.team === 0 && op.team === 1 && me.weapon === 'dagger' && op.weapon === 'dual' && Vision.fogOn);
-    T.ok('대전 모드: 상대 기준 적 목록', Game.enemies(op).includes(me) && Game.enemies(me).includes(op));
-    // 시점 이벤트: 호스트에서 손님 캐릭터가 맞으면 「아픈 소리」는 손님에게만
-    try {
-      Net.role = 'host'; Net.ev = []; let fr = 0; while (Game.freeze > 0 && fr++ < 400) step();
-      Combat.damage(me, op, 10, { type: 'normal' }); op.skills.Q.cd = 5; op.tryCast && op.cdError && op.cdError('Q');
-      const ev = Net.ev, rid = op.id - Game.uid0;
-      T.ok('시점 이벤트: 맞은 소리는 맞은 사람 표시', ev.some(e => e.k === 'sfor' && e.a[0] === 'hurt' && e.f === rid) && ev.some(e => e.k === 'fx:text'), ev.map(e => e.k).join(','));
-      T.ok('시점 이벤트: 상대의 오류음은 상대에게만', ev.some(e => e.k === 'sfor' && e.a[0] === 'error' && e.f === rid));
-      Net.role = 'guest'; const v = M.view(); M.wins = { p: 2, e: 1 };
-      T.ok('손님 시점: 점수 뒤집기', M.view().wins.p === 1 && M.view().wins.e === 2 && v !== M);
-      M.wins = { p: 0, e: 0 };
-    } finally { Net.role = role0; Net.ev = []; }
-    T.ok('내 편 색: 내 캐릭터 팀 기준', myTeam() === 0);
-    // 손님 캐릭터 전용 통계: 기록은 하되 호스트 화면엔 알림 없음, 스냅샷엔 안 실림
-    const rs = M.rs, t0 = FX.toasts.length;
-    op.S.mistake('테스트 실수'); op.S.cast('Q');
-    T.ok('손님 통계: 따로 기록·호스트 알림 없음', op.S === rs && rs.mistakes['테스트 실수'] === 1 && rs.casts.Q >= 1 && !Stats.mistakes['테스트 실수'] && FX.toasts.length === t0);
-    T.ok('손님 통계: 스냅샷에 안 실림', !JSON.stringify(Snap.capture()).includes('테스트 실수'));
-    // 보는 사람 기준 색·글자
-    const w = new Ward(op.pos.x, op.pos.y, op), w2 = new Ward(me.pos.x, me.pos.y, me);
-    T.ok('카메라 색: 보는 사람 기준', w.color === '#ff8a8a' && w2.color === '#7fd1ff' && !Object.keys(w).includes('color'));
-    T.ok('글자 보이기 규칙', FX.canSee(op, 'all', me) && !FX.canSee(op, 'owner', me) && FX.canSee(me, 'owner', me) && FX.teamColor('team', me) === '#7fd1ff' && FX.teamColor('#123', me) === '#123');
-    // 손님 명령이 섞인 대전도 같은 시드 + 같은 기록이면 같은 결과
-    const o = { seed: 11, guestWeapon: 'dagger', hostWeapon: 'dual', build: 'late', map: 'jungle', rounds: 3 };
-    Game.start('pvp', o);
-    try {
-      Net.role = 'host'; Net.link = null; Net.inbox = []; Net.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: Game.opts };
-      for (let i = 0; i < 120 * 15; i++) {
-        const p = Game.player, e = Game.mode.enemy, t = Game.tick;
-        if (t % 70 === 0) Net.inbox.push({ t: 'move', x: p.pos.x + 2, y: p.pos.y + 1 });
-        if (t % 150 === 40) Net.inbox.push({ t: 'sk', s: ['Q', 'W', 'E'][(t / 150 | 0) % 3], x: p.pos.x, y: p.pos.y });
-        if (t % 90 === 20) Cmd.move({ x: e.pos.x - 2, y: e.pos.y });
-        step();
-      }
-    } finally { Net.role = role0; Net.inbox = []; }
-    const rec = Cmd.record(), h = Cmd.hash();
-    Game.start('pvp', o); Cmd.replay(rec.log); run(120 * 15);
-    T.ok('결정성: 손님 명령이 섞인 대전 재생', Cmd.hash() === h && rec.log.some(c => c.p === 1) && rec.log.some(c => !c.p), `${rec.log.filter(c => c.p).length}개 손님 명령`);
-    // 다니엘도 대전: 호스트·손님 각자 실험체, 다니엘은 장비 없음, 손님 다니엘 걸작까지 재생 결정성
-    for (const [hc, gc] of [['daniel', 'cathy'], ['cathy', 'daniel'], ['daniel', 'daniel']]) {
-      const od = { seed: 21, hostChar: hc, guestChar: gc, hostWeapon: 'dagger', guestWeapon: 'dual', build: 'late', map: 'basic', rounds: 3, gear: CONFIG.gearPresets.daggerD1.gear };
-      Game.start('pvp', od);
-      try {
-        Net.init(); Net.resetStats(); Net.role = 'host'; Net.link = null; Net.inbox = []; Net.tx = { n: 0, prev: null, sinceKey: 0, wantKey: true, t: 0, opts: Game.opts };
-        for (let i = 0; i < 120 * 12; i++) {
-          const p = Game.player, e = Game.mode.enemy, t = Game.tick;
-          if (e && !e.dead) { if (t % 70 === 0) Net.inbox.push({ t: 'move', x: p.pos.x + 1.5, y: p.pos.y }); if (t % 150 === 40) Net.inbox.push({ t: 'sk', s: ['Q', 'W', 'E'][(t / 150 | 0) % 3], x: p.pos.x, y: p.pos.y }); if (t % 400 === 300) Net.inbox.push({ t: 'sk', s: 'R', x: p.pos.x, y: p.pos.y }); if (e.shadow && t % 20 === 0) Net.inbox.push({ t: 'cur', x: p.pos.x - 2, y: p.pos.y }); }
-          if (p && !p.dead) { if (t % 90 === 20) Cmd.move({ x: e.pos.x - 1.5, y: e.pos.y }); if (t % 160 === 60) Cmd.skill(['Q', 'W', 'E'][(t / 160 | 0) % 3], e.pos); }
-          step();
-        }
-      } finally { Net.role = role0; Net.inbox = []; }
-      const P = Game.player, E = Game.mode.enemy, rd = Cmd.record(), hd = Cmd.hash();
-      const okc = (u, c) => (c === 'daniel') === (u instanceof DanielPlayer);
-      T.ok(`대전 ${hc} vs ${gc}: 실험체·장비`, okc(P, hc) && okc(E, gc) && E.team === 1 && (hc === 'daniel' ? !P.gear : !!P.gear) && !E.gear && new RegExp((hc === 'daniel' ? '다니엘' : '캐시') + ' vs ' + (gc === 'daniel' ? '다니엘' : '캐시')).test(Game.mode.title));
-      Game.start('pvp', od); Cmd.replay(rd.log); run(120 * 12);
-      T.ok(`대전 ${hc} vs ${gc}: 재생 결정성`, Cmd.hash() === hd && rd.log.some(c => c.p));
-    }
-    T.ok('온라인 중 일시정지 막힘', (() => { Net.role = 'host'; try { Game.togglePause(); return !Game.paused; } finally { Net.role = role0; } })());
   });
 
   // ---------------- 리플레이 (저장·다시 보기) ----------------
@@ -569,9 +466,6 @@
     Settings.character = 'daniel'; T.ok('다니엘은 장비 없음', Builds.current() === null); Settings.character = 'cathy';
     const est = Builds.estimate('late', P.daggerD1.gear, 'dagger'), est0 = Builds.estimate('late', null, 'dagger');
     T.ok('예상 DPS: 같은 값·화면 상태 복구', est > 0 && est0 > 0 && est === Builds.estimate('late', P.daggerD1.gear, 'dagger') && Game.state === 'menu' && Settings.weapon === 'dagger', `${est0} → ${est}`);
-    // 대전: 호스트·손님 장비 따로
-    Game.start('pvp', { seed: 9, hostWeapon: 'dagger', guestWeapon: 'dual', build: 'late', gear: P.daggerD1.gear, guestGear: P.dualS1.gear }); run(3);
-    T.ok('대전: 호스트·손님 장비 따로', Game.player.sp === b.sp && Game.mode.enemy.sp === Builds.resolve('late', P.dualS1.gear, 'dual').sp && Game.mode.enemy.weapon === 'dual');
     Settings.gearOn = false; Settings.gearSets = null;
     // AI 상대 장비 (결투 옵션 「상대 장비」)
     T.ok('AI 장비 데이터: 5명 × 빌드 3개, 아이템 다 있음', ['aya', 'rio', 'nadine', 'katja', 'daniel'].every(m => { const C = CONFIG.aiGear.characters[m]; return C && C.builds.length === 3 && C.builds.every(b => Builds.SLOTS.every(s => { const it = Builds.aiItem(b.gear[s]); return it && it.slot === s; })); }));
@@ -596,17 +490,13 @@
     T.ok('기록은 상대 장비별로', Object.keys(Records.all()).some(k => k.includes('|eg0')));
   });
 
-  // ---------------- 온라인 연결 (연결 코드·메뉴) — 실제 연결 시험은 ?netlab&rtc&test ----------------
-  G('온라인 연결', () => {
+  // ---------------- 온라인 대전 제거 확인 ----------------
+  G('온라인 대전 제거', () => {
     reset();
     T.ok('게임 버전이 빌드 때 채워짐', /^[0-9a-f]{8}$/.test(BUILD_ID), BUILD_ID);
-    UI.showMenu(); click('[data-a="online"]');
-    T.ok('메뉴 → 온라인 대전 화면', /온라인 대전/.test(document.querySelector('#card').innerText) && !!document.querySelector('[data-a="host"]') && !!document.querySelector('[data-a="join"]') && /IP 주소/.test(document.querySelector('#card').innerText));
-    click('[data-a="host"]'); T.ok('방 만들기 화면', !!document.getElementById('net-offer') && !!document.querySelector('[data-a="connect"]'));
-    click('[data-a="opt"][data-k="map"][data-v="jungle"]'); T.ok('방 옵션 선택', UI.netOpts.map === 'jungle' && !!document.querySelector('[data-a="opt"][data-k="map"][data-v="jungle"].sel'));
-    click('[data-a="back"]'); click('[data-a="join"]'); T.ok('참가하기 화면', !!document.getElementById('net-answer') && !!document.querySelector('[data-a="answer"]'));
-    click('[data-a="back"]'); click('[data-a="back"]'); T.ok('메뉴로 돌아감', !!document.querySelector('[data-a="online"]'));
-    T.ok('STUN 기본 켬·끄기 설정', Settings.netStun !== false && Rtc.config().iceServers.length === 1 && (() => { Settings.netStun = false; const n = Rtc.config().iceServers.length; Settings.netStun = true; return n === 0; })());
+    UI.showMenu(); T.ok('메뉴에 온라인 대전 버튼 없음', !document.querySelector('[data-a="online"]') && !/온라인 대전/.test(document.querySelector('#card').innerText));
+    T.ok('대전 모드·네트워크 코드 없음', !Modes.pvp && typeof Net === 'undefined' && typeof Rtc === 'undefined' && typeof Snap === 'undefined' && typeof NetLab === 'undefined');
+    T.ok('리플레이 명령 검사', Cmd.valid({ t: 'sk', s: 'Q', x: 1, y: 2 }) && Cmd.valid({ t: 'atk', id: 2 }) && !Cmd.valid({ t: 'sk', s: 'Z', x: 1, y: 2 }) && !Cmd.valid({ t: 'move' }) && !Cmd.valid({ t: 'eval' }));
   });
 
   // ---------------- 3D 렌더러 ----------------

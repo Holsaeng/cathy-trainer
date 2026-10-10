@@ -12,7 +12,6 @@
 | [er_notes_items.md](er_notes_items.md) | 아이템 시스템(부위·등급·능력치 단위·상한), 최종 능력치 계산, 시즌 12 캐시 인기 빌드(dak.gg·나무위키), 아이템 약 55개 12.5 수치 |
 | [er_notes_ai_builds.md](er_notes_ai_builds.md) · [ai_builds_data.json](ai_builds_data.json) | AI 상대 5명의 시즌 12 기본 능력치·캐릭터별 숙련도·인기 빌드(dak.gg 12.5)·아이템 48개 |
 | [build_items_plan.md](build_items_plan.md) | 장비·빌드 선택 기능 설계(준비 단계): 계산식·데이터 형식·화면·검증 계획 |
-| [online_duel_plan.md](online_duel_plan.md) | 1:1 온라인 대전 설계·진행(1~5단계) |
 
 ## 시뮬레이터와 다른 점 (확인 필요)
 - ~~휴식~~ → 2026-10-06 시즌 12 규칙으로 반영 완료 (단계 완료 시 15% / 15% / 50%, 0.25초 유예, 피해·CC·행동 시 취소).

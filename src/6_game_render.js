@@ -11,15 +11,16 @@ const Game = {
     this.seed = opts.seed !== undefined ? opts.seed >>> 0 : (Math.random() * 4294967296) >>> 0; Rng.seed(this.seed); this.tick = 0; this.uid0 = UID; Cmd.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
+    { const nw = this.map.world || CONFIG.worldBase || CONFIG.world; if (nw.w !== CONFIG.world.w || nw.h !== CONFIG.world.h) { CONFIG.world = Object.assign({}, nw); if (Render.cv) Renderer.resize(); } }   // 맵마다 공간 크기(원형 투기장 = 별개 공간)
     CONFIG.walls = this.map.walls.map(w => Object.assign({}, w)); CONFIG.bushes = (this.map.bushes || []).map(b => Object.assign({}, b)); Vision.reveals = []; Vision.ghosts = {}; Vision.noises = []; Vision.rustles = []; this.drones = []; Sphere.stop();
-    Vision.fogOn = (id === 'duel' || id === 'pvp') && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
+    Vision.fogOn = id === 'duel' && Settings.fog !== false; Vision.setTime(Vision.fogOn ? (opts.time || Settings.duelTime || 'day') : 'day');
     this.mode.start(opts);
     this.state = 'play'; this.paused = false; UI.hide();
   },
   restart() { this.start(this.modeId, this.opts); },
-  step(dt) { this._step(dt); Net.afterStep(); Replay.afterStep(); },   // 온라인 호스트: 0.05초마다 상태 전송
+  step(dt) { this._step(dt); Replay.afterStep(); },
   _step(dt) {
-    Cmd.feed(); Net.feed(); this.tick++;
+    Cmd.feed(); this.tick++;
     if (this.freeze > 0) { this.freeze -= dt; this.mode.update(dt, true); FX.update(dt); return; }
     this.time += dt; Stats.tick(dt); Vision.update(dt);
     Sfx.tick(dt);
@@ -49,7 +50,6 @@ const Game = {
     if (this.state !== 'play') return;
     if (Replay.active) { Replay.end(); return; }   // 다시 보기 중엔 기록·결과 화면 없이 끝
     this.state = 'result';
-    if (Net.role === 'host') Net.flush();
     Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
@@ -58,7 +58,6 @@ const Game = {
   },
   togglePause() {
     if (this.state !== 'play') return;
-    if (Net.role) { FX.toast('온라인 대전 중에는 일시정지할 수 없습니다', '#aaa'); return; }
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
@@ -263,14 +262,27 @@ const Render = {
   resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     this.cv.width = W * dpr; this.cv.height = H * dpr;
-    const ppm = Math.min((W - 20) / CONFIG.world.w, (H - HUD_H - 20) / CONFIG.world.h);
-    this.L = { W, H, dpr, ppm, ox: (W - CONFIG.world.w * ppm) / 2, oy: Math.max(10, (H - HUD_H - CONFIG.world.h * ppm) / 2) };
+    // 기본 공간보다 큰 맵(원형 투기장): 화면 배율은 기본 공간 기준 그대로, 카메라가 내 캐릭터를 따라감
+    const B = CONFIG.worldBase || CONFIG.world, big = CONFIG.world.w > B.w || CONFIG.world.h > B.h, F = big ? B : CONFIG.world;
+    const ppm = Math.min((W - 20) / F.w, (H - HUD_H - 20) / F.h);
+    this.L = { W, H, dpr, ppm, ox: (W - CONFIG.world.w * ppm) / 2, oy: Math.max(10, (H - HUD_H - CONFIG.world.h * ppm) / 2), follow: big };
+    this.cam = null;
+  },
+  // 따라가는 카메라: 내 캐릭터(없으면 공간 가운데)를 화면 가운데로 — 커서의 월드 좌표도 다시 계산
+  followCam() {
+    const L = this.L; if (!L.follow) return;
+    const p = Game.player, t = p && !p.dead && Game.state !== 'menu' ? p.pos : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 };
+    if (!this.cam) this.cam = V.copy(t); else { const k = Math.min(1, ((performance.now() - (this.camT || 0)) / 1000) * 8); this.cam = V.lerp(this.cam, t, k); }
+    this.camT = performance.now();
+    L.ox = L.W / 2 - this.cam.x * L.ppm; L.oy = (L.H - HUD_H) / 2 - this.cam.y * L.ppm;
+    if (Input.screen) Input.world = this.toWorld(Input.screen.x, Input.screen.y);
   },
   toWorld(sx, sy) { const L = this.L; return { x: (sx - L.ox) / L.ppm, y: (sy - L.oy) / L.ppm }; },
   toScreen(p) { const L = this.L; return { x: L.ox + p.x * L.ppm + (this.shx || 0), y: L.oy + p.y * L.ppm + (this.shy || 0) }; },
   pxPerMeter() { return this.L.ppm; },
   inputCanvas() { return this.cv; },
   frame() {
+    this.followCam();
     const { ctx, L } = this, T = CONFIG.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, this.cv.width, this.cv.height);
     const sh = Settings.reduceShake ? 0 : FX.shake; this.shx = (Math.random() - 0.5) * sh; this.shy = (Math.random() - 0.5) * sh;
@@ -281,8 +293,14 @@ const Render = {
   },
   // layer: 'all' = 2D 전체 / 'ground' = 3D 렌더러의 바닥 데칼(예고 범위·이펙트·상태 표시·안개만 — 바닥·벽·부쉬·유닛 몸체·투사체는 3D 메시)
   drawWorld(ctx, T, layer = 'all') {
-    const W = CONFIG.world.w, H = CONFIG.world.h, all = layer === 'all';
-    if (all) {
+    const W = CONFIG.world.w, H = CONFIG.world.h, all = layer === 'all', rd = Geo.round();
+    if (all && rd) {   // 원형 맵: 별개 공간 — 원 안에만 바닥·격자, 바깥은 빈 공간
+      ctx.save(); ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.fillStyle = T.floor; ctx.fill(); ctx.clip();
+      ctx.lineWidth = 0.02;
+      for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y <= H; y++) { ctx.strokeStyle = y % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.restore();
+    } else if (all) {
       ctx.fillStyle = T.floor; ctx.fillRect(0, 0, W, H);
       ctx.lineWidth = 0.02;
       for (let x = 0; x <= W; x++) { ctx.strokeStyle = x % 4 ? T.grid : '#1f2636'; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
@@ -296,10 +314,8 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
-    const rd = this.map && this.map.round;
-    if (all && rd) {   // 원형 맵: 원 바깥을 어둡게 + 테두리
-      ctx.save(); ctx.beginPath(); ctx.rect(-1, -1, W + 2, H + 2); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2, true); ctx.fillStyle = T.wall; ctx.fill('evenodd');
-      ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.strokeStyle = '#5a6a8a'; ctx.lineWidth = 0.14; ctx.stroke(); ctx.strokeStyle = 'rgba(255,200,87,.35)'; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r - 0.12, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    if (all && rd) {   // 원형 맵: 테두리
+      ctx.save(); ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.strokeStyle = '#5a6a8a'; ctx.lineWidth = 0.14; ctx.stroke(); ctx.strokeStyle = 'rgba(255,200,87,.35)'; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r - 0.12, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
     }
     if (all) for (const w of CONFIG.walls) {
       if (w.edge && rd) continue;

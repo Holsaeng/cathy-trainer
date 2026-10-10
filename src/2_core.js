@@ -263,7 +263,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, netPredict: true, netStun: true, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -331,8 +331,7 @@ const Sfx = {
   // u의 주인(그 캐릭터를 조종하는 사람)에게는 n, 다른 사람에게는 other(없으면 무음). 온라인 대전에선 손님에게도 시점에 맞게 전달
   playFor(u, n, pos, other) {
     const name = u === Game.player ? n : other;
-    if (name) Net.quiet(() => this.play(name, pos));
-    Net.note('sfor', [n, pos || null, other || null], u);
+    if (name) this.play(name, pos);
   },
   play(n, pos) {
     if (!n || !this.ok()) return;
@@ -470,17 +469,16 @@ const FX = {
   slash(pos, ang, R, half, color, life = 0.25, inner = 0) { this.slashes.push({ x: pos.x, y: pos.y, ang, R, half, color, life, max: life, inner }); },
   trail(a, b, color, width = 0.3, life = 0.25) { this.trails.push({ a: V.copy(a), b: V.copy(b), color, width, life, max: life }); },
   // 알림: toastFor = 그 캐릭터 주인에게만 / toastAll = 모두에게(라운드·스피어·낮밤). 그냥 toast는 이 화면에만
-  toastFor(u, str, color) { if (u === Game.player) this.toast(str, color); Net.note('tfor', [str, color || null], u); },
+  toastFor(u, str, color) { if (u === Game.player) this.toast(str, color); },
   // 캐릭터 머리 위 글자를 보는 사람 기준으로: who = 'owner'(주인만) | 'seen'(주인 + 그 캐릭터가 보이는 사람) | 'all'. color 'team' = 보는 사람 기준 내 편·적 색
   textFor(u, str, color, size, opt, who = 'seen') {
-    if (FX.canSee(u, who, Game.player)) Net.quiet(() => this.text(u.pos, str, FX.teamColor(color, u), size, opt));
-    Net.note('textfor', [V.copy(u.pos), str, color, size || null, opt || null, who], u);
+    if (FX.canSee(u, who, Game.player)) this.text(u.pos, str, FX.teamColor(color, u), size, opt);
   },
   // 링도 보는 사람 기준 색 (color 'team')
-  ringFor(u, pos, r0, r1, color, life) { Net.quiet(() => this.ring(pos, r0, r1, FX.teamColor(color, u), life)); Net.note('ringfor', [V.copy(pos), r0, r1, color, life || null], u); },
+  ringFor(u, pos, r0, r1, color, life) { this.ring(pos, r0, r1, FX.teamColor(color, u), life); },
   canSee(u, who, viewer) { return who === 'all' || u === viewer || (who === 'seen' && !!viewer && Vision.visible(viewer, u)); },
   teamColor(c, u) { return c === 'team' ? (u && u.team === myTeam() ? '#7fd1ff' : '#ff8a8a') : c; },
-  toastAll(str, color) { this.toast(str, color); Net.note('toast', [str, color || null]); },
+  toastAll(str, color) { this.toast(str, color); },
   mark(pos, color) { this.marks.push({ x: pos.x, y: pos.y, color, life: 0.4, max: 0.4 }); },
   addShake(px) { this.shake = Math.min(14, Math.max(this.shake, px)); },
   toast(str, color = '#e6e9ef') {

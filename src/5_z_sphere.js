@@ -58,7 +58,9 @@ const Sphere = {
     if (!this.active) return;
     const W = CONFIG.world;
     // 바깥(차단벽 밖)을 붉게
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W.w, W.h); ctx.arc(this.c.x, this.c.y, Math.max(0.01, this.r), 0, Math.PI * 2, true);
+    const rd = Geo.round();   // 원형 맵: 원 안에만
+    ctx.save(); if (rd) { ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.clip(); }
+    ctx.beginPath(); ctx.rect(0, 0, W.w, W.h); ctx.arc(this.c.x, this.c.y, Math.max(0.01, this.r), 0, Math.PI * 2, true);
     ctx.fillStyle = 'rgba(160,30,50,.22)'; ctx.fill('evenodd');
     ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 0.1; ctx.setLineDash([0.5, 0.25]); ctx.lineDashOffset = -Game.time * 2;
     ctx.beginPath(); ctx.arc(this.c.x, this.c.y, Math.max(0.01, this.r), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);

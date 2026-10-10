@@ -3,7 +3,6 @@
 // 플레이어 입력(키·마우스)을 「명령」으로 바꿔 한 곳에서 적용하고 기록함
 //   명령 = { k: 틱, t: 종류, x, y, id, s } — 좌표·대상 id(판 시작 기준)·스킬 키만 담은 순수 데이터
 //   · 지금: 바로 적용 + Cmd.log에 기록 → 같은 시드로 다시 재생하면 같은 판(리플레이·결정성 검사)
-//   · 온라인 대전(준비 중): 상대 입력도 같은 명령 형식으로 받아 같은 길로 적용
 // 이벤트 처리는 항상 스텝과 스텝 사이에 실행되므로, 「지금까지 끝난 스텝 수(Game.tick)」에 기록하면 재생 때 같은 시점에 적용됨
 const Cmd = {
   log: [], play: null, playI: 0,
@@ -14,7 +13,6 @@ const Cmd = {
   send(c, u = Game.player) {
     if (!u || this.play) return;   // 재생 중엔 실제 입력 무시
     c.k = Game.tick; if (c.x !== undefined) { c.x = +c.x; c.y = +c.y; }
-    if (Net.role === 'guest') { Net.sendCmd(c); return; }   // 온라인 손님: 호스트가 적용
     this.log.push(c); this.apply(u, c);
   },
   move(pt) { this.send({ t: 'move', x: pt.x, y: pt.y }); },
@@ -41,6 +39,16 @@ const Cmd = {
       case 'cur': break;
     }
   },
+  // 명령 형식 검사 (리플레이 파일 읽기)
+  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
+  valid(c) {
+    if (!c || !this.CMD_T.includes(c.t)) return false;
+    if (c.x !== undefined && !(Number.isFinite(c.x) && Number.isFinite(c.y) && Math.abs(c.x) < 1e4 && Math.abs(c.y) < 1e4)) return false;
+    if (c.t === 'sk' && !this.SKILL_K.includes(c.s)) return false;
+    if (c.t === 'atk' && !Number.isInteger(c.id)) return false;
+    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur'].includes(c.t) && c.x === undefined) return false;
+    return true;
+  },
   // ---------- 재생 ----------
   //   Game.start(같은 모드·옵션·seed) 직후 Cmd.replay(기록) → 매 스텝 시작에 그 틱의 명령을 적용
   replay(log) { this.play = log.map(c => Object.assign({}, c)); this.playI = 0; this.log = []; },
@@ -48,8 +56,8 @@ const Cmd = {
     if (!this.play) return;
     const L = this.play, u = Game.player;
     while (this.playI < L.length && L[this.playI].k <= Game.tick) {
-      const c = L[this.playI++], who = c.p ? (Game.mode && Game.mode.remote && Game.mode.remote()) : u;   // p: 1 = 상대(온라인 대전 손님) 명령
-      this.log.push(c); if (who && !(c.p && who.dead)) this.apply(who, c);
+      const c = L[this.playI++];
+      this.log.push(c); if (u && !c.p) this.apply(u, c);
     }
   },
   // 판 하나를 다시 만들 수 있는 정보 (모드·옵션·시드·설정·명령)
