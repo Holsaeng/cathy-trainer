@@ -104,6 +104,11 @@
     T.ok('부쉬 속 안 보임', !Vision.visible(p, e)); T.ok('부쉬 안에서 밖 보임', Vision.visible(e, p));
     p.pos = { x: 4, y: 9 }; e.pos = { x: 15, y: 9 }; VisionItems.camera(p, { x: 8, y: 9 }); run(2); T.ok('카메라 시야', Vision.visible(p, e)); e.stealthT = 2; T.ok('카메라 은신 감지', Vision.visible(p, e)); e.stealthT = 0;
     e.pos = { x: b.x + b.w / 2, y: b.y + b.h / 2 }; VisionItems.drone(p, e.pos); run(120); T.ok('드론', Vision.visible(p, e));
+    { const W = CONFIG.walls.find(w => !w.kind && w.w < w.h), cy = W.y + W.h / 2; p.items.camera = 3; p.itemCd.camera = 0; p.pos = { x: W.x - 0.8, y: cy };   // 벽 너머 설치(원작: 던져서 설치)
+      const cw = VisionItems.camera(p, { x: W.x + W.w + 1.5, y: cy }), mid = { x: W.x + W.w / 2, y: cy }; p.items.camera = 3; p.itemCd.camera = 0;
+      const cw2 = VisionItems.camera(p, mid);   // 벽 속을 찍으면 벽 밖으로
+      T.ok('카메라 벽 너머 설치', cw && cw.pos.x > W.x + W.w && Math.abs(cw.pos.y - cy) < 0.01 && V.dist(p.pos, cw.pos) <= CONFIG.vision.camera.range + 1e-6);
+      T.ok('카메라 벽 속 지점 → 벽 밖', cw2 && !Geo.inWall(cw2.pos, 0.29)); p.items.camera = 3; p.itemCd.camera = 0; }
     Vision.noises = []; e.pos = { x: 12, y: 9 }; Vision.act(e, 'skill'); T.ok('소음', Vision.noises.some(n => n.team === 1));
     Renderer.frame();
     Game.start('duel', { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'basic', rounds: 3, time: 'night' }); run(240); Modes.duel.enemy.stun = 9999;

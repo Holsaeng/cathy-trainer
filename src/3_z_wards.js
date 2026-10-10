@@ -1,6 +1,6 @@
 
 // ============================== 시야 아이템: 망원 카메라 · 정찰 드론 ==============================
-// 나무위키: 망원 카메라 = 반경 13m 시야(벽에 가려짐), 60초, 최대 2개 설치(초과 시 가장 먼저 설치한 것 파괴), 재사용 3초, 은신 감지,
+// 나무위키: 망원 카메라 = 설치 거리 안 지점에 던져 설치(벽 너머 가능), 반경 13m 시야(벽에 가려짐), 60초, 최대 2개 설치(초과 시 가장 먼저 설치한 것 파괴), 재사용 3초, 은신 감지,
 //          상대가 기본 공격 한 번으로 파괴 / 정찰 드론 = 목표 지점 5초 시야(벽 무시), 상대는 드론이 자기 시야 안에 있어야 범위가 보임
 class Ward extends Unit {
   constructor(x, y, owner) {
@@ -24,7 +24,8 @@ const VisionItems = {
     const C = CONFIG.vision.camera;
     if (!this.can(u, 'camera')) { if (!quiet) this.fail(u, 'camera'); return false; }
     const d = Math.min(C.range, V.dist(u.pos, pt)), dir = d > 1e-3 ? V.norm(V.sub(pt, u.pos)) : V.fromAng(u.facing || 0);
-    const pos = Geo.pushOut(V.add(u.pos, V.mul(dir, Geo.clampDash(u.pos, dir, d, 0.3))), 0.3);
+    // 원작: 던져서 설치 — 벽 너머도 설치 가능(벽은 넘음). 지점이 벽 속이면 가장 가까운 벽 밖으로
+    const pos = Geo.pushOut(V.add(u.pos, V.mul(dir, d)), 0.3);
     const mine = Game.units.filter(w => w.kind === 'ward' && !w.dead && w.owner === u).sort((a, b) => a.born - b.born);
     if (mine.length >= C.max) { mine[0].dead = true; FX.ring(mine[0].pos, 0.2, 0.8, '#8a93a6', 0.3); }   // 최대 2개: 가장 먼저 설치한 것 파괴
     const w = new Ward(pos.x, pos.y, u); Game.units.push(w);
