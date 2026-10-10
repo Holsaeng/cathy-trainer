@@ -343,6 +343,13 @@
     while (Game.state === 'play' && g < 120 * 120) { step(); g++; if (g % 12 === 0) bot(); }
     T.ok('2:2 (다니엘·숲길) 한 판이 끝남', Game.state === 'result' && errs.length === e0 && Game.mode.team(0).length === 2);
     Settings.character = 'cathy';
+    // 영상 학습 규칙: 프리딜 못 견디는 상대 먼저 · 아군이 멀면 궁 아낌 · 팔 길이로 팀 자세
+    { reset(); Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 3, allies: ['aya', 'rio'], enemies: ['katja', 'nadine', 'aya'] }); run(5);
+      const M2 = Game.mode, a2 = M2.allies[0], [x1, x2] = M2.enemies; a2.pos = { x: 18, y: 18 }; x1.pos = { x: 22, y: 16.8 }; x2.pos = { x: 22, y: 19.2 }; M2.enemies[2].pos = { x: 30, y: 30 }; x1.ad = 400; x2.ad = 80; x2.def = 300;
+      T.ok('팀 AI: 딜 강하고 약한 상대 먼저(단단한 상대는 뒤로)', TeamAI.pickFoe(a2, M2.team(1), null) === x1);
+      const b2 = M2.allies[1]; b2.pos = { x: 4, y: 18 }; Game.player.pos = { x: 4, y: 20 }; const far = TeamAI.holdUlt(a2, x1); b2.pos = { x: 21, y: 18 };
+      T.ok('팀 AI: 아군이 멀면 궁 아낌, 가까우면 씀', far && !TeamAI.holdUlt(a2, x1));
+      T.ok('팀 AI: 팔 길이 비교(짧은 팀 = 먼저 진입)', TeamAI.reach(0) > 0 && ['dive', 'hold'].includes(TeamAI.stance(0))); }
     // 결정성: 같은 시드 + 같은 입력 → 같은 판
     const h = () => { Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 77 }); run(120 * 8); return Cmd.hash(); };
     T.ok('팀 대전 결정성: 같은 시드 = 같은 판', h() === h());

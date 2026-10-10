@@ -282,9 +282,19 @@ class RangedDuelist extends Duelist {
   watchCathyCast(dt) {
     if (this.castDodge && (this.castDodge.t -= dt) <= 0) this.doSideStep();
     for (const p of Game.units) {
-      if (!isHero(p) || p.team === this.team || p.dead || !p.cast || p.cast.phase !== 'windup' || p.cast.k !== 'E' || p.charKey || (this.castSeenBy || (this.castSeenBy = {}))[p.id] === p.cast.id || !Vision.visible(this, p)) continue;
-      this.castSeenBy[p.id] = p.cast.id;
-      if (rnd() < Math.min(0.95, this.diff.dodge + 0.15)) this.castDodge = { t: this.diff.react * 0.8, dir: p.cast.dir, from: V.copy(p.pos) };
+      if (!isHero(p) || p.team === this.team || p.dead || !Vision.visible(this, p)) continue;
+      const seen = this.castSeenBy || (this.castSeenBy = {});
+      // 상대 AI의 예고선 시전(카티야 Q 등)이 나를 향하면
+      if (p.act && p.act.type === 'cast' && p.act.tele && p.act.tele.dir && seen[p.id] !== p.act) {
+        seen[p.id] = p.act; const rel = V.sub(this.pos, p.pos), along = V.dot(rel, p.act.tele.dir), side = Math.abs(rel.x * p.act.tele.dir.y - rel.y * p.act.tele.dir.x);
+        if (along > 0 && along < (p.act.tele.len || 8) + 1 && side < (p.act.tele.width || 1) / 2 + this.r + 0.6 && rnd() < Math.min(0.9, this.diff.dodge + 0.1)) this.castDodge = { t: this.diff.react * 0.8, dir: p.act.tele.dir, from: V.copy(p.pos) };
+        continue;
+      }
+      if (!p.cast || p.cast.phase !== 'windup' || seen[p.id] === p.cast.id) continue;
+      const cathyE = p.cast.k === 'E' && !p.charKey, rangedSkill = p.ranged && ['Q', 'W', 'R', 'D'].includes(p.cast.k);   // 캐시 E(수쳐) · 원거리 실험체 스킬 선딜
+      if (!cathyE && !rangedSkill) continue;
+      seen[p.id] = p.cast.id;
+      if (rnd() < Math.min(0.95, this.diff.dodge + (cathyE ? 0.15 : 0.05))) this.castDodge = { t: this.diff.react * 0.8, dir: p.cast.dir, from: V.copy(p.pos) };
     }
   }
   sideDir(dir, from) {
@@ -331,7 +341,10 @@ class RangedDuelist extends Duelist {
       if (this.silence <= 0 && this.kit.escape && this.kit.escape(this, p, best, d)) return;
     }
     if (Game.mode && Game.mode.teamThink && Game.mode.teamThink(this, p, d)) return;   // 팀 대전: 후퇴·합류
-    if (this.canAct() && this.silence <= 0 && this.kit.think && this.kit.think(this, p, d)) { this.stats.s1Casts++; return; }   // 침묵 중엔 스킬 없이 평타만
+    const holdR = this.cds.R <= 0 && Game.mode && Game.mode.holdUlt && Game.mode.holdUlt(this, p); if (holdR) this.cds.R = 0.001;   // 팀 대전: 아군이 멀면 궁 아낌
+    const used = this.canAct() && this.silence <= 0 && this.kit.think && this.kit.think(this, p, d);
+    if (holdR && this.cds.R === 0.001) this.cds.R = 0;
+    if (used) { this.stats.s1Casts++; return; }   // 침묵 중엔 스킬 없이 평타만
     // ④ 압박: 사거리 밖이면 쏠 수 있는 거리까지 들어감
     if (this.kit.move) { this.kit.move(this, p, d); return; }
     if (this.kiteT <= 0 && d > this.aaRange() - 0.2) this.moveTarget = this.pickSpot(p, this.aaRange() - 0.4, 2.2);

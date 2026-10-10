@@ -8,7 +8,10 @@
 //   난이도(10장 제안): 쉬움 = 집중 공격만 / 보통 = + 진입 체크리스트·필·다이브 금지 / 어려움 = + 핑퐁·측면 대기
 CONFIG.teamAI = {
   spread: 2.4,                      // 시작 위치 간격(m)
-  w: { hp: 40, carry: 25, cc: 30, slow: 10, focus: 25, peel: 20, kill: 15, dist: 2, dive: 35, guard: 20, flank: 15, threat: 30, revenge: 10, pingpong: 25 },
+  w: { hp: 40, carry: 25, cc: 30, slow: 10, focus: 25, peel: 20, kill: 15, dist: 2, dive: 35, guard: 20, flank: 15, threat: 30, revenge: 10, pingpong: 25, danger: 30, stay: 15 },
+  // 영상 학습(브라우저로 직접 시청, docs/er_notes_teamfight.md 12장): danger = 「프리딜을 못 견디는 상대」(피해량 ÷ 유효 체력이 큰 쪽) · stay = 동료가 빈사라 남아서 딜하는 상대 캐리
+  ultHoldDist: 7,                   // 아군이 대상에서 이보다 멀면 궁 아낌(마무리·위기 제외) — 네브짱 「우리 팀이 멀면 함부로 박으면 안 된다」
+  spentRetreat: { foeHp: 0.7, myHp: 0.6 },   // 핵심 스킬(R·E)을 다 쓴 뒤 멀쩡한 적이 오면 빠짐 — 네브짱 「궁·블링크 다 쓴 상태에서 다른 팀이 오면 과감하게 버린다」
   hold: 1.2, switchMargin: 15,      // 대상 유지: 최소 1.2초, 15점 이상 높아야 전환
   focusTtl: 2.0,                    // 콜러(플레이어·앞라인)가 친 대상 유지 시간
   peelDist: 3.5, threatDist: 3.0,   // 필 거리 · 원딜에게 근접이 붙었다고 보는 거리
@@ -20,6 +23,7 @@ CONFIG.teamAI = {
   edgeLimit: 12.0,                  // 원딜이 원형 투기장 중심에서 넘지 않을 반지름
   engageScore: 3, retreatScore: 1,  // 4항목 체크리스트(체력 합·핵심 쿨·인원·위치)
   isolate: 5.0,                     // 적이 자기 팀 중심에서 이만큼 떨어지면 고립
+  reachMargin: 0.5,                 // 팔 길이(팀 최대 사거리) 비교 여유 — 짧은 팀이 먼저 진입(dive), 긴 팀은 받아침(hold) · 햄찌 「상대가 팔이 긴 교전은 대치를 오래 하면 손해」
 };
 const TeamAI = {
   focus: {},   // 팀별 집중 대상 {u, t} — 콜러가 마지막으로 친 적
@@ -82,6 +86,8 @@ const TeamAI = {
     const melee = this.isMelee(ai), range = melee ? 3 : ai.aaRange(), efront = alive.filter(u => u.role === 'frontline');
     const est = u => ai.ad * (1 + (ai.critChance || 0) * 0.75) * 3 * 100 / (100 + (u.def || 0));
     const pressedMate = ai.diffKey === 'hard' ? mates.find(a => this.pressured(a)) : null;
+    const dps = u => Math.max(1, (u.ad || 0) * (u.curAs ? u.curAs() : u.atkSpd ? u.atkSpd() : (u.as || 1)) * (1 + (u.critChance || 0) * 0.75) + (u.sp || 0) * 0.35);
+    const ehpOf = u => Math.max(1, u.hp) * (1 + (u.def || 0) / 100) + (u.shield || 0), dangerMax = Math.max(...vis.map(u => dps(u) / ehpOf(u)));
     const score = u => {
       const d = V.dist(ai.pos, u.pos), gap = d - u.r - (melee ? ai.r : 0); let s = W.hp * (1 - u.hp / u.maxHp);
       if (this.isCarry(u)) s += W.carry;
@@ -96,6 +102,10 @@ const TeamAI = {
         if (!melee && this.isMelee(u) && d < T.threatDist + u.r) s += W.threat;                                                          // 원딜에게 붙은 근접 → 그걸 침
       }
       if (u.untargetable > 0 || (u.shield || 0) > u.maxHp * 0.15) s -= 20;
+      if (!easy) {
+        s += W.danger * (dps(u) / ehpOf(u)) / dangerMax;   // 프리딜을 못 견디는 상대 먼저 · 단단하고 딜 약한 상대는 뒤로
+        if (this.isCarry(u) && this.heroes(u.team).some(m => m !== u && m.hp / m.maxHp < 0.25)) s += W.stay;   // 동료가 빈사 → 남아서 딜하는 캐리(스킬이 잘 맞음)
+      }
       if (ai.lastHitBy && ai.lastHitBy.u === u && now - ai.lastHitBy.t < 2.5) s += W.revenge;
       if (pressedMate && (pressedMate.dmgLog || []).some(e => e.src === u && now - e.t < T.pingpong.window)) s += W.pingpong;   // 핑퐁: 아군을 치던 적의 어그로를 가져옴
       return s;
@@ -125,6 +135,9 @@ const TeamAI = {
     // ② 팀 후퇴: 체크리스트 ≤ 1 이고 수적 열세
     const CL = this.checklist(ai.team);
     if (CL.score <= T.retreatScore && CL.us < CL.them && hpR < 0.7 && fc && V.dist(ai.pos, fc) < 9) return go(back(), 0.6, 'retreats');
+    // ②-2 핵심 스킬을 다 쓴 상태(R·E 쿨)에서 멀쩡한 적이 가까이 → 빠짐
+    const SR = T.spentRetreat, spent = foeCd(ai, 'R') > 3 && foeCd(ai, 'E') > 2;
+    if (spent && hpR < SR.myHp && foes.some(f => f.hp / f.maxHp > SR.foeHp && V.dist(f.pos, ai.pos) < 7)) return go(back(), 0.6, 'spentRetreats');
     // ③ 혼자 싸우지 않기: 아군이 멀고 적 2명 이상이 가까움
     const nearest = Math.min(...mates.map(a => V.dist(a.pos, ai.pos)));
     if (nearest > T.spacingMax && foes.filter(f => V.dist(f.pos, ai.pos) < 6).length >= 2) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.7), ai.r), 0.5, 'regroups');
@@ -135,10 +148,21 @@ const TeamAI = {
     if (V.dist(ai.pos, c) > T.regroup && (!p || p.dead || d > 9)) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.6), ai.r), 0.5, 'regroups');
     return false;
   },
-  // 측면(다니엘) 진입 허락: 아군이 먼저 교전 중 · 수적 우위 · 대상 고립 · 대상 빈사 (쉬움은 항상)
+  // 팀 자세: 팔 길이(살아 있는 실험체의 최대 사거리)가 짧은 팀은 먼저 진입(dive), 긴 팀은 받아침(hold)
+  reach(t) { return Math.max(0, ...this.heroes(t).map(u => this.isMelee(u) ? 3 : (u.aaRange ? u.aaRange() : u.aaCfg ? u.aaCfg().range : 5))); },
+  stance(t) { return this.reach(t) < this.reach(1 - t) - CONFIG.teamAI.reachMargin ? 'dive' : 'hold'; },
+  // 궁 아끼기: 아군이 대상 근처에 없으면(마무리·위기 아니면) R을 쓰지 않음
+  holdUlt(ai, p) {
+    if (ai.diffKey === 'easy' || !p || p.dead) return false;
+    const mates = this.mates(ai); if (!mates.length) return false;
+    if (p.hp / p.maxHp < 0.35 || ai.hp / ai.maxHp < 0.4) return false;
+    return !mates.some(a => V.dist(a.pos, p.pos) < CONFIG.teamAI.ultHoldDist);
+  },
+  // 측면(다니엘) 진입 허락: 아군이 먼저 교전 중 · 수적 우위 · 대상 고립 · 대상 빈사 · 팔이 짧은 팀(dive) (쉬움은 항상)
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
+    if (this.stance(ai.team) === 'dive' && CL.score >= 2) return true;
     if (mates.some(a => now - (a.lastFight || -99) < 2 && V.dist(a.pos, p.pos) < 8)) return true;
     if (CL.us > CL.them || p.hp / p.maxHp < 0.4) return true;
     const pm = this.heroes(p.team).filter(u => u !== p), pc = this.center(pm);
@@ -157,4 +181,5 @@ Object.assign(Modes.team, {
   onDamage(src, tgt, dmg) { TeamAI.onDamage(src, tgt, dmg); },
   mayEngage(ai, p) { return TeamAI.mayEngage(ai, p); },
   spotPenalty(ai, q) { return TeamAI.spotPenalty(ai, q); },
+  holdUlt(ai, p) { return TeamAI.holdUlt(ai, p); },
 });
