@@ -123,7 +123,7 @@ const UI = {
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
-    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
+    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${(Settings.character || 'cathy') !== 'cathy' ? ' · 캐시로 진행' : ''}`;
     if (id === 'team') { const nm = (a, n) => Array.from({ length: n }, (_, i) => a[i] && CONFIG.rangedMotifs[a[i]] ? CONFIG.rangedMotifs[a[i]].name : '랜덤').join('·'); return `${o.size}:${o.size} · 아군 ${nm(o.allies, o.size - 1)} vs ${nm(o.enemies, o.size)} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.arena).name}`; }
     if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
@@ -140,14 +140,15 @@ const UI = {
   showMenu() {
     Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
-    const modes = this.modeList(), dan = Settings.character === 'daniel';
+    const modes = this.modeList(), ch = Settings.character || 'cathy', dan = ch === 'daniel', RM = CONFIG.rangedMotifs[ch], rng = !!(PKits[ch] && RM && !dan);
+    const chName = dan ? '다니엘' : rng ? RM.name : '캐시', chEn = { cathy: 'CATHY', daniel: 'DANIEL', aya: 'AYA', rio: 'RIO', nadine: 'NADINE', katja: 'KATJA' }[ch] || 'CATHY';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
     const bb = Object.entries(CONFIG.builds).map(([k, b]) => `<button class="btn ${Settings.build === k ? 'sel' : ''}" data-a="build" data-v="${k}">${b.label}</button>`).join('');
     const last = this.lastLabel();
-    this.show(`<h1>${dan ? 'DANIEL' : 'CATHY'} <span>수련장</span></h1>
-      <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
-      <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
-        <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
+    this.show(`<h1>${chEn} <span>수련장</span></h1>
+      <div class="sub">이터널 리턴 · 실험체 「${chName}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
+      <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].concat(Object.keys(PKits).map(k => [k, CONFIG.rangedMotifs[k].name, CONFIG.rangedMotifs[k].color])).map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
+        <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : rng ? `<button class="btn sel">${RM.weapon} (${RM.name} 전용)</button>` : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
       <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
@@ -189,7 +190,7 @@ const UI = {
       const list = this.allCombos(); Settings.comboSel = clamp(Settings.comboSel || 0, 0, list.length - 1);
       const sel = Settings.comboSel, cd = Settings.comboDiff || 'intro', nC = CONFIG.combos.length + CONFIG.videoCombos.length;
       const dbtn = (v, l) => `<button class="btn ${cd === v ? 'sel' : ''}" data-a="diff" data-v="${v}">${l}</button>`;
-      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${Settings.character === 'daniel' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
+      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${(Settings.character || 'cathy') !== 'cathy' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
         <div class="row"><label>난이도</label>${dbtn('intro', '입문 (시간 제한 없음)')}${dbtn('skilled', '숙련 (간격 ≤ 2.0s)')}${dbtn('master', '마스터 (간격 ≤ 1.0s)')}</div>
         ${list.map((c, i) => `<div class="combo ${i === sel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${i >= nC ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
         <div class="row" style="margin-top:10px">${back}${go}</div>
@@ -218,7 +219,7 @@ const UI = {
       const o = this.quickOpts('team'), n = o.size;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
-      const me = Settings.character === 'daniel' ? '다니엘' : '캐시';
+      const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
         <div class="row"><label>인원</label>${sb('size', 2, '2 : 2', n)}${sb('size', 3, '3 : 3', n)}</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>

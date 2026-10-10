@@ -79,7 +79,7 @@ const Models = {
     return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
   },
   keyFor(u) {
-    if (u.kind === 'player') return u.charKey === 'daniel' ? 'daniel' : 'cathy';
+    if (u.kind === 'player') return u.ranged ? (this.LOOKS[u.charKey] ? u.charKey : null) : u.charKey === 'daniel' ? 'daniel' : 'cathy';
     if (u.motifKey && this.LOOKS[u.motifKey]) return u.motifKey;
     return null;   // 허수아비·야생동물·카메라·회피 모드 적은 기존 모형
   },
@@ -121,7 +121,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && !u.ranged, dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -150,8 +150,8 @@ const Models = {
     return P;
   },
   weaponKind(u, S) {
-    if (S && S.design && S.design.weapon && (u.kind === 'player' || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
-    return u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+    if (S && S.design && S.design.weapon && ((u.kind === 'player' && !u.ranged) || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
+    return u.kind === 'player' && !u.ranged ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
   },
   // 무기: 손목 뼈에 붙임. 틀 기준 손가락 방향 = -Y(날·총구), 엄지 쪽 = +Z(윗면). 바인드 자세가 팔을 내린 A자세라 공격·사격 동작에서 앞을 향함
   addWeapon({ T3, add, M }) {

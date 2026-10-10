@@ -262,9 +262,9 @@ const CONFIG = {
   // 피해 공식(나무위키 가이드): 평타 = 공격력 × 100/(100+방어력×(1-방관)) × (치명 시 1.75)
   rangedMotifs: {
     aya:    { name: '아야',   weapon: '권총',   build: '스킬 증폭', color: '#5aa9ff', aaRange: 4.85, aaSpeed: 26, ad: [100, 124, 148], sp: [250, 565, 831], as: [1.1, 1.31, 1.24], crit: [0, 0, 0],       pen: [0, 0.11, 0.11] },
-    rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0] },   // 방관은 패시브로 계산
-    nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3] },
-    katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4] },
+    rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0], aaAmp: [0.039, 0.104, 0.169] },   // 방관은 패시브로 계산
+    nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3], aaAmp: [0.036, 0.096, 0.156] },
+    katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4], aaAmp: [0.06, 0.16, 0.26] },   // aaAmp: 무기 숙련도 기본 공격 증폭(12.5 닥지지, 숙련도 3/8/13레벨) · 사거리 6.4m 설(나무위키)은 ⚠
     // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
     daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
               hp: [1380, 1910, 2450], def: [72, 92, 113], ms: [3.8, 3.98, 4.0], baseAd: [56, 84, 112], aaAmp: [0.13, 0.27, 0.4],   // 기본 공격 증폭 = 단검 숙련도
@@ -279,8 +279,9 @@ const CONFIG = {
       E: { name: '접근 금지', base: [50, 75, 100, 125, 150], ad: 1.0, cd: [12, 11, 10, 9, 8], range: 4.5, angle: 30, windup: 0.2,
            slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.3, msBuff: 0.4, msDur: 2 },   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
       W: { name: '목표물 포착', cd: [30, 27, 24, 21, 18], range: 23, speed: 30, radius: 4.5, dur: 3 },   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초 (부쉬 체크)
-      R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35 },   // 스캔 0.8초(제자리 고정) → 회피 불가 탄
-      D: { name: '저격', cd: [35, 30, 25], shots: 3, aim: 0.55, gap: 0.5, range: 14, speed: 45, width: 0.5,
+      R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35, len: 6, w0: 3, w1: 5, max: 3,
+           shots: [{ base: [300, 450, 600], ad: 1.5 }, { base: [350, 500, 650], ad: 1.8 }, { base: [400, 700, 1000], ad: 1.5 }] },   // 스캔 0.8초(제자리 고정) → 사다리꼴 안 최대 3명에게 가까운 순서로 회피 불가 탄
+      D: { name: '저격', cd: [35, 30, 25], shots: 3, aim: 0.55, gap: 0.25, mode: 10, range: 14, speed: 45, width: 0.5,   // 12.0: 발사 간격 0.25초, 모드 10초
            shot: { base: [100, 200, 300], bad: 1.4, sp: [0.25, 0.3, 0.35], slow: 0.8, slowDur: 0.5 },
            dead: { base: [150, 300, 450], bad: 1.8, sp: [0.4, 0.45, 0.5], missMax: 2.0 } },   // 저격 모드: 제자리 고정, 저지 사격 2발 → 데드아이(잃은 체력 비례 최대 2배)
     },
@@ -289,14 +290,15 @@ const CONFIG = {
       Q: { name: '카에유미', cd: 0.8, short: { range: 4.85, ratio: 0.36, extra: 2, extraRatio: 0.35 }, long: { range: 6.4, ratio: 1.02, asPenalty: 0.22 },
            stacks: 3, shortMs: [0.06, 0.07, 0.08, 0.09, 0.1], shortAs: [0.2, 0.25, 0.3, 0.35, 0.4], buffDur: 2, longRange: 0.4, longMissing: 0.3 },
       W: { name: '하나레', cd: [6, 5.75, 5.5, 5.25, 5], cdReduce: 1,
-           short: { base: [50, 70, 90, 110, 130], ad: 0.8, arrows: 5, range: 7.5, width: 0.6, spread: 30, repeat: 0.2, slow: 0.3, zoneDur: 1.5, zoneR: 1.2 },
-           long: { base: [90, 105, 120, 135, 150], ad: 0.9, range: 10.5, width: 1.2, speed: 30, slow: 0.2, slowDur: 1 } },
-      E: { name: '비상', cd: [15, 14, 13, 12, 11], leap: 5, leapTime: 0.45,
+           short: { base: [50, 70, 90, 110, 130], ad: 0.8, arrows: 5, range: 7.5, width: 0.6, spread: 30, repeat: 0.2, slow: 0.25, zoneDur: 1.5, zoneR: 1.2 },   // 둔화 25% (12.5)
+           long: { base: [90, 105, 120, 135, 150], ad: 0.9, range: 10.5, width: 1.2, speed: 30, slow: 0.2, slowDur: 1, behind: { base: [45, 50, 55, 60, 65], ad: 0.45 } } },   // 화궁: 첫 대상 뒤의 적 추가 피해
+      E: { name: '비상', cd: [16, 15, 14, 13, 12], leap: 5, leapTime: 0.45,   // 쿨 16~12 (12.1)
            short: { base: [10, 20, 30, 40, 50], ad: 0.3, arrows: 3 }, long: { base: [70, 90, 110, 130, 150], ad: 0.4, aoe: [20, 40, 60, 80, 100], aoeAd: 0.35 } },
       R: { name: '연사 / 정사필중', cd: [80, 70, 60],
-           short: { base: [40, 70, 100], ad: 0.4, arrows: 3, range: 8.5, width: 1.5, push: 0.6, recast: { base: [100, 150, 200], ad: 0.6, knock: 4, wallBase: [100, 125, 250], wallAd: 0.4, stun: 1.5 } },
-           long: { base: [200, 340, 480], ad: 0.8, windup: 0.6, width: 1, speed: 16, boostAfter: 0.8, boost: 0.3, slow: 0.6, slowDur: 1.5 } },
-      D: { name: '곡사', base: [100, 200, 300], bad: 1.0, sp: 0.4, inner: [200, 400, 600], innerBad: 1.9, innerSp: 0.6, cd: [35, 30, 25], range: 28, delay: 1.5, radius: 3, innerR: 1.2, slow: 0.25, slowDur: 2, windup: 0.3 },
+           short: { base: [40, 70, 100], ad: 0.4, arrows: 3, range: 8.5, width: 1.5, push: 0.6, recast: { base: [100, 150, 200], ad: 0.6, knock: 4, wallBase: [100, 125, 250], wallAd: 0.4, stun: 1.0, grace: 3 } },   // 벽꿍 기절 1.0초 (12.5) · 강한 화살: R 재입력(3초 안, 지나면 자동)
+           long: { base: [200, 340, 480], ad: 0.8, windup: 0.6, width: 1, speed: 16, boostAfter: 0.8, boost: 0.2, slow: 0.8, slowDur: 1.5 } },   // 0.8초 뒤 피해 +20%·둔화 3초, 둔화 80% ⚠(나무위키)
+      D: { name: '곡사', base: [90, 170, 250], bad: 1.0, sp: 0.4, inner: [180, 340, 500], innerBad: 1.7, innerSp: 0.55,   // 12.1 하향
+           cd: [35, 30, 25], range: 28, delay: 1.5, radius: 3, innerR: 1.2, slow: 0.25, slowDur: 2, windup: 0.3 },
     },
     aya: {
       P: { name: '아야의 정의', base: [50, 85, 120], ad: 0.5, sp: 0.35, dur: 1.5, cd: 25, perHit: 1 },          // 피격 시 보호막, 공격할 때마다 쿨 1초 감소
@@ -312,10 +314,10 @@ const CONFIG = {
       P: { name: '야성' },                                                                        // 중첩 수만큼 Q·R 피해 증가 (단계별 stacks)
       Q: { name: '황소의 눈', min: [60, 95, 130, 165, 200], minBad: 1.1, minSp: 0.65, maxMul: 2, cd: 7, charge: 2, range: [7, 14], width: 0.7, speed: 28, chargeSlow: 0.2, refund: 0.5 },
       W: { name: '다람쥐 덫', base: [80, 120, 160, 200, 240], bad: 1.0, sp: 0.8, cd: [14, 13, 12, 11, 10], range: 7, link: 5, slow: [0.3, 0.35, 0.4, 0.45, 0.5], asSlow: 0.3, slowDur: 2, life: 45, sets: 3 },
-      E: { name: '원숭이 와이어', as: [0.3, 0.35, 0.4, 0.45, 0.5], cd: [17, 16, 15, 14, 13], range: 7, life: 6, after: 3, zipTime: 0.35 },
+      E: { name: '원숭이 와이어', as: [0.3, 0.35, 0.4, 0.45, 0.5], cd: [16, 15, 14, 13, 12], range: 7, life: 7, after: 3, zipTime: 0.35, breakDist: 11 },   // 12.0: 쿨 16~12 · 유지 7초 · 11m 넘게 멀어지면 끊김
       R: { name: '늑대 맹습', base: [100, 150, 200], bad: 0.75, sp: 0.8, cd: [80, 70, 60], dur: 10, every: 3, slow: 0.25, asSlow: 0.1, slowDur: 1.5 },
       D: { name: '강노', base: [50, 75, 100], bad: 0.7, sp: 0.25, cd: 25, range: 7.5, angle: 45, windup: 0.3, slow: 0.4, slowDur: 1.5,
-           mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.15, 0.2, 0.25] } },
+           mark: { base: [50, 100, 150], bad: [0.7, 0.8, 0.9], sp: 0.25, time: 4, cut: 0.5, inc: [20, 25, 30], incBad: [0.2, 0.25, 0.3], incSp: 0.05 } },   // 적중당 증가 추공 20/25/30% + 스증 5% (12.0b)
     },
     // 다니엘 (나무위키 2026-10)
     daniel: {
@@ -326,7 +328,7 @@ const CONFIG = {
            blind: 2, blindR: 4.5 },   // 표식 4초 유지 → 2.5초 안에 공격하면 축적 피해(고정) + 스킬 피해 폭발 / 대상 시야 감소(2초, 다니엘에게 맞을 때까지)
       E: { wallPass: 0.5, name: '그림자 이동', base: [20, 40, 60, 80, 100], bad: 0.5, cd: [11, 10, 9, 8, 7], dist: 3, time: 0.18, stealth: [1, 1.2, 1.4, 1.6, 1.8], shadowDur: 3, aaRange: 3 },   // 은신 돌진 → 평타 사거리 3m, 평타 시 대상 건너편으로 순간이동
       R: { name: '걸작', tick: { base: [10, 30, 50], ad: 0.3 }, last: { base: [40, 105, 170], ad: 0.9 }, cd: [70, 60, 50], range: 3, recent: 4, silence: 0.5, dur: 2, ticks: 4, exit: 2.2, exitTime: 0.25 },
-      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.5, base: [10, 30, 50], bad: 0.5, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
+      D: { name: '망토와 단검', ms: [0.3, 0.35, 0.4], msDur: 1, recast: 3, range: 2.5, behind: 1.5, base: [10, 30, 50], bad: 0.4, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, cd: [30, 25, 20] },
     },
   },
   // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"
@@ -796,7 +798,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '82c289d1';
+const BUILD_ID = '81baefe1';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -2455,6 +2457,669 @@ const DImpl = {
   },
 };
 
+// ============================== 플레이어블: 원거리 실험체 (아야 · 리오 · 나딘 · 카티야) ==============================
+// 캐시의 조작 흐름(Cathy: 명령·선입력·시전 상태 기계·평타 쫓아가기)을 그대로 쓰고, 평타를 유도 투사체로, 스킬을 실험체 키트(PKits)로 바꿈
+// 수치: CONFIG.rangedKits (12.5 라이브 기준, 근거 docs/er_notes_playables.md) / 능력치: CONFIG.rangedMotifs + CONFIG.rangedAI.stages (AI와 같은 값)
+// 조작 규칙(노트 각 장 「플레이어 조작 구현 메모」):
+//   대상 지정(아야 Q)은 사거리 밖이면 다가가서 시전 · 재입력 스킬(아야 W 중단, 리오 R 강한 화살, 나딘 Q 발사·W 두 번째 덫·E 와이어 이동, 카티야 D 발사)
+//   무기 스킬(D)·리오 Q는 쿨감 무시
+class RangedPlayer extends Cathy {
+  constructor(x, y, key) {
+    super(x, y, null);   // 장비 없음(AI와 같은 실측 능력치)
+    const M = CONFIG.rangedMotifs[key], RA = CONFIG.rangedAI, st = ['early', 'mid', 'late'].includes(Game.buildId) ? Game.buildId : 'mid', si = ['early', 'mid', 'late'].indexOf(st), S0 = RA.stages[st];
+    this.charKey = key; this.ranged = true; this.motif = M; this.name = M.name; this.color = M.color; this.weapon = M.weapon; this.usesTrauma = false;
+    this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs; this.baseHpAtLv = 900 + 76 * (S0.level - 1);
+    this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.penPct = M.pen[si]; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0;
+    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdr = 0; this.stacks = S0.stacks;
+    this.build = Object.assign({}, this.build, { level: S0.level });
+    const L = M.skillLv ? M.skillLv[si] : S0.skillLv; this.plv = L.P || 1;
+    for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
+    this.K = CONFIG.rangedKits[key]; this.kit = PKits[key];
+    Object.assign(this, { asBuffs: [], noAA: 0, chans: [], pend: [], chase: null, zones: [] });
+    if (this.kit.init) this.kit.init(this);
+  }
+  // ---------- 수치 ----------
+  L(k) { return k === 'P' ? this.plv : this.skills[k].lv; }
+  calc(o, k) { const L = this.L(k); return lv(o.base || 0, L) + this.ad * lv(o.ad || 0, L) + this.bonusAd * lv(o.bad || 0, L) + this.sp * lv(o.sp || 0, L); }
+  penNow() { return this.kit.pen ? this.kit.pen(this) : this.penPct; }
+  skillDef(k) {
+    if (k === 'F') return super.skillDef('F');
+    const d = this.K[k] || {}, x = (this.kit.def && this.kit.def[k]) || {};
+    return Object.assign({ short: this.kit.label ? this.kit.label(this, k) : this.kit.short[k] }, d, { fixedCd: k === 'D' || !!x.fixedCd }, x);
+  }
+  baseAaCfg() { return { label: this.weapon, range: this.kit.aaRange ? this.kit.aaRange(this) : this.motif.aaRange, windupRatio: CONFIG.rangedAI.aaWindup, backRatio: 0.12, critMul: 1.75, hits: 1, hitRatio: 1 }; }
+  atkSpd() { let b = 0; for (const a of this.asBuffs) b += a.p; return Math.max(0.2, (this.as + (this.kit.asFlat ? this.kit.asFlat(this) : 0)) * (1 + b)) * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1) * ItemFx.asMul(this); }
+  aaWindupTime() { return CONFIG.rangedAI.aaWindup / Math.max(1, this.atkSpd()); }   // AI 원딜과 같은 선딜
+  addAs(p, dur, tag) { if (tag) this.asBuffs = this.asBuffs.filter(a => a.tag !== tag); this.asBuffs.push({ p, t: dur, tag }); }
+  passiveMoveBoost() {}   // 캐시 패시브 없음
+  // ---------- 공용 도우미 ----------
+  dirTo(aim) { return V.dist(aim, this.pos) > 0.05 ? V.norm(V.sub(aim, this.pos)) : V.fromAng(this.facing); }
+  ptIn(aim, r) { const d = Math.min(r, V.dist(this.pos, aim)), q = V.add(this.pos, V.mul(this.dirTo(aim), d)); q.x = clamp(q.x, 0.3, CONFIG.world.w - 0.3); q.y = clamp(q.y, 0.3, CONFIG.world.h - 0.3); return q; }
+  foes() { return Game.units.filter(u => u.team !== this.team && !u.dead && u.kind !== 'ward' && !(u.untargetable > 0)); }
+  // 스킬 피해: 통계(적중) + 키트 적중 훅(아야 P 쿨 감소·리오 카이츄 등)
+  hitS(u, amt, k, o = {}) {
+    if (!u || u.dead) return 0;
+    const dmg = Combat.damage(this, u, amt, Object.assign({ type: 'skill', source: k, pen: this.penNow() }, o));
+    if (u.kind !== 'animal') this.S.hit(k, o.hid || (k + ':' + this.castSeq));
+    if (this.kit.onHit) this.kit.onHit(this, u, o, dmg);
+    Events.emit('skillHit', { k, target: u });
+    return dmg;
+  }
+  // 투사체: only = 그 대상에게만 맞음(대상 지정 탄), home = 유도
+  shot(o) {
+    const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.color, len: o.len || 0.6, pos: V.copy(o.from || this.pos), dir: o.dir, speed: o.speed, range: o.range, width: o.width || 0.3, wallPad: o.wallPad,
+      onUnit: (pr, u) => { if (o.only && u !== o.only) return 'continue'; if (o.heroOnly && !isHero(u) && u.kind !== 'dummy') return 'continue'; const r = o.onHit(u, pr); return r === 'continue' || o.pierce ? 'continue' : 'stop'; } });
+    if (o.onWall) pr.onWall = o.onWall;
+    if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = o.range || V.dist(this.pos, o.home.pos) + 8; }
+    Game.projectiles.push(pr); return pr;
+  }
+  after(t, fn) { this.pend.push({ t, fn }); }
+  // 커서 아래 적(대상 지정)
+  targetAt(aim, k) {
+    const t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this);
+    if (!t || t.kind === 'ward') { this.S.mistake(`${this.skillDef(k).name}: 대상 지정 실패 (커서 위에 적 없음)`); Sfx.playFor(this, 'error'); return null; }
+    return t;
+  }
+  // 사거리 밖 대상 지정: 다가가서 시전 (다른 명령을 내리면 취소)
+  chaseCast(k, t, range, fn) {
+    if (V.dist(this.pos, t.pos) - t.r - this.r <= range) { fn(); return true; }
+    this.chase = { k, t, range, fn }; this.attackTarget = null; this.attackMove = null; this.moveTarget = V.copy(t.pos); return true;
+  }
+  cmdMove(pt) { this.chase = null; super.cmdMove(pt); }
+  cmdAttack(t) { this.chase = null; super.cmdAttack(t); }
+  cmdStop() { this.chase = null; super.cmdStop(); }
+  // 재입력·즉시 처리(시전 중에도): 카티야 저격 발사 등
+  cmdSkill(k, aim) {
+    if (this.kit.instant && !this.dead && this.kit.instant(this, k, aim)) { this.S.input(); return; }
+    super.cmdSkill(k, aim);
+  }
+  recastReady(k) { return !!(this.kit.recast && this.kit.recast(this, k)); }
+  instantKey(k) { return (this.kit.noAim || []).includes(k) || this.recastReady(k); }
+  // 그리기용 조준점(내 캐릭터면 지금 커서, 아니면 마지막 명령 좌표)
+  aimPt() { return (this === Game.player && typeof Input !== 'undefined' && Input.world) || this.cursor || V.add(this.pos, V.fromAng(this.facing)); }
+  // 시전 상태 기계: 짧은 돌진·도약 (시전 중 이동 불가)
+  dash(k, dir, dist, time, wallPass, onEnd) {
+    this.beginCast(k, V.add(this.pos, dir), { windup: () => 0, recovery: () => 0.03,
+      fire: (p, c) => { const len = wallPass ? Geo.passDash(p.pos, dir, dist, p.r, wallPass) : Geo.clampDash(p.pos, dir, dist, p.r); c.data.from = V.copy(p.pos); c.data.to = Geo.pushOut(V.add(p.pos, V.mul(dir, len)), p.r); },
+      tick: (p, c) => { const kk = Math.min(1, c.t / Math.max(0.01, time)); p.pos = V.lerp(c.data.from, c.data.to, kk); if (kk >= 1 && onEnd) { onEnd(p); } return kk >= 1; } }, {});
+  }
+  // ---------- 시전 ----------
+  tryCast(k, aim) {
+    if (k === 'F') return super.tryCast(k, aim);
+    const s = this.skills[k], def = this.skillDef(k);
+    if (this.recastReady(k) && this.canAct()) return this.kit.cast[k](this, aim);   // 재입력(쿨 중에도)
+    if (!s || s.lv <= 0) { FX.toastFor(this, `${def.name}: 아직 배우지 않았습니다`, '#aaa'); return false; }
+    if (!this.canAct()) return false;
+    if (this.silence > 0) { FX.toastFor(this, '침묵 — 스킬 사용 불가', '#b07cff'); Sfx.playFor(this, 'error'); return false; }
+    if (s.cd > 0) { this.cdError(k); return false; }
+    if (def.dash && this.root > 0) { FX.toastFor(this, '속박 중에는 이동기를 쓸 수 없습니다'); return false; }
+    this.chase = null;
+    const ok = this.kit.cast[k](this, aim);
+    if (ok) { Vision.act(this, 'skill'); this.breakStealth(); }
+    return ok;
+  }
+  breakStealth() { this.stealthT = 0; }
+  // 즉시 효과 스킬(시전 과정 없음): 통계·행동 이벤트
+  instantUsed(k) { this.S.cast(k); Events.emit('action', { k }); }
+  // 캐시의 강화 평타 처리는 쓰지 않음
+  fireCast() {
+    const c = this.cast; c.phase = 'active'; c.t = 0; c.origin = V.copy(this.pos);
+    c.data.snap = {}; for (const e of Game.enemies(this)) c.data.snap[e.id] = V.copy(e.pos);
+    if (!c.data.noStat) this.S.cast(c.k); Vision.act(this, 'skill');
+    c.impl.fire(this, c);
+    Events.emit('action', { k: c.k });
+  }
+  // ---------- 평타: 유도 투사체 (대상에게만 맞음, 지형 무시) ----------
+  aaHit(t) {
+    const cfg = this.aaCfg();
+    if (!(this.kit.fireAA && this.kit.fireAA(this, t))) {
+      const dir = V.norm(V.sub(t.pos, this.pos));
+      this.shot({ dir, speed: this.motif.aaSpeed || 24, home: t, only: t, width: 0.25, len: 0.5, onHit: u => this.aaLand(u) });
+    }
+    this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
+    Events.emit('action', { k: 'AA' }); Sfx.play('aa'); Tactical.onAA(this, t);
+    this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.atkSpd();
+  }
+  // 평타 착탄: 치명(1.75 + 치명 피해) × 기본 공격 증폭 — 리오는 키트가 따로 계산
+  aaLand(u, ratio = 1, extra = {}) {
+    const crit = this.kit.noCrit ? false : rnd() < this.critChance, mul = this.kit.aaMul ? this.kit.aaMul(this, u) : (crit ? 1.75 + (this.critDmg || 0) : 1);
+    const dmg = Combat.damage(this, u, this.ad * ratio * mul * (1 + this.aaAmp), Object.assign({ type: 'normal', source: 'AA', crit, pen: this.penNow() }, extra));
+    FX.burst(u.pos, crit ? '#ff9f9f' : '#ffffff', 5, 3);
+    if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
+    return dmg;
+  }
+  onDamaged(dmg, src) { if (this.kit.onDamaged) this.kit.onDamaged(this, dmg, src); }
+  // ---------- 매 스텝 ----------
+  update(dt) {
+    this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
+    if (this.noAA > 0) { this.noAA -= dt; this.aaCd = Math.max(this.aaCd, 0.02); if (this.aa.phase === 'windup') this.aa.phase = 'none'; }   // 평타 불가(쿨을 길게 올리지 않고 막기만)
+    for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
+    this.chans = this.chans.filter(c => !c.done);
+    for (const q of this.pend) if ((q.t -= dt) <= 0 && !q.done) { q.done = true; if (!this.dead) q.fn(); }
+    this.pend = this.pend.filter(q => !q.done);
+    if (this.kit.update) this.kit.update(this, dt);
+    // 대상 지정 스킬: 사거리에 들어오면 시전
+    const C = this.chase;
+    if (C && !this.dead) {
+      if (C.t.dead || !Vision.visible(this, C.t) || C.t.untargetable > 0) this.chase = null;
+      else if (!this.cast && this.canAct() && V.dist(this.pos, C.t.pos) - C.t.r - this.r <= C.range) { this.chase = null; this.moveTarget = null; if (this.skills[C.k].cd <= 0 && this.silence <= 0) C.fn(); }
+      else if (!this.cast) this.moveTarget = V.copy(C.t.pos);
+    }
+    super.update(dt);
+  }
+  // ---------- 그리기 ----------
+  drawExtra(ctx) { if (this.kit.draw) this.kit.draw(this, ctx); }
+  hudBuffs() { return this.kit.hud ? this.kit.hud(this) : []; }
+  // 조준 미리보기: 키트의 모양 정의 {kind: line|cone|circle|target|self|dash|back|trap, ...}
+  drawShape(ctx, k, aim, alpha) {
+    const S = this.kit.shape && this.kit.shape(this, k); if (!S) return false;
+    const dir = this.dirTo(aim), ang = V.ang(dir);
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = this.color; ctx.strokeStyle = this.color; ctx.lineWidth = 0.05;
+    const ring = r => { ctx.save(); ctx.globalAlpha = 0.5; Draw.circle(ctx, this.pos.x, this.pos.y, r); ctx.stroke(); ctx.restore(); };
+    if (S.range) ring(S.range);
+    if (S.kind === 'line') Draw.oRect(ctx, this.pos, ang, S.len, S.width);
+    else if (S.kind === 'cone') { const h = S.angle / 2 * Math.PI / 180; ctx.beginPath(); ctx.moveTo(this.pos.x, this.pos.y); ctx.arc(this.pos.x, this.pos.y, S.len, ang - h, ang + h); ctx.closePath(); ctx.fill(); }
+    else if (S.kind === 'circle') { const c = this.ptIn(aim, S.range || 99); Draw.circle(ctx, c.x, c.y, S.r); ctx.fill(); ctx.globalAlpha = Math.min(1, alpha * 3); ctx.stroke(); }
+    else if (S.kind === 'self') { Draw.circle(ctx, this.pos.x, this.pos.y, S.r); ctx.fill(); }
+    else if (S.kind === 'dash' || S.kind === 'back') { const d = S.kind === 'back' ? V.mul(dir, -1) : dir; Draw.oRect(ctx, this.pos, V.ang(d), S.len, 0.6); if (S.cone) { const h = S.cone.angle / 2 * Math.PI / 180; ctx.beginPath(); ctx.moveTo(this.pos.x, this.pos.y); ctx.arc(this.pos.x, this.pos.y, S.cone.len, ang - h, ang + h); ctx.closePath(); ctx.fill(); } }
+    else if (S.kind === 'target') { const t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this); if (t) { ctx.globalAlpha = 0.85; Draw.circle(ctx, t.pos.x, t.pos.y, t.r + 0.25); ctx.stroke(); } }
+    else if (S.kind === 'trap') { const c = this.ptIn(aim, S.range), q = KU.trapPts(c, dir, S); ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); for (const v of q) ctx.lineTo(v.x, v.y); ctx.closePath(); ctx.fill(); }
+    ctx.restore(); return true;
+  }
+}
+const PKits = {};   // 실험체별 플레이어 키트 (3_z_ranged_kits.js)
+
+// ============================== 플레이어 원거리 키트 (아야 · 리오 · 나딘 · 카티야) ==============================
+// 각 키트: short(HUD 이름) · def(스킬 정의 덧붙임) · init · update · cast{Q,W,E,R,D} · recast(재입력 가능?) · instant(시전 중에도 즉시) · shape(조준 미리보기) · draw · hud
+//          aaRange · asFlat · pen · fireAA · aaMul · noCrit · onAAHit · onHit · onDamaged
+// 수치는 CONFIG.rangedKits(12.5), 조작은 docs/er_notes_playables.md 「플레이어 조작 구현 메모」. ⚠ 출처 없는 시간·폭은 AI와 같은 추정값
+
+// ---------------- 아야 (권총) ----------------
+PKits.aya = {
+  short: { Q: '2연발', W: '고정', E: '무빙턴', R: '공포탄', D: '리로드' },
+  noAim: ['D'],
+  def: { E: { dash: true }, R: { moveCancel: false } },
+  init(p) { p.pCd = 0; p.reload = 0; p.ayaW = null; },
+  update(p, dt) { if (p.pCd > 0) p.pCd -= dt; },
+  // P 아야의 정의: 피격 시 보호막(25초, 쿨감 무시) · 공격(평타·스킬)이 맞을 때마다 쿨 1초 감소
+  onDamaged(p) {
+    if (p.pCd > 0 || p.dead) return; const P = p.K.P;
+    p.shield = Math.max(p.shield, p.calc(P, 'P')); p.shieldT = P.dur; p.pCd = P.cd; FX.text(p.pos, P.name, p.color, 12, { bold: true });
+  },
+  onHit(p) { p.pCd = Math.max(0, p.pCd - p.K.P.perHit); },
+  onAAHit(p) {
+    p.pCd = Math.max(0, p.pCd - p.K.P.perHit);
+    if (p.reload > 0 && --p.reload === 0) p.asBuffs = p.asBuffs.filter(a => a.tag !== 'reload');   // 무빙 리로드: 평타 2회 공속 +70%
+  },
+  recast(p, k) { return k === 'W' && !!p.ayaW; },
+  cast: {
+    // Q 2연발: 대상 지정 6.5m(밖이면 다가감) — 1발 = 기본 공격(공 110%, 치명 가능) · 2발 = 스킬 피해, 1발이 나가면 2발은 반드시 발사. 시전 중 이동 불가, 공속 1 이상이면 빨라짐
+    Q(p, aim) {
+      const t = p.targetAt(aim, 'Q'); if (!t) return false;
+      return p.chaseCast('Q', t, p.K.Q.range, () => {
+        const Q = p.K.Q;
+        p.beginCast('Q', t.pos, { windup: q => Q.windup / Math.max(1, q.atkSpd()), recovery: () => 0.06,
+          fire(q) {
+            q.startCd('Q'); q.facing = V.ang(V.sub(t.pos, q.pos)); Sfx.play('throw');
+            const go = (r, onHit) => q.shot({ dir: V.norm(V.sub(t.pos, q.pos)), speed: 30, home: t, only: t, width: 0.3, len: 0.5, onHit });
+            go(1, u => q.aaLand(u, Q.first));
+            q.after(Q.gap, () => go(2, u => q.hitS(u, q.calc(Q, 'Q'), 'Q')));
+            q.addAs(lv(Q.asBuff, q.L('Q')), Q.asDur, 'ayaQ');
+            FX.text(q.pos, Q.name, q.color, 12, { bold: true });
+          } }, {});
+      });
+    },
+    // W 고정 사격: 누른 순간의 방향으로 2.2초 연사, 이동 가능 · W 재입력 = 중단 · 기본 6발, 추가 공속 20%마다 +1(최대 10)
+    W(p, aim) {
+      if (p.ayaW) { p.ayaW.stop = true; FX.text(p.pos, '사격 중단', '#aaa', 11); return true; }
+      const W = p.K.W, dir = p.dirTo(aim), n = clamp(Math.round(W.shots + (p.atkSpd() - 1) * 5), W.shots, W.maxShots); let fired = 0;
+      p.startCd('W'); p.noAA = W.dur; p.instantUsed('W'); const cid = ++p.castSeq;
+      FX.text(p.pos, W.name, p.color, 12, { bold: true });
+      p.ayaW = { t: 0, dur: W.dur, dir, onTick: (dt, c) => { while (fired < n && c.t >= (fired / n) * W.dur) { fired++; Sfx.play('aa');
+        p.shot({ dir: c.dir, speed: W.speed, range: W.range, width: W.width, len: 0.45, onHit: u => { p.hitS(u, p.calc(W, 'W'), 'W', { hid: 'W:' + cid }); } }); } },
+        onEnd: () => { p.ayaW = null; p.noAA = 0; } };
+      p.chans.push(p.ayaW); return true;
+    },
+    // E 무빙턴: 커서 방향 4m 대시(벽 넘기 가능), Q·W 남은 쿨 감소
+    E(p, aim) {
+      const E = p.K.E, r = lv(E.qwReduce, p.L('E'));
+      p.dash('E', p.dirTo(aim), E.dist, E.time, 0.5); p.startCd('E');
+      for (const k of ['Q', 'W']) p.skills[k].cd *= 1 - r;
+      FX.text(p.pos, E.name, p.color, 12, { bold: true }); Sfx.play('blink'); return true;
+    },
+    // R 공포탄: 0.66초 뒤 주변 4.5m 피해 + 공포 (시전 중 이동 불가)
+    R(p, aim) {
+      const R = p.K.R;
+      p.beginCast('R', aim, { windup: () => R.delay, recovery: () => 0.05,
+        start(q) { FX.text(q.pos, R.name, q.color, 13, { bold: true }); },
+        fire(q) {
+          q.startCd('R'); Sfx.play('ult'); FX.ring(q.pos, 0.5, R.radius, '#ffffff', 0.4, 0.12); FX.addShake(6);
+          for (const u of q.foes()) if (V.dist(u.pos, q.pos) <= R.radius + u.r) { q.hitS(u, q.calc(R, 'R'), 'R', { aoe: true }); if (u.applyFear && u.applyFear(R.fear, q.pos)) FX.text(u.pos, '공포!', '#b18cff', 16, { bold: true }); }
+        } }, {});
+      return true;
+    },
+    // D 무빙 리로드: 1초 이속(평타 불가, 스킬 가능) → 다음 평타 2회 공속 +70%
+    D(p) {
+      const D = p.K.D; p.startCd('D'); p.addMsBuff(lv(D.ms, p.L('D')), D.dur, false, 'reload'); p.noAA = D.dur; p.instantUsed('D');
+      p.after(D.dur, () => { p.reload = D.asShots; p.addAs(D.asBuff, 5, 'reload'); });
+      FX.text(p.pos, D.name, p.color, 12, { bold: true }); Sfx.play('blink'); return true;
+    },
+  },
+  shape(p, k) {
+    const K = p.K;
+    return { Q: { kind: 'target', range: K.Q.range + p.r }, W: { kind: 'line', len: K.W.range, width: K.W.width }, E: { kind: 'dash', len: K.E.dist }, R: { kind: 'self', r: K.R.radius } }[k] || null;
+  },
+  draw(p, ctx) { if (p.ayaW) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(p.ayaW.dir), p.K.W.range, p.K.W.width); ctx.restore(); } },
+  hud(p) {
+    const b = []; if (p.pCd > 0) b.push([`정의 ${Math.ceil(p.pCd)}`, '#8a93a6']); else b.push(['정의 준비', '#5aa9ff']);
+    if (p.ayaW) b.push(['고정 사격 (W: 중단)', p.color]); if (p.reload > 0) b.push([`리로드 ×${p.reload}`, '#ffd166']);
+    if (p.asBuffs.some(a => a.tag === 'ayaQ')) b.push(['2연발 공속↑', '#9fd8ff']); return b;
+  },
+};
+
+// ---------------- 리오 (활) ----------------
+PKits.rio = {
+  short: { Q: '활 교체', W: '하나레', E: '비상', R: '연사', D: '곡사' },
+  noAim: ['Q'],
+  def: { Q: { fixedCd: true }, R: { moveCancel: false } },
+  label(p, k) { if (k === 'Q') return p.stance === 'short' ? '→화궁' : '→단궁'; if (k === 'R') return p.rRecast ? '강화살!' : p.stance === 'short' ? '연사' : '정사필중'; return this.short[k]; },
+  init(p) { p.stance = 'long'; p.kc = 0; p.kcReady = false; p.rRecast = null; },
+  noCrit: true,
+  // P 카이: 평타 치명 없음 — 항상 ×(1.02 + 치명확률 × (0.75 + 치명 피해)) · 방관 = 2/5/8% + 치명확률 × 10%
+  aaMul(p) { return 1.02 + p.critChance * (0.75 + (p.critDmg || 0)); },
+  pen(p) { const P = p.K.P; return lv(P.pen, p.plv) + p.critChance * P.penPerCrit; },
+  asFlat(p) { return p.stance === 'long' ? -p.K.Q.long.asPenalty : 0; },
+  aaRange(p) { const Q = p.K.Q; return p.stance === 'short' ? Q.short.range : 6.3 + 0.05 * (p.L('Q') - 1) + (p.kcReady ? Q.longRange : 0); },   // 화궁 6.3~6.5m(Q 레벨)
+  gainKc(p) { if (p.kcReady) return; if (++p.kc >= p.K.Q.stacks) { p.kcReady = true; p.kc = 0; FX.text(p.pos, '카이츄', p.color, 11, { bold: true }); } },
+  fullKc(p) { p.kc = 0; p.kcReady = true; },
+  // 평타: 단궁 = 주 화살 36% + 추가 2발 35% / 화궁 = 102% 1발 — 카이츄 강화(단궁 이속·공속, 화궁 사거리+0.4·잃은 체력 1%당 0.3%)
+  fireAA(p, t) {
+    const Q = p.K.Q, ready = p.kcReady, dir = V.norm(V.sub(t.pos, p.pos));
+    if (ready) { p.kcReady = false; if (p.stance === 'short') { p.addMsBuff(lv(Q.shortMs, p.L('Q')), Q.buffDur, true, 'rioQ'); p.addAs(lv(Q.shortAs, p.L('Q')), Q.buffDur, 'rioQ'); } }
+    const land = (u, ratio, main) => {
+      const miss = main && ready && p.stance === 'long' ? 1 + clamp(1 - u.hp / u.maxHp, 0, 1) * 100 * Q.longMissing / 100 : 1;
+      p.aaLand(u, ratio * miss); if (main) this.gainKc(p);
+    };
+    if (p.stance === 'short') {
+      p.shot({ dir, speed: 26, home: t, only: t, len: 0.5, onHit: u => land(u, Q.short.ratio, true) });
+      for (const s of [-1, 1]) p.shot({ dir: V.fromAng(V.ang(dir) + s * 0.06), speed: 26, home: t, only: t, len: 0.4, onHit: u => land(u, Q.short.extraRatio, false) });
+    } else p.shot({ dir, speed: 24, home: t, only: t, len: 0.8, onHit: u => land(u, Q.long.ratio, true) });
+    return true;
+  },
+  onAAHit() {},
+  onHit(p, u, o) {
+    if (o.kc !== false && isHero(u)) this.gainKc(p);
+    if (o.hanare) for (const k of ['Q', 'E', 'R', 'D']) p.skills[k].cd = Math.max(0, p.skills[k].cd - p.K.W.cdReduce);   // 하나레 적중: 다른 스킬 쿨 1초 감소
+  },
+  update(p, dt) {
+    const foes = p.foes();
+    for (const z of p.zones) {   // 단궁 하나레 바람(이속 감소) · 곡사 착탄
+      z.t += dt;
+      if (z.type === 'wind') for (const u of foes) if (V.dist(u.pos, z.pos) <= z.r + u.r * 0.5) u.addSlow(z.slow, 0.1);
+      if (z.type === 'arc' && !z.hit && z.t >= z.delay) {
+        z.hit = true; const D = p.K.D;
+        for (const u of foes) { const dd = V.dist(u.pos, z.pos); if (dd <= D.radius + u.r * 0.5) { const inner = dd <= D.innerR; p.hitS(u, p.calc(inner ? { base: D.inner, bad: D.innerBad, sp: D.innerSp } : D, 'D'), 'D', { aoe: true, hid: 'D:' + z.id }); u.addSlow(D.slow, D.slowDur); } }
+        Vision.reveals.push({ team: p.team, pos: V.copy(z.pos), r: D.radius, t: 1 });   // 착탄 지점 시야
+        FX.ring(z.pos, 0.5, D.radius, p.color, 0.35, 0.12); FX.burst(z.pos, p.color, 16, 5);
+      }
+    }
+    p.zones = p.zones.filter(z => z.type === 'wind' ? z.t < z.dur : !z.hit);
+    if (p.rRecast && (p.rRecast.t -= dt) <= 0) this.strong(p, null);   // 연사 강한 화살: 유예가 끝나면 자동 발사
+  },
+  recast(p, k) { return k === 'R' && !!p.rRecast; },
+  cast: {
+    // Q 카에유미: 단궁 ↔ 화궁 전환 (0.8초, 쿨감 무시) — 연사 재사용 대기 중이면 취소
+    Q(p) {
+      const Q = p.K.Q; p.stance = p.stance === 'short' ? 'long' : 'short'; p.startCd('Q'); p.instantUsed('Q');
+      if (p.rRecast) { p.rRecast = null; FX.text(p.pos, '연사 취소', '#aaa', 11); }
+      FX.text(p.pos, p.stance === 'short' ? '단궁' : '화궁', p.color, 12, { bold: true }); Sfx.play('click'); return true;
+    },
+    // W 하나레: 단궁 = 7.5m 부채꼴 5발(같은 대상 반복 20%, 바람 장판) / 화궁 = 10.5m 직선 관통(첫 대상 + 뒤 대상 추가 피해, 둔화)
+    W(p, aim) {
+      const W = p.K.W, short = p.stance === 'short';
+      p.beginCast('W', aim, { windup: () => 0.2, recovery: () => 0.05,
+        fire(q, c) {
+          q.startCd('W'); Sfx.play('throw'); const dir = c.dir, cid = c.id;
+          if (!short) {
+            let first = null;
+            q.shot({ dir, speed: W.long.speed, range: W.long.range, width: W.long.width, len: 1.4, pierce: true, onHit: u => {
+              if (!first) { first = u; q.hitS(u, q.calc(W.long, 'W'), 'W', { hanare: true, hid: 'W:' + cid }); }
+              else q.hitS(u, q.calc(W.long.behind, 'W'), 'W', { kc: false, hid: 'W:' + cid });
+              u.addSlow(W.long.slow, W.long.slowDur);
+            } });
+          } else {
+            const landed = {};
+            for (let i = 0; i < W.short.arrows; i++) {
+              const a = V.ang(dir) + ((i / (W.short.arrows - 1)) - 0.5) * W.short.spread * Math.PI / 180;
+              q.after(i * 0.06, () => q.shot({ dir: V.fromAng(a), speed: 30, range: W.short.range, width: W.short.width, len: 0.6, onHit: u => {
+                const n = landed[u.id] = (landed[u.id] || 0) + 1, first = n === 1;
+                q.hitS(u, q.calc(W.short, 'W') * (first ? 1 : W.short.repeat), 'W', { hanare: first && Object.keys(landed).length === 1, kc: first && Object.keys(landed).length === 1, hid: 'W:' + cid });
+                if (first) q.zones.push({ type: 'wind', pos: V.copy(u.pos), r: W.short.zoneR, t: 0, dur: W.short.zoneDur, slow: W.short.slow });
+              } }));
+            }
+          }
+        } }, {});
+      return true;
+    },
+    // E 비상: 커서 방향 5m 도약 → 착지 때 평타 사거리 안 적(최대 3, 커서에 가까운 순)에게 화살, 카이츄 최대
+    E(p, aim) {
+      const E = p.K.E; p.startCd('E'); FX.text(p.pos, E.name, p.color, 12, { bold: true }); Sfx.play('blink');
+      p.dash('E', p.dirTo(aim), E.leap, E.leapTime, 0, q => {
+        const S = q.stance === 'short' ? E.short : E.long, n = q.stance === 'short' ? E.short.arrows : 1, cid = q.castSeq;
+        const ts = q.foes().filter(u => isHero(u) || u.kind === 'dummy').filter(u => V.dist(q.pos, u.pos) - u.r <= PKits.rio.aaRange(q) + 0.5 && Vision.visible(q, u)).sort((a, b) => V.dist(a.pos, aim) - V.dist(b.pos, aim)).slice(0, 3);
+        for (const t of ts) for (let i = 0; i < n; i++) q.shot({ dir: V.fromAng(V.ang(V.sub(t.pos, q.pos)) + (i - (n - 1) / 2) * 0.05), speed: 28, home: t, only: t, len: 0.6, onHit: u => {
+          q.hitS(u, q.calc(S, 'E'), 'E', { kc: false, hid: 'E:' + cid });
+          if (q.stance === 'long') for (const v of q.foes()) if (V.dist(v.pos, u.pos) <= 2 + v.r) q.hitS(v, q.calc({ base: E.long.aoe, ad: E.long.aoeAd }, 'E'), 'E', { kc: false, aoe: true, hid: 'E:' + cid });
+        } });
+        PKits.rio.fullKc(q);
+      });
+      return true;
+    },
+    // R: 단궁 연사(8.5m 3연발 + 재입력 강한 화살 4m 넉백·벽꿍 기절, 3초 지나면 자동) / 화궁 정사필중(0.6초 고정 → 무제한 직선, 실험체만, 0.8초 뒤 강화)
+    R(p, aim) {
+      if (p.rRecast) { PKits.rio.strong(p, aim); return true; }
+      const R = p.K.R;
+      if (p.stance === 'short') {
+        const S = R.short;
+        p.beginCast('R', aim, { windup: () => 0.15, recovery: () => 0.05,
+          fire(q, c) {
+            q.startCd('R'); PKits.rio.fullKc(q); FX.text(q.pos, '연사', q.color, 13, { bold: true }); const dir = c.dir, cid = c.id;
+            for (let i = 0; i < S.arrows; i++) q.after(i * 0.1, () => q.shot({ dir, speed: 32, range: S.range, width: S.width, len: 0.8, onHit: u => { q.hitS(u, q.calc(S, 'R'), 'R', { hid: 'R:' + cid }); KU.knock(u, dir, S.push, 0.08); } }));
+            q.rRecast = { t: S.recast.grace, dir, ready: Game.time + 0.15 + S.arrows * 0.1 + 0.1 };   // 3연발이 다 나간 뒤부터 강한 화살
+          } }, {});
+      } else {
+        const L = R.long;
+        p.beginCast('R', aim, { windup: () => L.windup, recovery: () => 0.1,
+          start(q) { FX.text(q.pos, '정사필중', q.color, 13, { bold: true }); },
+          fire(q, c) {
+            q.startCd('R'); PKits.rio.fullKc(q); Sfx.play('ult'); const cid = c.id;
+            q.shot({ dir: c.dir, speed: L.speed, range: 60, width: L.width, len: 2, color: '#ffffff', heroOnly: true, onHit: (u, pr) => {
+              const boosted = pr.traveled > L.speed * L.boostAfter;
+              q.hitS(u, q.calc(L, 'R') * (boosted ? 1 + L.boost : 1), 'R', { hid: 'R:' + cid }); u.addSlow(L.slow, L.slowDur * (boosted ? 2 : 1));
+              if (boosted) FX.text(u.pos, '강화!', '#ffffff', 13, { bold: true });
+            } });
+          } }, {});
+      }
+      return true;
+    },
+    // D 곡사: 지면 지정 28m, 0.3초 시전 → 1.5초 뒤 화살비 (상대에게도 범위가 보임)
+    D(p, aim) {
+      const D = p.K.D, pos = p.ptIn(aim, D.range);
+      p.beginCast('D', pos, { windup: () => D.windup, recovery: () => 0.1,
+        fire(q, c) { q.startCd('D'); q.zones.push({ type: 'arc', pos, t: 0, delay: D.delay, id: c.id }); Sfx.play('throw'); FX.text(q.pos, D.name, q.color, 12, { bold: true }); } }, {});
+      return true;
+    },
+  },
+  // 연사 강한 화살: 4m 넉백, 벽에 부딪히면 추가 피해 + 기절 1초
+  strong(p, aim) {
+    const RC = p.K.R.short.recast, rr = p.rRecast; if (!rr) return;
+    if (Game.time < rr.ready) { if (!rr.queued) { rr.queued = true; p.after(rr.ready - Game.time, () => { rr.ready = 0; this.strong(p, aim); }); } return; }   // 3연발 중 재입력 → 다 쏜 뒤 발사
+    p.rRecast = null;
+    const t = Game.nearestEnemy(p.pos, p.K.R.short.range + 1, p), dir = aim ? p.dirTo(aim) : t ? V.norm(V.sub(t.pos, p.pos)) : rr.dir;
+    Sfx.play('ult'); FX.text(p.pos, '강한 화살', '#ffffff', 12, { bold: true }); const cid = ++p.castSeq;
+    p.shot({ dir, speed: 34, range: p.K.R.short.range, width: p.K.R.short.width, len: 1.3, color: '#ffffff', onHit: u => {
+      p.hitS(u, p.calc(RC, 'R'), 'R', { hid: 'R:' + cid });
+      KU.knock(u, dir, RC.knock, 0.25, () => { p.hitS(u, p.calc({ base: RC.wallBase, ad: RC.wallAd }, 'R'), 'R', { hid: 'Rw:' + cid }); u.applyCC('stun', RC.stun); FX.text(u.pos, '벽꿍 기절!', '#ffffff', 16, { bold: true }); FX.addShake(8); });
+    } });
+  },
+  shape(p, k) {
+    const K = p.K, s = p.stance === 'short';
+    if (k === 'W') return s ? { kind: 'cone', len: K.W.short.range, angle: K.W.short.spread } : { kind: 'line', len: K.W.long.range, width: K.W.long.width };
+    if (k === 'E') return { kind: 'dash', len: K.E.leap };
+    if (k === 'R') return s ? { kind: 'line', len: K.R.short.range, width: K.R.short.width } : { kind: 'line', len: 30, width: K.R.long.width };
+    if (k === 'D') return { kind: 'circle', range: K.D.range, r: K.D.radius };
+    return null;
+  },
+  draw(p, ctx) {
+    for (const z of p.zones) {
+      if (z.type === 'wind') KU.fill(ctx, z.pos, z.r, '#9fe3b0', 0.25 * (1 - z.t / z.dur));
+      else { const k = clamp(z.t / z.delay, 0, 1), D = p.K.D; KU.fill(ctx, z.pos, D.radius, p.color, 0.12 + 0.15 * k); KU.ring(ctx, z.pos, D.radius, p.color, 0.9); KU.fill(ctx, z.pos, D.innerR, '#ffffff', 0.15 + 0.2 * k); }
+    }
+  },
+  hud(p) {
+    const b = [[p.stance === 'short' ? '단궁 (4.85m)' : `화궁 (${fmt(this.aaRange(p), 2)}m)`, p.color], [p.kcReady ? '카이츄 준비!' : `카이츄 ${'●'.repeat(p.kc)}${'○'.repeat(p.K.Q.stacks - p.kc)}`, p.kcReady ? '#ffd166' : '#8a93a6']];
+    if (p.rRecast) b.push([`강한 화살 R ${fmt(p.rRecast.t, 1)}`, '#ffffff']); return b;
+  },
+};
+
+// ---------------- 나딘 (석궁) ----------------
+PKits.nadine = {
+  short: { Q: '황소의 눈', W: '덫', E: '와이어', R: '늑대', D: '강노' },
+  noAim: ['Q', 'R'],
+  def: { D: { moveCancel: false } },
+  label(p, k) { if (k === 'Q' && p.charge) return '발사!'; if (k === 'W' && p.trapA) return '덫 2'; if (k === 'E' && p.wire) return '이동!'; return this.short[k]; },
+  init(p) { Object.assign(p, { charge: null, traps: [], trapA: null, wire: null, wolfT: 0, wolfN: 0, mark: null, lastP: {} }); },
+  recast(p, k) { return (k === 'Q' && !!p.charge) || (k === 'W' && !!p.trapA) || (k === 'E' && !!p.wire); },
+  wireAs(p, dur) { const E = p.K.E; p.addAs(lv(E.as, p.L('E')) + p.sp * 0.0005, dur, 'wire'); },
+  // R 늑대: 평타 3번마다 대상에게 늑대 (시작 즉시 2중첩 → 첫 평타에도) + 야성
+  onAAHit(p, u) {
+    if (p.wolfT > 0 && ++p.wolfN >= p.K.R.every) { p.wolfN = 0; const R = p.K.R; p.hitS(u, p.calc(R, 'R') + p.stacks, 'R', { hid: 'R:' + Game.time }); u.addSlow(R.slow, R.slowDur); FX.burst(u.pos, '#c9c9c9', 14, 6); FX.text(u.pos, '늑대!', '#e0e0e0', 13, { bold: true }); }
+    this.markHit(p, u);
+  },
+  onHit(p, u, o) { if (!o.mark) this.markHit(p, u); },
+  // 강노 표식: 대상에게 평타·스킬이 맞을 때마다 폭발 0.5초 앞당김 + 피해 증가
+  markHit(p, u) { const m = p.mark; if (!m || m.u !== u) return; const M = p.K.D.mark; m.t -= M.cut; m.bonus += lv(M.inc, p.L('D')) + p.bonusAd * lv(M.incBad, p.L('D')) + p.sp * (M.incSp || 0); },
+  update(p, dt) {
+    const K = p.K, foes = p.foes().filter(u => u.kind !== 'animal');
+    if (p.wolfT > 0) p.wolfT -= dt;
+    // Q 충전: 이속 서서히 −20%, 평타 불가, CC를 받으면 취소(쿨 50% 반환), 최대 충전 1초 뒤 자동 발사(⚠ 출처 없음)
+    const C = p.charge;
+    if (C) {
+      C.t += dt; const Q = K.Q; p.noAA = 0.15; p.addMsBuff(-Q.chargeSlow * Math.min(1, C.t / Q.charge), 0.1, false, 'charge');
+      if (p.stun > 0 || p.fear > 0 || p.forced || p.silence > 0 || p.dead) { p.charge = null; p.skills.Q.cd = p.skills.Q.cdMax = Q.cd * Q.refund; FX.text(p.pos, '충전 취소', '#aaa', 11); }
+      else if (C.t >= Q.charge + 1) this.fireQ(p, p.cursor || V.add(p.pos, V.fromAng(p.facing)));
+    }
+    // W 첫 덫: 5초 안에 두 번째를 못 던지면 사라짐(⚠) — 쿨 시작
+    if (p.trapA && (p.trapA.t -= dt) <= 0) { p.trapA = null; p.startCd('W'); }
+    // 덫 연결선을 지나간 적: 피해 + 이속 감소 + 5초 노출 (이미 이 덫에 둔화 중이면 30%)
+    for (const u of foes) { const lp = p.lastP[u.id]; if (lp) for (const tr of p.traps) {
+      if (tr.used || !(KU.segCross(lp, u.pos, tr.a, tr.b) || Geo.segDist(u.pos, tr.a, tr.b) < u.r * 0.5)) continue;
+      tr.used = true; const W = K.W, again = u.trapSlowT > Game.time;
+      p.hitS(u, p.calc(W, 'W') * (again ? 0.3 : 1), 'W', { hid: 'W:' + tr.id }); u.addSlow(lv(W.slow, p.L('W')), W.slowDur); u.trapSlowT = Game.time + W.slowDur;
+      u.revealT = Math.max(u.revealT || 0, 5);
+      FX.text(u.pos, '덫!', p.color, 15, { bold: true });
+    } }
+    p.traps = p.traps.filter(tr => !tr.used && (tr.life -= dt) > 0);
+    for (const u of foes) p.lastP[u.id] = V.copy(u.pos);
+    // E 와이어: 7초 · 11m 넘게 멀어지거나 CC를 받으면 끊김
+    if (p.wire && ((p.wire.t -= dt) <= 0 || V.dist(p.pos, p.wire.pos) > K.E.breakDist || p.stun > 0 || p.root > 0 || p.fear > 0)) { p.wire = null; p.asBuffs = p.asBuffs.filter(a => a.tag !== 'wire'); }
+    // 강노 표식 폭발
+    if (p.mark && (p.mark.t -= dt) <= 0) { const M = K.D.mark, m = p.mark, u = m.u; p.mark = null; if (!u.dead) { p.hitS(u, p.calc(M, 'D') + m.bonus, 'D', { mark: true, hid: 'Dm:' + Game.time }); FX.burst(u.pos, p.color, 18, 6); } }
+  },
+  fireQ(p, aim) {
+    const Q = p.K.Q, C = p.charge; if (!C) return; p.charge = null;
+    const k = clamp(C.t / Q.charge, 0, 1), rng = lerp(Q.range[0], Q.range[1], k), dir = p.dirTo(aim);
+    const base = lv(Q.min, p.L('Q')) + p.bonusAd * Q.minBad + p.sp * Q.minSp, amt = base * lerp(1, Q.maxMul, k) + p.stacks, cid = ++p.castSeq;
+    p.startCd('Q'); p.S.cast('Q'); Vision.act(p, 'skill'); Sfx.play('throw'); Events.emit('action', { k: 'Q' }); p.facing = V.ang(dir);
+    let hit = false; const pr = p.shot({ dir, speed: Q.speed, range: rng, width: Q.width, len: 1.2 + k, onHit: u => { hit = true; p.hitS(u, amt, 'Q', { hid: 'Q:' + cid }); } });
+    pr.onDone = () => p.S.resolveShot('Q', hit);
+    FX.text(p.pos, `${Q.name} ${Math.round(k * 100)}%`, p.color, 12, { bold: true });
+  },
+  cast: {
+    // Q 황소의 눈: 첫 입력 = 충전 시작(최대 2초, 사거리 7→14m·피해 최대 2배) / 재입력 = 커서 방향 발사
+    Q(p, aim) {
+      if (p.charge) { PKits.nadine.fireQ(p, aim); return true; }
+      p.charge = { t: 0 }; FX.text(p.pos, '충전…', p.color, 12, { bold: true }); return true;
+    },
+    // W 다람쥐 덫: 1단계 = 커서 위치(7m)에 덫 / 5초 안 2단계 = 첫 덫에서 5m 안에 두 번째 → 연결(최대 3세트)
+    W(p, aim) {
+      const W = p.K.W;
+      if (p.trapA) {
+        const a = p.trapA.pos, d = Math.min(W.link, V.dist(a, aim)), b = Geo.pushOut(V.add(a, V.mul(V.dist(aim, a) > 0.05 ? V.norm(V.sub(aim, a)) : { x: 1, y: 0 }, d)), 0.2);
+        p.trapA = null; p.traps.push({ a, b, life: W.life, id: ++p.castSeq });
+        while (p.traps.length > W.sets) p.traps.shift();
+        p.startCd('W'); p.instantUsed('W'); Sfx.play('click'); FX.text(b, '연결', p.color, 12, { bold: true }); return true;
+      }
+      const a = Geo.pushOut(p.ptIn(aim, W.range), 0.2); p.trapA = { pos: a, t: 5 }; Sfx.play('click'); FX.text(a, W.name, p.color, 12, { bold: true }); return true;
+    },
+    // E 원숭이 와이어: 1단계 = 커서 위치(7m)에 와이어, 걸려 있는 동안 공속 / 재입력 = 와이어로 이동(이후 3초 공속 유지)
+    E(p, aim) {
+      const E = p.K.E;
+      if (p.wire) {
+        const to = Geo.pushOut(V.copy(p.wire.pos), p.r), dir = V.norm(V.sub(to, p.pos)), dist = V.dist(p.pos, to); p.wire = null; PKits.nadine.wireAs(p, E.after);
+        p.dash('E', dir, dist, E.zipTime, 0.99); FX.text(p.pos, '와이어 이동', p.color, 12, { bold: true }); return true;
+      }
+      const pos = Geo.pushOut(p.ptIn(aim, E.range), 0.3); p.wire = { pos, t: E.life }; p.startCd('E'); p.instantUsed('E'); PKits.nadine.wireAs(p, E.life);
+      FX.text(p.pos, E.name, p.color, 12, { bold: true }); Sfx.play('click'); return true;
+    },
+    // R 늑대 맹습: 10초
+    R(p) { const R = p.K.R; p.startCd('R'); p.wolfT = R.dur; p.wolfN = R.every - 1; p.instantUsed('R'); FX.text(p.pos, R.name, p.color, 13, { bold: true }); Sfx.play('ult'); return true; },
+    // D 강노: 0.3초 → 7.5m·45° 부채꼴 관통 — 피해 + 40% 둔화 + 4초 뒤 폭발 표식(첫 대상)
+    D(p, aim) {
+      const D = p.K.D;
+      p.beginCast('D', aim, { windup: () => D.windup, recovery: () => 0.05,
+        fire(q, c) {
+          q.startCd('D'); Sfx.play('throw'); FX.slash(q.pos, c.ang, D.range, D.angle / 2 * Math.PI / 180, q.color, 0.25); let hit = false;
+          for (const u of q.foes()) if (Geo.inSector(q.pos, c.ang, D.range, D.angle / 2 * Math.PI / 180, u.pos, u.r)) {
+            q.hitS(u, q.calc(D, 'D'), 'D', { mark: true, hid: 'D:' + c.id }); u.addSlow(D.slow, D.slowDur);
+            if (!hit && (isHero(u) || u.kind === 'dummy')) { hit = true; q.mark = { u, t: D.mark.time, bonus: 0 }; }
+          }
+          q.S.resolveShot('D', hit);
+        } }, {});
+      return true;
+    },
+  },
+  shape(p, k) {
+    const K = p.K;
+    if (k === 'Q') { const r = p.charge ? lerp(K.Q.range[0], K.Q.range[1], clamp(p.charge.t / K.Q.charge, 0, 1)) : K.Q.range[0]; return { kind: 'line', len: r, width: K.Q.width }; }
+    if (k === 'W') return { kind: 'circle', range: K.W.range, r: 0.3 };
+    if (k === 'E') return p.wire ? null : { kind: 'circle', range: K.E.range, r: 0.35 };
+    if (k === 'D') return { kind: 'cone', len: K.D.range, angle: K.D.angle };
+    return null;
+  },
+  draw(p, ctx) {
+    for (const tr of p.traps) { ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.07; ctx.setLineDash([0.25, 0.15]); ctx.beginPath(); ctx.moveTo(tr.a.x, tr.a.y); ctx.lineTo(tr.b.x, tr.b.y); ctx.stroke(); ctx.restore(); KU.fill(ctx, tr.a, 0.25, p.color, 0.8); KU.fill(ctx, tr.b, 0.25, p.color, 0.8); }
+    if (p.trapA) { KU.fill(ctx, p.trapA.pos, 0.25, p.color, 0.8); KU.ring(ctx, p.trapA.pos, p.K.W.link, p.color, 0.35, true); }
+    if (p.wire) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.wire.pos.x, p.wire.pos.y); ctx.stroke(); ctx.restore(); KU.ring(ctx, p.wire.pos, 0.35, '#ffffff', 0.8); }
+    if (p.mark && !p.mark.u.dead) { const u = p.mark.u, k = clamp(p.mark.t / p.K.D.mark.time, 0, 1); ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
+    if (p.charge) { const Q = p.K.Q, k = clamp(p.charge.t / Q.charge, 0, 1), dir = p.dirTo(p.aimPt()); ctx.save(); ctx.globalAlpha = 0.2 + 0.3 * k; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(dir), lerp(Q.range[0], Q.range[1], k), Q.width); ctx.restore(); }
+    if (p.wolfT > 0) KU.ring(ctx, p.pos, p.r + 0.3, '#d0d0d0', 0.5, true);
+  },
+  hud(p) {
+    const b = [[`야성 ${p.stacks}`, '#e0a35a']];
+    if (p.charge) b.push([`충전 ${Math.round(clamp(p.charge.t / p.K.Q.charge, 0, 1) * 100)}% (Q: 발사)`, p.color]);
+    if (p.trapA) b.push([`덫 2 (W) ${fmt(p.trapA.t, 1)}`, p.color]); if (p.traps.length) b.push([`덫 ${p.traps.length}세트`, '#8a93a6']);
+    if (p.wire) b.push([`와이어 (E: 이동) ${fmt(p.wire.t, 1)}`, '#ffffff']); if (p.wolfT > 0) b.push([`늑대 ${fmt(p.wolfT, 1)} · ${p.wolfN}/${p.K.R.every}`, '#d0d0d0']);
+    return b;
+  },
+};
+
+// ---------------- 카티야 (저격총) ----------------
+PKits.katja = {
+  short: { Q: '조준 사격', W: '포착', E: '접근 금지', R: '정밀 조준', D: '저격' },
+  def: { E: { dash: true, moveCancel: false }, R: { channel: true }, Q: { moveCancel: false } },
+  label(p, k) { if (k === 'D' && p.snipe) return `발사 ${p.snipe.fired + 1}/3`; return this.short[k]; },
+  init(p) { p.psT = 0; p.snipe = null; },
+  update(p, dt) { if (p.psT > 0) p.psT -= dt; },
+  // P 잿빛 사신: Q·E 사용 후 5초 안의 다음 평타에 추가 스킬 피해
+  onAAHit(p, u) { if (p.psT <= 0) return; p.psT = 0; const P = p.K.P; p.hitS(u, lv(P.base, p.plv) + p.ad * lv(P.ad, p.plv), 'P', { hid: 'P:' + Game.time }); FX.text(u.pos, P.name, p.color, 11, { bold: true }); },
+  recast(p, k) { return k === 'D' && !!p.snipe; },
+  // 저격 모드 중 D = 즉시 발사(시전 중이라도)
+  instant(p, k, aim) { if (k !== 'D' || !p.snipe) return false; PKits.katja.snipeShot(p, aim); return true; },
+  snipeShot(p, aim) {
+    const S = p.snipe, K = p.K.D; if (!S || S.t < K.aim || Game.time - S.last < K.gap || S.fired >= K.shots) return;
+    const dead = S.fired === K.shots - 1, SS = dead ? K.dead : K.shot, dir = p.dirTo(aim), cid = ++p.castSeq; S.fired++; S.last = Game.time; p.facing = V.ang(dir);
+    Sfx.play(dead ? 'ult' : 'throw'); p.S.cast('D'); Events.emit('action', { k: 'D' });
+    let hit = false;
+    const pr = p.shot({ dir, speed: K.speed, range: K.range, width: K.width, len: 1.6, color: dead ? '#ff4d4d' : p.color, onHit: u => {
+      hit = true; let amt = p.calc(SS, 'D'); if (dead) amt *= 1 + clamp(1 - u.hp / u.maxHp, 0, 1) * (K.dead.missMax - 1);   // 데드아이: 잃은 체력 비례 최대 2배
+      p.hitS(u, amt, 'D', { hid: 'D:' + cid }); if (!dead) u.addSlow(K.shot.slow, K.shot.slowDur);
+      Vision.reveals.push({ team: p.team, pos: V.copy(u.pos), r: 3, t: 2 });
+    } });
+    pr.onDone = () => p.S.resolveShot('D', hit);
+    if (S.fired >= K.shots) S.end = true;
+  },
+  cast: {
+    // Q 조준 사격: 11m 직선, 첫 대상만, 날아간 거리에 비례해 피해(최대 +50%), 적중 시 4초 공속 / P 창 켜짐
+    Q(p, aim) {
+      const Q = p.K.Q;
+      p.beginCast('Q', aim, { windup: () => Q.windup, recovery: () => 0.05,
+        fire(q, c) {
+          q.startCd('Q'); q.psT = q.K.P.window; Sfx.play('throw'); let hit = false;
+          const pr = q.shot({ dir: c.dir, speed: Q.speed, range: Q.range, width: Q.width, len: 1.1, onHit: (u, pr) => {
+            hit = true; const k = clamp(pr.traveled / Q.range, 0, 1), L = q.L('Q'), amt = lerp(lv(Q.min, L) + q.ad * Q.minAd, lv(Q.max, L) + q.ad * Q.maxAd, k);
+            q.hitS(u, amt, 'Q', { hid: 'Q:' + c.id }); q.addAs(lv(Q.asBuff, L), Q.asDur, 'katjaQ'); FX.burst(u.pos, q.color, 10, 5);
+          } });
+          pr.onDone = () => q.S.resolveShot('Q', hit);
+        } }, {});
+      return true;
+    },
+    // W 목표물 포착: 지면 지정 23m — 날아가는 동안 근처 적 1초 노출, 도착하면 반경 4.5m 3초 시야
+    W(p, aim) {
+      const W = p.K.W, to = p.ptIn(aim, W.range), from = V.copy(p.pos), dur = V.dist(from, to) / W.speed;
+      p.startCd('W'); p.instantUsed('W'); Sfx.play('throw'); FX.text(p.pos, W.name, p.color, 12, { bold: true }); FX.trail(from, to, '#9fd8ff', 0.12, dur + 0.2);
+      for (let s = 0.1; s < dur; s += 0.1) { const at = V.lerp(from, to, s / dur); p.after(s, () => { Vision.reveals.push({ team: p.team, pos: at, r: 1.5, t: 0.1 }); for (const u of p.foes()) if (isHero(u) && V.dist(u.pos, at) <= 1.5 + u.r) u.revealT = Math.max(u.revealT || 0, 1); }); }
+      p.after(dur, () => { Vision.reveals.push({ team: p.team, pos: to, r: W.radius, t: W.dur }); FX.ring(to, 0.5, W.radius, '#9fd8ff', 0.5, 0.08);
+        for (const w of Game.units) if (w.kind === 'ward' && !w.dead && w.team !== p.team && V.dist(w.pos, to) <= W.radius) w.hp = 1; });
+      return true;
+    },
+    // E 접근 금지: 전방 4.5m·30° 사격(둔화, 맞히면 이속 +40%) → 커서 반대 방향으로 4m 도약(벽 넘기 가능), 도약 직전까지 CC 무시
+    E(p, aim) {
+      const E = p.K.E;
+      p.beginCast('E', aim, { windup: () => E.windup, recovery: () => 0,
+        start(q) { q.unstoppable = E.windup + 0.05; },
+        fire(q, c) {
+          q.startCd('E'); q.psT = q.K.P.window; Sfx.play('throw'); FX.slash(q.pos, c.ang, E.range, E.angle / 2 * Math.PI / 180, q.color, 0.25); let hit = false;
+          for (const u of q.foes()) if (Geo.inSector(q.pos, c.ang, E.range, E.angle / 2 * Math.PI / 180, u.pos, u.r)) { hit = true; q.hitS(u, q.calc(E, 'E'), 'E', { hid: 'E:' + c.id }); u.addSlow(lv(E.slow, q.L('E')), E.slowDur); }
+          if (hit) q.addMsBuff(E.msBuff, E.msDur, false, 'katjaE');
+          q.S.resolveShot('E', hit);
+          const back = V.mul(c.dir, -1), len = Geo.passDash(q.pos, back, E.leap, q.r, 0.5); c.data.from = V.copy(q.pos); c.data.to = Geo.pushOut(V.add(q.pos, V.mul(back, len)), q.r);
+          FX.text(q.pos, E.name, q.color, 12, { bold: true });
+        },
+        tick(q, c) { const k = Math.min(1, c.t / E.leapTime); q.pos = V.lerp(c.data.from, c.data.to, k); return k >= 1; } }, {});
+      return true;
+    },
+    // R 정밀 조준: 지면 지정 23m, 0.8초 스캔(제자리 고정 · CC면 끊김) → 사다리꼴 안 적 실험체(최대 3)에게 가까운 순서로 회피 불가 탄, 대상 없으면 쿨 35% 반환
+    R(p, aim) {
+      const R = p.K.R, pos = p.ptIn(aim, R.range);
+      p.beginCast('R', pos, { windup: () => R.scan, recovery: () => 0.1,
+        start(q, c) { c.data.pos = pos; c.data.axis = q.dirTo(pos); FX.text(q.pos, R.name, q.color, 13, { bold: true }); q.revealT = Math.max(q.revealT || 0, R.scan + 0.3); },
+        fire(q, c) {
+          const ts = KU.inTrap(c.data.pos, c.data.axis, R, q.foes().filter(u => isHero(u) || u.kind === 'dummy')).slice(0, R.max);   // 실험체(연습용 허수아비 포함)
+          q.startCd('R');
+          if (!ts.length) { q.skills.R.cd *= 1 - R.refund; FX.text(q.pos, '스캔 실패', '#8a93a6', 12); return; }
+          Sfx.play('ult');
+          ts.forEach((u, i) => q.after(i * 0.15, () => { const S = R.shots[i] || R.shots[0];
+            q.shot({ dir: V.norm(V.sub(u.pos, q.pos)), speed: R.speed, home: u, only: u, width: 0.5, len: 1.8, color: '#ff4d4d', onHit: v => { q.hitS(v, q.calc(S, 'R'), 'R', { hid: 'R:' + c.id + ':' + i }); FX.burst(v.pos, '#ff4d4d', 18, 7); FX.addShake(6); } }); }));
+        } }, {});
+      return true;
+    },
+    // D 저격: 제자리 고정 10초 모드 — 정신 집중(0.55초 ⚠) 뒤 D를 누를 때마다 커서 방향 발사(간격 0.25초), 3발째 데드아이 · 이동하면 해제, 0발이면 쿨 50% 반환
+    D(p, aim) {
+      const K = p.K.D;
+      p.beginCast('D', aim, { windup: () => 0, recovery: () => 0.05,
+        fire(q, c) { c.data.noStat = true; q.snipe = { t: 0, fired: 0, last: -99 }; FX.text(q.pos, K.name, q.color, 13, { bold: true }); q.noAA = K.mode; },
+        tick(q, c, dt) {
+          const S = q.snipe; if (!S) return true; S.t += dt; q.noAA = 0.2;
+          if (S.end || S.t >= K.mode || q.pendingMove || q.stun > 0 || q.silence > 0) {
+            q.snipe = null; q.noAA = 0; q.startCd('D'); if (S.fired === 0) q.skills.D.cd *= 0.5;
+            return true;
+          }
+          return false;
+        } }, {});
+      return true;
+    },
+  },
+  shape(p, k) {
+    const K = p.K;
+    if (k === 'Q') return { kind: 'line', len: K.Q.range, width: K.Q.width };
+    if (k === 'W') return { kind: 'circle', range: K.W.range, r: K.W.radius };
+    if (k === 'E') return { kind: 'back', len: K.E.leap, cone: { len: K.E.range, angle: K.E.angle } };
+    if (k === 'R') return { kind: 'trap', range: K.R.range, len: K.R.len, w0: K.R.w0, w1: K.R.w1 };
+    if (k === 'D') return { kind: 'line', len: K.D.range, width: K.D.width };
+    return null;
+  },
+  draw(p, ctx) {
+    if (p.snipe) { const K = p.K.D, dir = p.dirTo(p.aimPt()), ready = p.snipe.t >= K.aim; ctx.save(); ctx.globalAlpha = ready ? 0.45 : 0.2; ctx.fillStyle = p.snipe.fired === K.shots - 1 ? '#ff4d4d' : p.color; Draw.oRect(ctx, p.pos, V.ang(dir), K.range, K.width); ctx.restore(); }
+    if (p.cast && p.cast.k === 'R' && p.cast.data.pos) { const R = p.K.R, q = KU.trapPts(p.cast.data.pos, p.cast.data.axis, R), k = clamp(p.cast.t / R.scan, 0, 1); ctx.save(); ctx.globalAlpha = 0.15 + 0.35 * k; ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); for (const v of q) ctx.lineTo(v.x, v.y); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  },
+  hud(p) {
+    const b = []; if (p.psT > 0) b.push([`잿빛 사신 ${fmt(p.psT, 1)}`, p.color]);
+    if (p.snipe) b.push([p.snipe.t < p.K.D.aim ? '저격 집중…' : `저격 모드 ${fmt(p.K.D.mode - p.snipe.t, 1)} · D 발사 ${p.snipe.fired}/3`, '#ff4d4d']);
+    if (p.asBuffs.some(a => a.tag === 'katjaQ')) b.push(['조준 공속↑', '#c58bff']); return b;
+  },
+};
+
 // ============================== 휴식 (X) — 시즌 12 규칙 ==============================
 // 공식 12.0 패치노트(2026-08-06) "휴식 시스템 개편":
 //  · 전투 상태와 무관하게 언제든 시작 · 3단계 캐스팅 — 각 단계가 끝날 때 회복량이 한 번에 적용, 도중 취소 시 진행 중 단계는 회복 없음
@@ -3113,7 +3778,7 @@ class RangedDuelist extends Duelist {
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {
@@ -3154,6 +3819,7 @@ class RangedDuelist extends Duelist {
       if (T.kind === 'line') Draw.oRect(ctx, this.pos, V.ang(T.dir), T.len, T.width);
       else if (T.kind === 'cone') { const h = T.angle / 2 * Math.PI / 180, an = V.ang(T.dir); ctx.beginPath(); ctx.moveTo(this.pos.x, this.pos.y); ctx.arc(this.pos.x, this.pos.y, T.len, an - h, an + h); ctx.closePath(); ctx.fill(); }
       else if (T.kind === 'circle') { Draw.circle(ctx, T.pos.x, T.pos.y, T.r); ctx.fill(); ctx.globalAlpha = 0.9; ctx.stroke(); }
+      else if (T.kind === 'trap') { const q = KU.trapPts(T.pos, T.dir, T); ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); for (const v of q) ctx.lineTo(v.x, v.y); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 0.9; ctx.stroke(); }
       ctx.restore();
     }
     if (this.kit.draw) this.kit.draw(this, ctx);
@@ -3217,9 +3883,18 @@ const KU = {
   // 캐시를 dir 방향으로 밀어냄 — 벽에 닿으면 onWall 호출 (리오 연사 넉백)
   knock(u, dir, dist, time, onWall) {
     if (u.dead || u.unstoppable > 0) return;
+    if (u.forced && u.forced.onEnd && !onWall) return;   // 벽꿍 판정이 있는 넉백을 작은 밀침이 덮어쓰지 않게
     const t = Geo.rayHit(u.pos, dir, dist, u.r), len = t === Infinity ? dist : Math.max(0, t - 0.02);
     u.forced = { from: V.copy(u.pos), to: V.add(u.pos, V.mul(dir, len)), t: 0, dur: time * len / Math.max(0.1, dist) + 0.01, onEnd: t === Infinity ? null : onWall };
   },
+  // 사다리꼴(카티야 R): 중심 c, 축 dir, 길이 len, 앞(시전자 쪽) 폭 w0 → 뒤 폭 w1. 안에 든 유닛을 시전 지점 쪽부터(가까운 순)
+  inTrap(c, dir, T, units) {
+    const n = V.perp(dir), out = [];
+    for (const u of units) { const rel = V.sub(u.pos, c), a = V.dot(rel, dir), s = Math.abs(V.dot(rel, n)), k = clamp((a + T.len / 2) / T.len, 0, 1);
+      if (Math.abs(a) <= T.len / 2 + u.r && s <= lerp(T.w0, T.w1, k) / 2 + u.r) out.push({ u, a }); }
+    return out.sort((x, y) => x.a - y.a).map(o => o.u);
+  },
+  trapPts(c, dir, T) { const n = V.perp(dir), h = T.len / 2; return [V.add(V.sub(c, V.mul(dir, h)), V.mul(n, T.w0 / 2)), V.add(V.add(c, V.mul(dir, h)), V.mul(n, T.w1 / 2)), V.sub(V.add(c, V.mul(dir, h)), V.mul(n, T.w1 / 2)), V.sub(V.sub(c, V.mul(dir, h)), V.mul(n, T.w0 / 2))]; },
   segCross(a1, a2, b1, b2) {   // 선분 교차
     const d = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x); if (Math.abs(d) < 1e-9) return false;
     const u = ((b1.x - a1.x) * (b2.y - b1.y) - (b1.y - a1.y) * (b2.x - b1.x)) / d, v = ((b1.x - a1.x) * (a2.y - a1.y) - (b1.y - a1.y) * (a2.x - a1.x)) / d;
@@ -3248,12 +3923,15 @@ const Kits = {
       if (ai.cds.R <= 0 && d > 7.5 && d < K.R.range && (foeCd(p, 'Q') > 1 || d > 9.5)) {
         const pos = Geo.pushOut(ai.predict(p, K.R.scan), 0.3);
         ai.cds.R = ai.pick(K.R.cd, 'R');
-        ai.startChannel(K.R.scan, { tele: { kind: 'circle', pos, r: K.R.radius, color: '#ff4d4d' }, cancelIfClose: 3.5,
+        const axis = V.norm(V.sub(pos, ai.pos));
+        ai.startChannel(K.R.scan, { tele: { kind: 'trap', pos, dir: axis, len: K.R.len, w0: K.R.w0, w1: K.R.w1, color: '#ff4d4d' }, cancelIfClose: 3.5,
           onEnd: (a, cancelled) => {
-            if (cancelled || V.dist(p.pos, pos) > K.R.radius + p.r) { ai.cds.R = ai.pick(K.R.cd, 'R') * (1 - K.R.refund); FX.text(ai.pos, '스캔 실패', '#8a93a6', 12); return; }
+            const hit = cancelled ? [] : KU.inTrap(pos, axis, K.R, Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead)).slice(0, K.R.max);
+            if (!hit.length) { ai.cds.R = ai.pick(K.R.cd, 'R') * (1 - K.R.refund); FX.text(ai.pos, '스캔 실패', '#8a93a6', 12); return; }
             Sfx.play('ult');
-            ai.shoot({ dir: V.norm(V.sub(p.pos, ai.pos)), speed: K.R.speed, range: 99, width: 0.5, len: 1.8, color: '#ff4d4d', home: p,
-              onHit: u => { ai.hitP(u, (ai.pick(K.R.base, 'R') + ai.ad * K.R.ad) * ai.diff.dmgMul, { name: K.R.name }); FX.burst(u.pos, '#ff4d4d', 18, 7); FX.addShake(6); } });
+            hit.forEach((u, i) => ai.pendingShots.push({ t: i * 0.15, fn: () => { const S = K.R.shots[i] || K.R.shots[0];
+              ai.shoot({ dir: V.norm(V.sub(u.pos, ai.pos)), speed: K.R.speed, range: 99, width: 0.5, len: 1.8, color: '#ff4d4d', home: u,
+                onHit: v => { ai.hitP(v, (ai.pick(S.base, 'R') + ai.ad * S.ad) * ai.diff.dmgMul, { name: K.R.name }); FX.burst(v.pos, '#ff4d4d', 18, 7); FX.addShake(6); } }); } }));
           } });
         FX.text(ai.pos, K.R.name, ai.motif.color, 13, { bold: true });
         return true;
@@ -3428,7 +4106,7 @@ const Kits = {
         Sfx.play('ult');
         ai.shoot({ dir, speed: R.speed, range: 60, width: R.width, len: 2, color: '#ffffff', onHit: (u, pr) => {
           const boosted = pr.traveled > R.speed * R.boostAfter;   // 0.8초 비행 후 강화
-          ai.hitP(u, (ai.pick(R.base, 'R') + ai.ad * R.ad) * ai.diff.dmgMul * (boosted ? 1 + R.boost : 1), { name: '정사필중' }); u.addSlow(R.slow, R.slowDur * (boosted ? 2 : 1));
+          ai.hitP(u, (ai.pick(R.base, 'R') + ai.ad * R.ad) * ai.diff.dmgMul * (boosted ? 1 + R.boost : 1), { name: '정사필중' });   // 0.8초 뒤 피해 +20% u.addSlow(R.slow, R.slowDur * (boosted ? 2 : 1));
         } });
       }, { kind: 'line', dir, len: 30, width: R.width, color: '#ffffff' });
       FX.text(ai.pos, '정사필중', ai.motif.color, 13, { bold: true });
@@ -3569,7 +4247,7 @@ const Kits = {
       this.markHit(ai);
     },
     onHit(ai, u, o) { if (!o.mark) this.markHit(ai); },
-    markHit(ai) { const m = ai.mark; if (!m) return; const M = ai.kitCfg.D.mark; m.t -= M.cut; m.bonus += ai.pick(M.inc, 'D') + ai.bonusAd * ai.pick(M.incBad, 'D'); },
+    markHit(ai) { const m = ai.mark; if (!m) return; const M = ai.kitCfg.D.mark; m.t -= M.cut; m.bonus += ai.pick(M.inc, 'D') + ai.bonusAd * ai.pick(M.incBad, 'D') + ai.sp * (M.incSp || 0); },
     update(ai, dt) {
       const K = ai.kitCfg, foes = Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead);
       if (ai.wolfT > 0) ai.wolfT -= dt;
@@ -3945,8 +4623,12 @@ Kits.daniel = {
 
 // ============================== 씬 구성 도우미 ==============================
 const Scene = {
-  // 플레이어 실험체: 캐시(기본) / 다니엘 — 콤보 트레이너는 캐시 전용
-  player(x, y) { const C = Settings.character === 'daniel' && Game.modeId !== 'combo' ? DanielPlayer : Cathy; const p = new C(x, y); Game.player = p; Game.units.push(p); return p; },
+  // 플레이어 실험체: 캐시(기본) / 다니엘 / 원거리 4명(아야·리오·나딘·카티야) — 콤보 트레이너는 캐시 전용
+  player(x, y) {
+    const ch = Game.modeId === 'combo' ? 'cathy' : (Settings.character || 'cathy');
+    const p = ch === 'daniel' ? new DanielPlayer(x, y) : PKits[ch] && CONFIG.rangedKits[ch] ? new RangedPlayer(x, y, ch) : new Cathy(x, y);
+    Game.player = p; Game.units.push(p); return p;
+  },
   dummy(x, y, o) {
     const u = new Unit({ team: 1, x, y, r: 0.55, hp: o.hp, def: o.def, ms: o.wander ? 1.2 : 0, color: '#8d96a8', name: '허수아비', kind: 'dummy', infinite: o.infinite, respawn: o.respawn !== false, brain: o.wander ? AI.wander : null });
     Game.units.push(u); return u;
@@ -5072,6 +5754,7 @@ const Input = {
     if (act === 'R' && p.shadow) { Cmd.skill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { Cmd.skill('D', w); return; }
+    if (p.instantKey && p.instantKey(act)) { Cmd.skill(act, w); this.aiming = null; return; }   // 원거리 실험체: 자기 자신 스킬·재입력(나딘 Q 발사 등)은 조준 없이
     const mode = castModeOf(act);
     if (mode === 'smart') { Cmd.skill(act, w); this.aiming = null; return; }           // 누르면 즉시 발동
     if (mode === 'release') { this.aiming = act; this.amove = false; this.holdKey = act; return; }   // 떼면 발동
@@ -5497,7 +6180,7 @@ const ScreenLayer = {
     const maxW = Math.max(160, L.W / 2 - 200);
     const fit = (s, size, bold) => { ctx.font = `${bold ? '700 ' : ''}${size}px ${FONT}`; if (ctx.measureText(s).width <= maxW) return s; while (s.length > 4 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; };
     Draw.text(ctx, fit(`${Game.mode.title}  ·  ${fmt(Game.time, 1)}s`, 13, true), 12, 16, { size: 13, bold: true, stroke: true });
-    Draw.text(ctx, fit(`${b.label} · ${p ? CONFIG.basicAttack[p.weapon].label : ''} · x${fmt(Settings.gameSpeed, 1)} · FPS ${Math.round(fps)}`, 11), 12, 34, { size: 11, color: '#8a93a6', stroke: true });
+    Draw.text(ctx, fit(`${b.label} · ${p ? (CONFIG.basicAttack[p.weapon] || {}).label || p.weapon : ''} · x${fmt(Settings.gameSpeed, 1)} · FPS ${Math.round(fps)}`, 11), 12, 34, { size: 11, color: '#8a93a6', stroke: true });
     Draw.text(ctx, fit(`ESC 일시정지 · Tab 패널 · 시전: ${CAST_MODES[Settings.castMode]}${Object.keys(Settings.castModes).length ? ' (스킬별 설정 있음)' : ''}`, 11), 12, 50, { size: 11, color: '#8a93a6', stroke: true });
   },
   drawToasts(ctx, L) {
@@ -5545,6 +6228,7 @@ const HUD = {
       if (p.shadow) buffs.push(['걸작 (R 재사용: 탈출)', p.color]);
       if (Vision.night) buffs.push(['밤: 고독한 예술가', '#8fa8ff']);
     }
+    if (p.hudBuffs) buffs.push(...p.hudBuffs());
     if (p.rest) buffs.push([Rest.done(p) ? '휴식 완료' : `휴식 ${p.rest.stage + 1}단계 → +${Math.round(Rest.nextHeal(p))}`, '#9fe0ff']);
     else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;
@@ -5560,7 +6244,7 @@ const HUD = {
   },
   slot(ctx, p, k, x, y, s) {
     const def = p.skillDef(k), st = p.skills[k], T = CONFIG.theme;
-    const special = (k === 'D' && (p.daggerReady > 0 || p.dualRecast > 0));
+    const special = (k === 'D' && (p.daggerReady > 0 || p.dualRecast > 0)) || (p.recastReady && p.recastReady(k));
     const ready = st.lv > 0 && st.cd <= 0;
     Draw.rr(ctx, x, y, s, s, 8); ctx.fillStyle = '#1b2030'; ctx.fill();
     Draw.text(ctx, def.short, x + s / 2, y + s / 2 + 3, { size: 13, bold: true, align: 'center', color: ready || special ? '#fff' : '#9aa2b3' });
@@ -5780,7 +6464,7 @@ const Models = {
     return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
   },
   keyFor(u) {
-    if (u.kind === 'player') return u.charKey === 'daniel' ? 'daniel' : 'cathy';
+    if (u.kind === 'player') return u.ranged ? (this.LOOKS[u.charKey] ? u.charKey : null) : u.charKey === 'daniel' ? 'daniel' : 'cathy';
     if (u.motifKey && this.LOOKS[u.motifKey]) return u.motifKey;
     return null;   // 허수아비·야생동물·카메라·회피 모드 적은 기존 모형
   },
@@ -5822,7 +6506,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && !u.ranged, dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘) 평타를 판정 타이밍에 맞춰 재생 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -5851,8 +6535,8 @@ const Models = {
     return P;
   },
   weaponKind(u, S) {
-    if (S && S.design && S.design.weapon && (u.kind === 'player' || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
-    return u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+    if (S && S.design && S.design.weapon && ((u.kind === 'player' && !u.ranged) || u.motifKey === 'daniel')) return S.design.weapon;   // 직접 만든 모델의 무기(다니엘: 단검)
+    return u.kind === 'player' && !u.ranged ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
   },
   // 무기: 손목 뼈에 붙임. 틀 기준 손가락 방향 = -Y(날·총구), 엄지 쪽 = +Z(윗면). 바인드 자세가 팔을 내린 A자세라 공격·사격 동작에서 앞을 향함
   addWeapon({ T3, add, M }) {
@@ -6608,7 +7292,7 @@ const Render3D = {
   // ---------- 유닛 (로우폴리 인형) ----------
   weaponMesh(u) {
     const T3 = THREE, g = new T3.Group(), metal = this.toonify(this.std('#d7dbe2', { roughness: 0.3, metalness: 0.7, transparent: true })), dark = this.toonify(this.std('#2a2f38', { roughness: 0.5, transparent: true }));   // 유닛별 재질(투명도 독립)
-    const wpn = u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+    const wpn = u.kind === 'player' && !u.ranged ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
     const box = (w, h, d, m, x, y, z) => { const b = new T3.Mesh(new T3.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
     if (wpn === 'dagger') box(0.42, 0.05, 0.09, metal, 0.42, 0, 0);
     else if (wpn === 'dual') { box(0.5, 0.05, 0.08, metal, 0.42, 0, 0.12); box(0.5, 0.05, 0.08, metal, 0.42, 0, -0.12); }
@@ -6648,7 +7332,7 @@ const Render3D = {
       armL.rotation.z = 0.3; armR.rotation.z = 0.9;
       const head = add(new T3.SphereGeometry(0.27, 10, 8), skin, 0, 1.45, 0);
       const cap = add(new T3.SphereGeometry(0.29, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, -0.02, 1.48, 0); cap.rotation.z = 0.25;
-      if (u.kind === 'player' && u.charKey !== 'daniel') { const cross = M('#ffffff'); add(new T3.BoxGeometry(0.02, 0.16, 0.05), cross, r * 0.55, 0.92, 0); add(new T3.BoxGeometry(0.02, 0.05, 0.16), cross, r * 0.55, 0.92, 0); }   // 캐시: 의료 십자
+      if (u.kind === 'player' && u.charKey !== 'daniel' && !u.ranged) { const cross = M('#ffffff'); add(new T3.BoxGeometry(0.02, 0.16, 0.05), cross, r * 0.55, 0.92, 0); add(new T3.BoxGeometry(0.02, 0.05, 0.16), cross, r * 0.55, 0.92, 0); }   // 캐시: 의료 십자
       const wp = this.weaponMesh(u); wp.position.set(0.25, 0.75, -0.38); body.add(wp); wp.traverse(o => { if (o.material) mats.push(o.material); });
       head.userData.head = true; body.userData.armR = armR;
     }
@@ -7147,7 +7831,7 @@ const UI = {
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
-    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${Settings.character === 'daniel' ? ' · 캐시로 진행' : ''}`;
+    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${(Settings.character || 'cathy') !== 'cathy' ? ' · 캐시로 진행' : ''}`;
     if (id === 'team') { const nm = (a, n) => Array.from({ length: n }, (_, i) => a[i] && CONFIG.rangedMotifs[a[i]] ? CONFIG.rangedMotifs[a[i]].name : '랜덤').join('·'); return `${o.size}:${o.size} · 아군 ${nm(o.allies, o.size - 1)} vs ${nm(o.enemies, o.size)} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.arena).name}`; }
     if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
@@ -7164,14 +7848,15 @@ const UI = {
   showMenu() {
     Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
-    const modes = this.modeList(), dan = Settings.character === 'daniel';
+    const modes = this.modeList(), ch = Settings.character || 'cathy', dan = ch === 'daniel', RM = CONFIG.rangedMotifs[ch], rng = !!(PKits[ch] && RM && !dan);
+    const chName = dan ? '다니엘' : rng ? RM.name : '캐시', chEn = { cathy: 'CATHY', daniel: 'DANIEL', aya: 'AYA', rio: 'RIO', nadine: 'NADINE', katja: 'KATJA' }[ch] || 'CATHY';
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
     const bb = Object.entries(CONFIG.builds).map(([k, b]) => `<button class="btn ${Settings.build === k ? 'sel' : ''}" data-a="build" data-v="${k}">${b.label}</button>`).join('');
     const last = this.lastLabel();
-    this.show(`<h1>${dan ? 'DANIEL' : 'CATHY'} <span>수련장</span></h1>
-      <div class="sub">이터널 리턴 · 실험체 「${dan ? '다니엘' : '캐시'}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
-      <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
-        <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
+    this.show(`<h1>${chEn} <span>수련장</span></h1>
+      <div class="sub">이터널 리턴 · 실험체 「${chName}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
+      <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].concat(Object.keys(PKits).map(k => [k, CONFIG.rangedMotifs[k].name, CONFIG.rangedMotifs[k].color])).map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
+        <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : rng ? `<button class="btn sel">${RM.weapon} (${RM.name} 전용)</button>` : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
       <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
@@ -7213,7 +7898,7 @@ const UI = {
       const list = this.allCombos(); Settings.comboSel = clamp(Settings.comboSel || 0, 0, list.length - 1);
       const sel = Settings.comboSel, cd = Settings.comboDiff || 'intro', nC = CONFIG.combos.length + CONFIG.videoCombos.length;
       const dbtn = (v, l) => `<button class="btn ${cd === v ? 'sel' : ''}" data-a="diff" data-v="${v}">${l}</button>`;
-      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${Settings.character === 'daniel' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
+      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${(Settings.character || 'cathy') !== 'cathy' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
         <div class="row"><label>난이도</label>${dbtn('intro', '입문 (시간 제한 없음)')}${dbtn('skilled', '숙련 (간격 ≤ 2.0s)')}${dbtn('master', '마스터 (간격 ≤ 1.0s)')}</div>
         ${list.map((c, i) => `<div class="combo ${i === sel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${i >= nC ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
         <div class="row" style="margin-top:10px">${back}${go}</div>
@@ -7242,7 +7927,7 @@ const UI = {
       const o = this.quickOpts('team'), n = o.size;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
-      const me = Settings.character === 'daniel' ? '다니엘' : '캐시';
+      const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
         <div class="row"><label>인원</label>${sb('size', 2, '2 : 2', n)}${sb('size', 3, '3 : 3', n)}</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>

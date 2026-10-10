@@ -1,8 +1,12 @@
 
 // ============================== 씬 구성 도우미 ==============================
 const Scene = {
-  // 플레이어 실험체: 캐시(기본) / 다니엘 — 콤보 트레이너는 캐시 전용
-  player(x, y) { const C = Settings.character === 'daniel' && Game.modeId !== 'combo' ? DanielPlayer : Cathy; const p = new C(x, y); Game.player = p; Game.units.push(p); return p; },
+  // 플레이어 실험체: 캐시(기본) / 다니엘 / 원거리 4명(아야·리오·나딘·카티야) — 콤보 트레이너는 캐시 전용
+  player(x, y) {
+    const ch = Game.modeId === 'combo' ? 'cathy' : (Settings.character || 'cathy');
+    const p = ch === 'daniel' ? new DanielPlayer(x, y) : PKits[ch] && CONFIG.rangedKits[ch] ? new RangedPlayer(x, y, ch) : new Cathy(x, y);
+    Game.player = p; Game.units.push(p); return p;
+  },
   dummy(x, y, o) {
     const u = new Unit({ team: 1, x, y, r: 0.55, hp: o.hp, def: o.def, ms: o.wander ? 1.2 : 0, color: '#8d96a8', name: '허수아비', kind: 'dummy', infinite: o.infinite, respawn: o.respawn !== false, brain: o.wander ? AI.wander : null });
     Game.units.push(u); return u;

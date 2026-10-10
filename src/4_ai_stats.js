@@ -422,7 +422,7 @@ class RangedDuelist extends Duelist {
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {
@@ -463,6 +463,7 @@ class RangedDuelist extends Duelist {
       if (T.kind === 'line') Draw.oRect(ctx, this.pos, V.ang(T.dir), T.len, T.width);
       else if (T.kind === 'cone') { const h = T.angle / 2 * Math.PI / 180, an = V.ang(T.dir); ctx.beginPath(); ctx.moveTo(this.pos.x, this.pos.y); ctx.arc(this.pos.x, this.pos.y, T.len, an - h, an + h); ctx.closePath(); ctx.fill(); }
       else if (T.kind === 'circle') { Draw.circle(ctx, T.pos.x, T.pos.y, T.r); ctx.fill(); ctx.globalAlpha = 0.9; ctx.stroke(); }
+      else if (T.kind === 'trap') { const q = KU.trapPts(T.pos, T.dir, T); ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); for (const v of q) ctx.lineTo(v.x, v.y); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 0.9; ctx.stroke(); }
       ctx.restore();
     }
     if (this.kit.draw) this.kit.draw(this, ctx);

@@ -154,7 +154,7 @@ const Render3D = {
   // ---------- 유닛 (로우폴리 인형) ----------
   weaponMesh(u) {
     const T3 = THREE, g = new T3.Group(), metal = this.toonify(this.std('#d7dbe2', { roughness: 0.3, metalness: 0.7, transparent: true })), dark = this.toonify(this.std('#2a2f38', { roughness: 0.5, transparent: true }));   // 유닛별 재질(투명도 독립)
-    const wpn = u.kind === 'player' ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
+    const wpn = u.kind === 'player' && !u.ranged ? (u.charKey === 'daniel' ? 'scissor' : u.weapon) : (u.motif ? u.motif.weapon : null);
     const box = (w, h, d, m, x, y, z) => { const b = new T3.Mesh(new T3.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
     if (wpn === 'dagger') box(0.42, 0.05, 0.09, metal, 0.42, 0, 0);
     else if (wpn === 'dual') { box(0.5, 0.05, 0.08, metal, 0.42, 0, 0.12); box(0.5, 0.05, 0.08, metal, 0.42, 0, -0.12); }
@@ -194,7 +194,7 @@ const Render3D = {
       armL.rotation.z = 0.3; armR.rotation.z = 0.9;
       const head = add(new T3.SphereGeometry(0.27, 10, 8), skin, 0, 1.45, 0);
       const cap = add(new T3.SphereGeometry(0.29, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, -0.02, 1.48, 0); cap.rotation.z = 0.25;
-      if (u.kind === 'player' && u.charKey !== 'daniel') { const cross = M('#ffffff'); add(new T3.BoxGeometry(0.02, 0.16, 0.05), cross, r * 0.55, 0.92, 0); add(new T3.BoxGeometry(0.02, 0.05, 0.16), cross, r * 0.55, 0.92, 0); }   // 캐시: 의료 십자
+      if (u.kind === 'player' && u.charKey !== 'daniel' && !u.ranged) { const cross = M('#ffffff'); add(new T3.BoxGeometry(0.02, 0.16, 0.05), cross, r * 0.55, 0.92, 0); add(new T3.BoxGeometry(0.02, 0.05, 0.16), cross, r * 0.55, 0.92, 0); }   // 캐시: 의료 십자
       const wp = this.weaponMesh(u); wp.position.set(0.25, 0.75, -0.38); body.add(wp); wp.traverse(o => { if (o.material) mats.push(o.material); });
       head.userData.head = true; body.userData.armR = armR;
     }

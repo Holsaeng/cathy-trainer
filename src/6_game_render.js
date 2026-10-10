@@ -201,6 +201,7 @@ const Input = {
     if (act === 'R' && p.shadow) { Cmd.skill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
     if (act === 'D' && p.weapon === 'dagger' && p.daggerReady <= 0) { Cmd.skill('D', w); return; }
+    if (p.instantKey && p.instantKey(act)) { Cmd.skill(act, w); this.aiming = null; return; }   // 원거리 실험체: 자기 자신 스킬·재입력(나딘 Q 발사 등)은 조준 없이
     const mode = castModeOf(act);
     if (mode === 'smart') { Cmd.skill(act, w); this.aiming = null; return; }           // 누르면 즉시 발동
     if (mode === 'release') { this.aiming = act; this.amove = false; this.holdKey = act; return; }   // 떼면 발동
@@ -626,7 +627,7 @@ const ScreenLayer = {
     const maxW = Math.max(160, L.W / 2 - 200);
     const fit = (s, size, bold) => { ctx.font = `${bold ? '700 ' : ''}${size}px ${FONT}`; if (ctx.measureText(s).width <= maxW) return s; while (s.length > 4 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; };
     Draw.text(ctx, fit(`${Game.mode.title}  ·  ${fmt(Game.time, 1)}s`, 13, true), 12, 16, { size: 13, bold: true, stroke: true });
-    Draw.text(ctx, fit(`${b.label} · ${p ? CONFIG.basicAttack[p.weapon].label : ''} · x${fmt(Settings.gameSpeed, 1)} · FPS ${Math.round(fps)}`, 11), 12, 34, { size: 11, color: '#8a93a6', stroke: true });
+    Draw.text(ctx, fit(`${b.label} · ${p ? (CONFIG.basicAttack[p.weapon] || {}).label || p.weapon : ''} · x${fmt(Settings.gameSpeed, 1)} · FPS ${Math.round(fps)}`, 11), 12, 34, { size: 11, color: '#8a93a6', stroke: true });
     Draw.text(ctx, fit(`ESC 일시정지 · Tab 패널 · 시전: ${CAST_MODES[Settings.castMode]}${Object.keys(Settings.castModes).length ? ' (스킬별 설정 있음)' : ''}`, 11), 12, 50, { size: 11, color: '#8a93a6', stroke: true });
   },
   drawToasts(ctx, L) {
@@ -674,6 +675,7 @@ const HUD = {
       if (p.shadow) buffs.push(['걸작 (R 재사용: 탈출)', p.color]);
       if (Vision.night) buffs.push(['밤: 고독한 예술가', '#8fa8ff']);
     }
+    if (p.hudBuffs) buffs.push(...p.hudBuffs());
     if (p.rest) buffs.push([Rest.done(p) ? '휴식 완료' : `휴식 ${p.rest.stage + 1}단계 → +${Math.round(Rest.nextHeal(p))}`, '#9fe0ff']);
     else if (p.restCd > 0) buffs.push([`휴식 대기 ${fmt(p.restCd, 1)}`, '#8a93a6']);
     let bxx = bx;
@@ -689,7 +691,7 @@ const HUD = {
   },
   slot(ctx, p, k, x, y, s) {
     const def = p.skillDef(k), st = p.skills[k], T = CONFIG.theme;
-    const special = (k === 'D' && (p.daggerReady > 0 || p.dualRecast > 0));
+    const special = (k === 'D' && (p.daggerReady > 0 || p.dualRecast > 0)) || (p.recastReady && p.recastReady(k));
     const ready = st.lv > 0 && st.cd <= 0;
     Draw.rr(ctx, x, y, s, s, 8); ctx.fillStyle = '#1b2030'; ctx.fill();
     Draw.text(ctx, def.short, x + s / 2, y + s / 2 + 3, { size: 13, bold: true, align: 'center', color: ready || special ? '#fff' : '#9aa2b3' });

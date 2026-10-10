@@ -6,9 +6,18 @@ const KU = {
   // 캐시를 dir 방향으로 밀어냄 — 벽에 닿으면 onWall 호출 (리오 연사 넉백)
   knock(u, dir, dist, time, onWall) {
     if (u.dead || u.unstoppable > 0) return;
+    if (u.forced && u.forced.onEnd && !onWall) return;   // 벽꿍 판정이 있는 넉백을 작은 밀침이 덮어쓰지 않게
     const t = Geo.rayHit(u.pos, dir, dist, u.r), len = t === Infinity ? dist : Math.max(0, t - 0.02);
     u.forced = { from: V.copy(u.pos), to: V.add(u.pos, V.mul(dir, len)), t: 0, dur: time * len / Math.max(0.1, dist) + 0.01, onEnd: t === Infinity ? null : onWall };
   },
+  // 사다리꼴(카티야 R): 중심 c, 축 dir, 길이 len, 앞(시전자 쪽) 폭 w0 → 뒤 폭 w1. 안에 든 유닛을 시전 지점 쪽부터(가까운 순)
+  inTrap(c, dir, T, units) {
+    const n = V.perp(dir), out = [];
+    for (const u of units) { const rel = V.sub(u.pos, c), a = V.dot(rel, dir), s = Math.abs(V.dot(rel, n)), k = clamp((a + T.len / 2) / T.len, 0, 1);
+      if (Math.abs(a) <= T.len / 2 + u.r && s <= lerp(T.w0, T.w1, k) / 2 + u.r) out.push({ u, a }); }
+    return out.sort((x, y) => x.a - y.a).map(o => o.u);
+  },
+  trapPts(c, dir, T) { const n = V.perp(dir), h = T.len / 2; return [V.add(V.sub(c, V.mul(dir, h)), V.mul(n, T.w0 / 2)), V.add(V.add(c, V.mul(dir, h)), V.mul(n, T.w1 / 2)), V.sub(V.add(c, V.mul(dir, h)), V.mul(n, T.w1 / 2)), V.sub(V.sub(c, V.mul(dir, h)), V.mul(n, T.w0 / 2))]; },
   segCross(a1, a2, b1, b2) {   // 선분 교차
     const d = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x); if (Math.abs(d) < 1e-9) return false;
     const u = ((b1.x - a1.x) * (b2.y - b1.y) - (b1.y - a1.y) * (b2.x - b1.x)) / d, v = ((b1.x - a1.x) * (a2.y - a1.y) - (b1.y - a1.y) * (a2.x - a1.x)) / d;
@@ -37,12 +46,15 @@ const Kits = {
       if (ai.cds.R <= 0 && d > 7.5 && d < K.R.range && (foeCd(p, 'Q') > 1 || d > 9.5)) {
         const pos = Geo.pushOut(ai.predict(p, K.R.scan), 0.3);
         ai.cds.R = ai.pick(K.R.cd, 'R');
-        ai.startChannel(K.R.scan, { tele: { kind: 'circle', pos, r: K.R.radius, color: '#ff4d4d' }, cancelIfClose: 3.5,
+        const axis = V.norm(V.sub(pos, ai.pos));
+        ai.startChannel(K.R.scan, { tele: { kind: 'trap', pos, dir: axis, len: K.R.len, w0: K.R.w0, w1: K.R.w1, color: '#ff4d4d' }, cancelIfClose: 3.5,
           onEnd: (a, cancelled) => {
-            if (cancelled || V.dist(p.pos, pos) > K.R.radius + p.r) { ai.cds.R = ai.pick(K.R.cd, 'R') * (1 - K.R.refund); FX.text(ai.pos, '스캔 실패', '#8a93a6', 12); return; }
+            const hit = cancelled ? [] : KU.inTrap(pos, axis, K.R, Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead)).slice(0, K.R.max);
+            if (!hit.length) { ai.cds.R = ai.pick(K.R.cd, 'R') * (1 - K.R.refund); FX.text(ai.pos, '스캔 실패', '#8a93a6', 12); return; }
             Sfx.play('ult');
-            ai.shoot({ dir: V.norm(V.sub(p.pos, ai.pos)), speed: K.R.speed, range: 99, width: 0.5, len: 1.8, color: '#ff4d4d', home: p,
-              onHit: u => { ai.hitP(u, (ai.pick(K.R.base, 'R') + ai.ad * K.R.ad) * ai.diff.dmgMul, { name: K.R.name }); FX.burst(u.pos, '#ff4d4d', 18, 7); FX.addShake(6); } });
+            hit.forEach((u, i) => ai.pendingShots.push({ t: i * 0.15, fn: () => { const S = K.R.shots[i] || K.R.shots[0];
+              ai.shoot({ dir: V.norm(V.sub(u.pos, ai.pos)), speed: K.R.speed, range: 99, width: 0.5, len: 1.8, color: '#ff4d4d', home: u,
+                onHit: v => { ai.hitP(v, (ai.pick(S.base, 'R') + ai.ad * S.ad) * ai.diff.dmgMul, { name: K.R.name }); FX.burst(v.pos, '#ff4d4d', 18, 7); FX.addShake(6); } }); } }));
           } });
         FX.text(ai.pos, K.R.name, ai.motif.color, 13, { bold: true });
         return true;
@@ -217,7 +229,7 @@ const Kits = {
         Sfx.play('ult');
         ai.shoot({ dir, speed: R.speed, range: 60, width: R.width, len: 2, color: '#ffffff', onHit: (u, pr) => {
           const boosted = pr.traveled > R.speed * R.boostAfter;   // 0.8초 비행 후 강화
-          ai.hitP(u, (ai.pick(R.base, 'R') + ai.ad * R.ad) * ai.diff.dmgMul * (boosted ? 1 + R.boost : 1), { name: '정사필중' }); u.addSlow(R.slow, R.slowDur * (boosted ? 2 : 1));
+          ai.hitP(u, (ai.pick(R.base, 'R') + ai.ad * R.ad) * ai.diff.dmgMul * (boosted ? 1 + R.boost : 1), { name: '정사필중' });   // 0.8초 뒤 피해 +20% u.addSlow(R.slow, R.slowDur * (boosted ? 2 : 1));
         } });
       }, { kind: 'line', dir, len: 30, width: R.width, color: '#ffffff' });
       FX.text(ai.pos, '정사필중', ai.motif.color, 13, { bold: true });
@@ -358,7 +370,7 @@ const Kits = {
       this.markHit(ai);
     },
     onHit(ai, u, o) { if (!o.mark) this.markHit(ai); },
-    markHit(ai) { const m = ai.mark; if (!m) return; const M = ai.kitCfg.D.mark; m.t -= M.cut; m.bonus += ai.pick(M.inc, 'D') + ai.bonusAd * ai.pick(M.incBad, 'D'); },
+    markHit(ai) { const m = ai.mark; if (!m) return; const M = ai.kitCfg.D.mark; m.t -= M.cut; m.bonus += ai.pick(M.inc, 'D') + ai.bonusAd * ai.pick(M.incBad, 'D') + ai.sp * (M.incSp || 0); },
     update(ai, dt) {
       const K = ai.kitCfg, foes = Game.units.filter(u => isHero(u) && u.team !== ai.team && u.team !== 2 && !u.dead);
       if (ai.wolfT > 0) ai.wolfT -= dt;

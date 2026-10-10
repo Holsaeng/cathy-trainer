@@ -348,6 +348,54 @@
     T.ok('팀 대전 결정성: 같은 시드 = 같은 판', h() === h());
   });
 
+  // ---------------- 플레이어블 원거리 실험체 (아야·리오·나딘·카티야) ----------------
+  G('원거리 실험체', () => {
+    const K = CONFIG.rangedKits;
+    T.ok('12.5 수치: 리오 곡사 90 · 벽꿍 1초 · 비상 16초 · 나딘 와이어 7초 · 다니엘 단검 추공 40%', K.rio.D.base[0] === 90 && K.rio.D.innerBad === 1.7 && K.rio.R.short.recast.stun === 1.0 && K.rio.E.cd[0] === 16 && K.nadine.E.life === 7 && K.nadine.D.mark.incSp === 0.05 && K.daniel.D.bad === 0.4 && K.katja.R.shots.length === 3);
+    const setup = (ch, mode = 'dummy', o = { count: 1, hp: 30000, def: 50, infinite: true }) => { reset(); Settings.character = ch; Settings.fog = true; Game.start(mode, Object.assign({ seed: 5 }, o)); run(10); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); if (d) d.pos = { x: p.pos.x + 5, y: p.pos.y }; return { p, d }; };
+    const cast = (p, k, aim) => { if (!p.recastReady(k)) p.skills[k].cd = 0; p.cmdSkill(k, aim); Input.aiming = null; };
+    // 실험체마다: 플레이어 클래스 · 모든 스킬이 피해를 줌 · 평타는 유도 투사체
+    const e0 = errs.length;
+    for (const ch of ['aya', 'rio', 'nadine', 'katja']) {
+      const { p, d } = setup(ch);
+      T.ok(`${ch}: 플레이어블 (원거리)`, p instanceof RangedPlayer && p.ranged && p.charKey === ch && p.kind === 'player' && p.aaCfg().range === (PKits[ch].aaRange ? PKits[ch].aaRange(p) : CONFIG.rangedMotifs[ch].aaRange));
+      p.cmdAttack(d); run(180); const aa = Stats.dmgBy.AA || 0; p.cmdStop();
+      T.ok(`${ch}: 평타(유도 투사체)`, aa > 0, Math.round(aa));
+      const keys = { aya: ['Q', 'W', 'R'], rio: ['W', 'E', 'R', 'D'], nadine: ['D'], katja: ['Q', 'E', 'R'] }[ch];
+      for (const k of keys) { const b = Stats.dmgBy[k] || 0; cast(p, k, { ...d.pos }); run(260); if (k === 'R' && ch === 'rio' && p.rRecast) { cast(p, 'R', { ...d.pos }); run(60); } T.ok(`${ch} ${k}: 피해`, (Stats.dmgBy[k] || 0) > b, Math.round((Stats.dmgBy[k] || 0) - b)); d.pos = { x: p.pos.x + 5, y: p.pos.y }; }
+    }
+    T.ok('원거리 실험체: 오류 없음', errs.length === e0, errs.slice(e0).join(' / '));
+    // 아야: Q 사거리 밖이면 다가가서 시전 · W 재입력 중단 · R 공포 · D 평타 불가 후 공속
+    { const { p, d } = setup('aya'); d.pos = { x: p.pos.x + 8, y: p.pos.y }; cast(p, 'Q', { ...d.pos }); run(200); T.ok('아야 Q: 다가가서 시전', (Stats.casts.Q || 0) === 1 && V.dist(p.pos, d.pos) < 8);
+      cast(p, 'W', { ...d.pos }); run(30); const w = p.ayaW; cast(p, 'W', { ...d.pos }); run(2); T.ok('아야 W: 재입력 = 중단', !!w && !p.ayaW && p.skills.W.cd > 0);
+      cast(p, 'D', p.pos); T.ok('아야 D: 1초 평타 불가', p.noAA > 0.9); run(130); T.ok('아야 D: 다음 평타 2회 공속', p.reload === 2 && p.asBuffs.some(a => a.tag === 'reload')); }
+    // 리오: Q 활 교체(사거리·공속) · 단궁 R 강한 화살 벽꿍 기절 1초
+    { const { p } = setup('rio', 'duel', { diff: 'normal', map: 'basic', motif: 'aya', rounds: 1 }); run(200); const e = Game.mode.enemy;
+      const r0 = p.aaCfg().range, as0 = p.atkSpd(); cast(p, 'Q', p.pos); T.ok('리오 Q: 화궁 → 단궁 (사거리 4.85m, 공속 증가)', p.stance === 'short' && p.aaCfg().range === 4.85 && r0 > 6.2 && p.atkSpd() > as0);
+      const W0 = CONFIG.walls[0]; e.pos = { x: W0.x - 1.5, y: W0.y + W0.h / 2 }; p.pos = { x: W0.x - 6, y: W0.y + W0.h / 2 }; e.stun = 0.45;
+      cast(p, 'R', { ...e.pos }); run(30); cast(p, 'R', { ...e.pos }); let mx = 0; for (let i = 0; i < 150; i++) { step(); mx = Math.max(mx, e.stun); }
+      T.ok('리오 단궁 R: 강한 화살 벽꿍 기절 1초', Math.abs(mx - 1.0) < 0.02, mx.toFixed(2)); }
+    // 나딘: Q 충전 → 재입력 발사(사거리 증가) · W 두 번 = 연결 덫(AI가 밟으면 발동) · E 와이어 11m 끊김
+    { const { p, d } = setup('nadine'); cast(p, 'Q', { ...d.pos }); run(180); const ch = !!p.charge; cast(p, 'Q', { ...d.pos }); T.ok('나딘 Q: 충전 → 재입력 발사', ch && !p.charge && p.skills.Q.cd > 0);
+      cast(p, 'W', { x: p.pos.x + 3, y: p.pos.y - 2.4 }); const a = !!p.trapA; cast(p, 'W', { x: p.pos.x + 3, y: p.pos.y + 2.4 }); T.ok('나딘 W: 두 번 던지면 연결', a && p.traps.length === 1 && !p.trapA);
+      const hp0 = d.hp; d.pos = { x: p.pos.x + 4.5, y: p.pos.y }; run(2); d.pos = { x: p.pos.x + 1.5, y: p.pos.y }; run(2); T.ok('나딘 W: 연결선을 지나가면 발동', d.hp < hp0 && p.traps.length === 0);
+      d.pos = { x: p.pos.x + 4, y: p.pos.y }; cast(p, 'R', p.pos); p.cmdAttack(d); run(150); T.ok('나딘 R: 첫 평타부터 늑대', (Stats.dmgBy.R || 0) > 0); p.cmdStop();
+      cast(p, 'E', { x: p.pos.x - 3, y: p.pos.y }); const wr = !!p.wire; p.pos = { x: p.pos.x + 9, y: p.pos.y }; run(2); T.ok('나딘 E: 와이어에서 11m 넘게 멀어지면 끊김', wr && !p.wire); }
+    // 카티야: D 저격 모드 3발(3발째 데드아이) · 이동하면 해제·0발이면 쿨 50% · R 사다리꼴 안 3명에게 발마다 강해지는 탄
+    { const { p, d } = setup('katja'); cast(p, 'D', { ...d.pos }); run(80); const b = Stats.dmgBy.D || 0; for (let i = 0; i < 3; i++) { p.cmdSkill('D', { ...d.pos }); run(40); }
+      T.ok('카티야 D: 저격 3발 후 모드 끝', !p.snipe && (Stats.casts.D || 0) >= 3 && (Stats.dmgBy.D || 0) > b && p.skills.D.cd > 20);
+      p.skills.D.cd = 0; cast(p, 'D', { ...d.pos }); run(10); p.cmdMove({ x: p.pos.x - 2, y: p.pos.y }); run(5); T.ok('카티야 D: 이동하면 해제 · 0발 쿨 50%', !p.snipe && Math.abs(p.skills.D.cd - p.skills.D.cdMax * 0.5) < 0.2); }
+    { reset(); Settings.character = 'katja'; Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 4 }); run(200); const p = Game.player, es = Game.mode.enemies;
+      es.forEach((u, i) => { u.pos = { x: p.pos.x + 10 + i * 0.8, y: p.pos.y + (i - 1) * 0.6 }; u.stun = 3; }); Game.mode.allies.forEach(a => { a.pos = { x: 3, y: 18 }; a.stun = 3; });
+      const h0 = es.map(u => u.hp); cast(p, 'R', { x: p.pos.x + 10.8, y: p.pos.y }); run(300); const dm = es.map((u, i) => h0[i] - u.hp);
+      T.ok('카티야 R: 사다리꼴 안 3명 모두, 뒤로 갈수록 강한 탄', dm.every(x => x > 0) && dm[2] > dm[0], dm.map(Math.round).join('/')); }
+    // 결정성: 원거리 플레이어 + 명령 기록 → 같은 판
+    { const go = () => { reset(); Settings.character = 'rio'; Game.start('duel', { diff: 'normal', map: 'arena', motif: 'nadine', rounds: 1, seed: 21 }); run(220); const p = Game.player, e = Game.mode.enemy;
+        Cmd.attack(e); run(120); Cmd.skill('W', { ...e.pos }); run(60); Cmd.skill('Q', p.pos); run(30); Cmd.skill('R', { ...e.pos }); run(200); return Cmd.hash(); };
+      T.ok('원거리 실험체 결정성: 같은 시드·명령 = 같은 판', go() === go()); }
+    Settings.character = 'cathy';
+  });
+
   // ---------------- 리플레이 (저장·다시 보기) ----------------
   G('리플레이', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.tactical = 'blink'; Settings.fog = true;
