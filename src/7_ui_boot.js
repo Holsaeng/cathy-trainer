@@ -309,7 +309,7 @@ const UI = {
     const o = this.netOpts = this.netOpts || { map: 'basic', rounds: 3, sphere: false, time: 'day' };
     const btn = (k, v, l) => `<button class="btn ${o[k] === v ? 'sel' : ''}" data-a="opt" data-k="${k}" data-v="${v}">${l}</button>`;
     this.show(`<h2>🌐 방 만들기 (호스트)</h2>
-      <div class="row"><label>맵</label>${btn('map', 'basic', '기본 아레나')}${btn('map', 'jungle', '숲길')}<label style="margin-left:12px">판</label>${btn('rounds', 3, '3판 2선승')}${btn('rounds', 1, '단판')}</div>
+      <div class="row"><label>맵</label>${btn('map', 'basic', '기본 아레나')}${btn('map', 'jungle', '숲길')}${btn('map', 'arena', '원형 투기장')}<label style="margin-left:12px">판</label>${btn('rounds', 3, '3판 2선승')}${btn('rounds', 1, '단판')}</div>
       <div class="row"><label>시간</label>${btn('time', 'day', '낮')}${btn('time', 'night', '밤')}<label style="margin-left:12px">크로노 스피어</label>${btn('sphere', true, '켬')}${btn('sphere', false, '끔')}</div>
       <div class="sub">1. 「초대 코드 만들기」 → 2. 복사해서 친구에게 보내기 → 3. 친구가 보낸 <b>응답 코드</b>를 아래에 붙여넣고 「연결」</div>
       <div class="row"><button class="btn primary" data-a="make">초대 코드 만들기</button></div>

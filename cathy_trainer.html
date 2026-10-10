@@ -588,6 +588,38 @@ CONFIG.gearPresets = {
   daggerD0: { label: '단검 시작 (영웅)', weapon: 'dagger', gear: { weapon: 101402, chest: 202404, head: 201409, arm: 203410, leg: 204406 } },
 };
 
+// ============================== 원형 맵: 원형 투기장 (LoL 아레나 3:3풍) ==============================
+//   원 바깥을 계단식 벽(띠)으로 채워 원형 경계를 만듦 → 이동·시야·투사체·돌진 규칙은 기존 벽 그대로 적용
+//   가운데는 가로 띠, 위·아래는 세로 기둥(0.4m) → 계단 오차 0.4m 이하, 벽은 원 안으로 들어오지 않음. 화면에는 매끈한 원으로 그림
+//   안쪽: 기둥 4개(높은 벽), 낮은 턱 2개(시야 통과), 위·아래 부쉬
+(() => {
+  const W = CONFIG.world.w, H = CONFIG.world.h, cx = W / 2, cy = H / 2, R = 8.6, s = 0.4, k = R * Math.SQRT1_2;
+  const walls = [], f3 = v => +v.toFixed(3), add = (x, y, w, h) => { if (w > 1e-3 && h > 1e-3) walls.push({ x: f3(x), y: f3(y), w: f3(w), h: f3(h), edge: true }); };
+  const chord = d => Math.sqrt(Math.max(0, R * R - d * d));
+  const n = Math.ceil(2 * k / s), st = 2 * k / n;
+  for (let i = 0; i < n; i++) {   // 가운데 띠: 왼쪽·오른쪽 (중심에서 가장 가까운 y의 현 → 벽이 원 안으로 안 들어옴)
+    const y = cy - k + i * st, half = chord(Math.min(Math.abs(y - cy), Math.abs(y + st - cy), (y < cy && y + st > cy) ? 0 : Infinity));
+    add(0, y, cx - half, st); add(cx + half, y, W - cx - half, st);
+  }
+  for (let i = 0; i < n; i++) {   // 위·아래 덮개: 세로 기둥
+    const x = cx - k + i * st, half = chord(Math.min(Math.abs(x - cx), Math.abs(x + st - cx), (x < cx && x + st > cx) ? 0 : Infinity));
+    add(x, 0, st, cy - half); add(x, cy + half, st, H - cy - half);
+  }
+  add(0, 0, cx - k, cy - k); add(cx + k, 0, W - cx - k, cy - k); add(0, cy + k, cx - k, H - cy - k); add(cx + k, cy + k, W - cx - k, H - cy - k);   // 모서리
+  // 안쪽 지형: 중심 대칭(점대칭) — 양쪽 조건 동일
+  walls.push(
+    { x: 12.4, y: 4.8, w: 1.2, h: 1.2 }, { x: 18.4, y: 12.0, w: 1.2, h: 1.2 },   // 기둥(이동·시야 차단) — 벽꿍·시야 끊기
+    { x: 18.4, y: 4.8, w: 1.2, h: 1.2 }, { x: 12.4, y: 12.0, w: 1.2, h: 1.2 },
+    { x: 15.7, y: 6.2, w: 0.6, h: 1.4, kind: 'low' }, { x: 15.7, y: 10.4, w: 0.6, h: 1.4, kind: 'low' },   // 중앙 낮은 턱(시야 통과)
+  );
+  CONFIG.maps.arena = {
+    name: '원형 투기장', round: { c: { x: cx, y: cy }, r: R }, walls,
+    bushes: [{ x: 14.8, y: 1.9, w: 2.4, h: 1.6 }, { x: 14.8, y: 14.5, w: 2.4, h: 1.6 }],
+    spawns: { p: { x: cx - 6, y: cy }, e: { x: cx + 6, y: cy } },
+    animals: [{ x: cx, y: 4.6 }, { x: cx, y: 13.4 }, { x: cx, y: cy }],
+  };
+})();
+
 // ============================== 비공식 표기 ==============================
 // 님블뉴런 IP 이용 정책(2025-08-07): 공식으로 오인될 수 있는 표현·공식 로고/UI 무단 사용 금지, 2D/3D 모델 배포 금지
 // → 이 시뮬레이터는 공식 리소스(로고·일러스트·게임 모델·UI)를 쓰지 않고, 캐릭터 모델은 자체 제작 또는 CC0 범용 모델을 색·소품으로 꾸며 사용
@@ -760,7 +792,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = 'b4f3881c';
+const BUILD_ID = '8f66326e';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 const rand = (a, b) => a + Rng.next() * (b - a);
 const vrand = (a, b) => a + Math.random() * (b - a);   // 화면 효과용 (판정 난수를 소모하지 않음)
@@ -809,10 +841,16 @@ const Geo = {
     if (tmax < tmin || tmax < 0) return Infinity;
     return tmin >= 0 ? tmin : Infinity;
   },
+  // 원형 맵: 경계 벽(edge)을 뺀 안쪽 벽 목록(벽 배열이 바뀔 때만 다시 계산) · 광선이 원을 벗어날 수 없으면 경계 벽은 검사 생략
+  round() { this.inner(); const m = Game.map; return this._edge && m && m.round ? m.round : null; },
+  inner() { if (this._wr !== CONFIG.walls) { this._wr = CONFIG.walls; this._in = CONFIG.walls.filter(w => !w.edge); this._edge = this._in.length < CONFIG.walls.length; } return this._in; },
+  wallsFor(o, dist, pad) { const rd = Geo.round(); return rd && V.dist(o, rd.c) + dist + pad < rd.r - 0.01 ? Geo.inner() : CONFIG.walls; },
+  // 광선이 원 밖으로 나가는 거리(안에서 출발할 때)
+  circleExit(o, d, rd) { const fx = o.x - rd.c.x, fy = o.y - rd.c.y, b = fx * d.x + fy * d.y, c = fx * fx + fy * fy - rd.r * rd.r; return -b + Math.sqrt(Math.max(0, b * b - c)); },
   // 광선이 벽/경계에 처음 닿는 거리 (dist 이내가 아니면 Infinity)
   rayHit(o, d, dist, pad) {
     let best = Infinity;
-    for (const w of CONFIG.walls) { const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
+    for (const w of Geo.wallsFor(o, dist, pad)) { const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
     const W = CONFIG.world.w, H = CONFIG.world.h;
     if (d.x > 1e-9) best = Math.min(best, (W - pad - o.x) / d.x); else if (d.x < -1e-9) best = Math.min(best, (pad - o.x) / d.x);
     if (d.y > 1e-9) best = Math.min(best, (H - pad - o.y) / d.y); else if (d.y < -1e-9) best = Math.min(best, (pad - o.y) / d.y);
@@ -896,7 +934,9 @@ const Vision = {
   // 시야 차단 벽까지의 거리 (없으면 Infinity)
   rayBlock(o, d, dist) {
     let best = Infinity;
-    for (const w of CONFIG.walls) { if (!Vision.isBlocker(w)) continue; const t = Geo._slab(o, d, w.x, w.y, w.x + w.w, w.y + w.h); if (t < best) best = t; }
+    const rd = Geo.round(), inC = rd && V.dist(o, rd.c) < rd.r;   // 원형 맵: 원 안에서는 경계를 원으로 계산(벽 134개 대신)
+    for (const w of inC ? Geo.inner() : CONFIG.walls) { if (!Vision.isBlocker(w)) continue; const t = Geo._slab(o, d, w.x, w.y, w.x + w.w, w.y + w.h); if (t < best) best = t; }
+    if (inC) best = Math.min(best, Geo.circleExit(o, d, rd));
     return best <= dist ? Math.max(0, best) : Infinity;
   },
   baseSight() {
@@ -4314,9 +4354,10 @@ const Sphere = {
   phase() { return CONFIG.sphere.phases[this.i]; },
   // 이동 목표: 반경 10m 원이 아레나 안쪽에 오도록
   pickTarget() {
-    const W = CONFIG.world, m = CONFIG.sphere.targetMargin;
+    const W = CONFIG.world, m = CONFIG.sphere.targetMargin, rd = Geo.round();
     for (let k = 0; k < 30; k++) {
       const q = { x: rand(m, W.w - m), y: rand(m * 0.5, W.h - m * 0.5) };
+      if (rd && V.dist(q, rd.c) > rd.r - 3) continue;   // 원형 맵: 이동 목표는 원 안쪽(경계에서 3m 이상)
       if (V.dist(q, this.c) > 3 && !Geo.inWall(q, 0.6)) return q;
     }
     return V.copy(this.c);
@@ -4497,7 +4538,7 @@ const Snap = {
       zones: this.enc(Game.zones), drones: this.enc(Game.drones || []), mode,
       sphere: this.enc(Object.fromEntries(Object.keys(Sphere).filter(k => typeof Sphere[k] !== 'function').map(k => [k, Sphere[k]]))),
       vision: { night: Vision.night, nightT: Vision.nightT, cycleT: Vision.cycleT, reveals: this.enc(Vision.reveals), noises: this.enc(Vision.noises), rustles: this.enc(Vision.rustles) },
-      walls: CONFIG.walls.map(w => this.enc(w)),
+      walls: CONFIG.walls.filter(w => !w.edge).map(w => this.enc(w)),   // 원형 맵 경계 벽(edge)은 고정 → 보내지 않음
     };
   },
   // ---------- 디코딩 ----------
@@ -4539,7 +4580,7 @@ const Snap = {
     for (const k of Object.keys(S.sphere)) Sphere[k] = this.dec(S.sphere[k], U);
     Object.assign(Vision, { night: S.vision.night, nightT: S.vision.nightT, cycleT: S.vision.cycleT, reveals: this.dec(S.vision.reveals, U), noises: this.dec(S.vision.noises, U), rustles: this.dec(S.vision.rustles, U) });
     // 벽(부서지는 벽 등 판 중 바뀔 수 있음): 내용만 갱신
-    if (S.walls && S.walls.length === CONFIG.walls.length) S.walls.forEach((w, i) => Object.assign(CONFIG.walls[i], this.dec(w, U)));
+    { const ws = CONFIG.walls.filter(w => !w.edge); if (S.walls && S.walls.length === ws.length) S.walls.forEach((w, i) => Object.assign(ws[i], this.dec(w, U))); }
     return true;
   },
   // ---------- 바뀐 값만 (델타) ----------
@@ -5369,7 +5410,13 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
+    const rd = this.map && this.map.round;
+    if (all && rd) {   // 원형 맵: 원 바깥을 어둡게 + 테두리
+      ctx.save(); ctx.beginPath(); ctx.rect(-1, -1, W + 2, H + 2); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2, true); ctx.fillStyle = T.wall; ctx.fill('evenodd');
+      ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.strokeStyle = '#5a6a8a'; ctx.lineWidth = 0.14; ctx.stroke(); ctx.strokeStyle = 'rgba(255,200,87,.35)'; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r - 0.12, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
     if (all) for (const w of CONFIG.walls) {
+      if (w.edge && rd) continue;
       if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
         ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }
@@ -6710,7 +6757,18 @@ const Render3D = {
     g.fillStyle = jungle ? '#4d6b3c' : '#4a4f57'; g.fillRect(0, 0, c.width, c.height);
     // 보도블록 / 잔디 결
     for (let i = 0; i < W * H * 3; i++) { const x = Math.random() * c.width, y = Math.random() * c.height; g.fillStyle = jungle ? `rgba(${70 + Math.random() * 40},${100 + Math.random() * 50},${50 + Math.random() * 30},.35)` : `rgba(255,255,255,${Math.random() * 0.05})`; g.fillRect(x, y, jungle ? 3 : 6, jungle ? 6 : 6); }
-    if (!jungle) {   // 기본 아레나: 보도블록 줄눈 + 가운데 도로
+    const rd = CONFIG.maps[key] && CONFIG.maps[key].round;
+    if (rd) {        // 원형 투기장: 모래빛 석판 + 동심원 + 가운데 문양
+      g.fillStyle = '#6b5f4e'; g.fillRect(0, 0, c.width, c.height);
+      for (let i = 0; i < W * H * 3; i++) { g.fillStyle = `rgba(${150 + Math.random() * 60},${130 + Math.random() * 50},${100 + Math.random() * 40},.18)`; g.fillRect(Math.random() * c.width, Math.random() * c.height, 5, 5); }
+      const X = rd.c.x * P, Y = rd.c.y * P;
+      g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 2;
+      for (let r = 2; r < rd.r; r += 2) { g.beginPath(); g.arc(X, Y, r * P, 0, Math.PI * 2); g.stroke(); }
+      for (let a = 0; a < 16; a++) { const t = a / 16 * Math.PI * 2; g.beginPath(); g.moveTo(X + Math.cos(t) * 2 * P, Y + Math.sin(t) * 2 * P); g.lineTo(X + Math.cos(t) * rd.r * P, Y + Math.sin(t) * rd.r * P); g.stroke(); }
+      g.strokeStyle = 'rgba(255,200,87,.55)'; g.lineWidth = 5; g.beginPath(); g.arc(X, Y, 1.6 * P, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(X, Y, (rd.r - 0.5) * P, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(255,200,87,.25)'; g.beginPath(); for (let a = 0; a < 8; a++) { const t = a / 8 * Math.PI * 2, rr = a % 2 ? 0.5 : 1.3; g[a ? 'lineTo' : 'moveTo'](X + Math.cos(t) * rr * P, Y + Math.sin(t) * rr * P); } g.closePath(); g.fill();
+    } else if (!jungle) {   // 기본 아레나: 보도블록 줄눈 + 가운데 도로
       g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2;
       for (let x = 0; x <= W; x += 2) { g.beginPath(); g.moveTo(x * P, 0); g.lineTo(x * P, c.height); g.stroke(); }
       for (let y = 0; y <= H; y += 2) { g.beginPath(); g.moveTo(0, y * P); g.lineTo(c.width, y * P); g.stroke(); }
@@ -6735,7 +6793,15 @@ const Render3D = {
     // 벽: 높은 벽(콘크리트) · 낮은 턱(화단) · 창문 벽(유리)
     const concrete = this.toonify(this.std('#8d939c')), concreteTop = this.toonify(this.std('#b4b9bf')), planter = this.toonify(this.std('#7f7a70')), hedge = this.toonify(this.std('#4f7d3f')), frame = this.toonify(this.std('#3c4452', { roughness: 0.5, metalness: 0.4 }));
     const glass = this.noLine(this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false }));
+    const rd = Game.map && Game.map.round;
+    if (rd) {   // 원형 맵: 원통 벽(안쪽 면) + 위 테두리 + 원 바깥 바닥 덮개
+      const side = this.toonify(this.std('#8d939c', { side: T3.BackSide })), wall = new T3.Mesh(new T3.CylinderGeometry(rd.r + 0.15, rd.r + 0.15, 2.0, 96, 1, true), side);
+      wall.position.set(rd.c.x, 1.0, rd.c.y); wall.receiveShadow = true; G.add(wall);
+      const rim = new T3.Mesh(new T3.RingGeometry(rd.r + 0.1, rd.r + 0.45, 96), this.toonify(this.std('#b4b9bf', { side: T3.DoubleSide }))); rim.rotation.x = -Math.PI / 2; rim.position.set(rd.c.x, 2.02, rd.c.y); G.add(rim);
+      const cover = new T3.Mesh(new T3.RingGeometry(rd.r + 0.15, rd.r + 40, 96), this.noLine(this.std('#1d232e', { side: T3.DoubleSide }))); cover.rotation.x = -Math.PI / 2; cover.position.set(rd.c.x, 0.01, rd.c.y); G.add(cover);
+    }
     for (const w of CONFIG.walls) {
+      if (w.edge && rd) continue;
       const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
       if (w.kind === 'low') {
         const b = new T3.Mesh(new T3.BoxGeometry(w.w, 0.45, w.h), planter); b.position.set(cx, 0.225, cz); b.castShadow = b.receiveShadow = true; G.add(b);
@@ -7768,7 +7834,7 @@ const UI = {
     const o = this.netOpts = this.netOpts || { map: 'basic', rounds: 3, sphere: false, time: 'day' };
     const btn = (k, v, l) => `<button class="btn ${o[k] === v ? 'sel' : ''}" data-a="opt" data-k="${k}" data-v="${v}">${l}</button>`;
     this.show(`<h2>🌐 방 만들기 (호스트)</h2>
-      <div class="row"><label>맵</label>${btn('map', 'basic', '기본 아레나')}${btn('map', 'jungle', '숲길')}<label style="margin-left:12px">판</label>${btn('rounds', 3, '3판 2선승')}${btn('rounds', 1, '단판')}</div>
+      <div class="row"><label>맵</label>${btn('map', 'basic', '기본 아레나')}${btn('map', 'jungle', '숲길')}${btn('map', 'arena', '원형 투기장')}<label style="margin-left:12px">판</label>${btn('rounds', 3, '3판 2선승')}${btn('rounds', 1, '단판')}</div>
       <div class="row"><label>시간</label>${btn('time', 'day', '낮')}${btn('time', 'night', '밤')}<label style="margin-left:12px">크로노 스피어</label>${btn('sphere', true, '켬')}${btn('sphere', false, '끔')}</div>
       <div class="sub">1. 「초대 코드 만들기」 → 2. 복사해서 친구에게 보내기 → 3. 친구가 보낸 <b>응답 코드</b>를 아래에 붙여넣고 「연결」</div>
       <div class="row"><button class="btn primary" data-a="make">초대 코드 만들기</button></div>

@@ -14,9 +14,10 @@ const Sphere = {
   phase() { return CONFIG.sphere.phases[this.i]; },
   // 이동 목표: 반경 10m 원이 아레나 안쪽에 오도록
   pickTarget() {
-    const W = CONFIG.world, m = CONFIG.sphere.targetMargin;
+    const W = CONFIG.world, m = CONFIG.sphere.targetMargin, rd = Geo.round();
     for (let k = 0; k < 30; k++) {
       const q = { x: rand(m, W.w - m), y: rand(m * 0.5, W.h - m * 0.5) };
+      if (rd && V.dist(q, rd.c) > rd.r - 3) continue;   // 원형 맵: 이동 목표는 원 안쪽(경계에서 3m 이상)
       if (V.dist(q, this.c) > 3 && !Geo.inWall(q, 0.6)) return q;
     }
     return V.copy(this.c);

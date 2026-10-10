@@ -58,7 +58,7 @@ const Snap = {
       zones: this.enc(Game.zones), drones: this.enc(Game.drones || []), mode,
       sphere: this.enc(Object.fromEntries(Object.keys(Sphere).filter(k => typeof Sphere[k] !== 'function').map(k => [k, Sphere[k]]))),
       vision: { night: Vision.night, nightT: Vision.nightT, cycleT: Vision.cycleT, reveals: this.enc(Vision.reveals), noises: this.enc(Vision.noises), rustles: this.enc(Vision.rustles) },
-      walls: CONFIG.walls.map(w => this.enc(w)),
+      walls: CONFIG.walls.filter(w => !w.edge).map(w => this.enc(w)),   // 원형 맵 경계 벽(edge)은 고정 → 보내지 않음
     };
   },
   // ---------- 디코딩 ----------
@@ -100,7 +100,7 @@ const Snap = {
     for (const k of Object.keys(S.sphere)) Sphere[k] = this.dec(S.sphere[k], U);
     Object.assign(Vision, { night: S.vision.night, nightT: S.vision.nightT, cycleT: S.vision.cycleT, reveals: this.dec(S.vision.reveals, U), noises: this.dec(S.vision.noises, U), rustles: this.dec(S.vision.rustles, U) });
     // 벽(부서지는 벽 등 판 중 바뀔 수 있음): 내용만 갱신
-    if (S.walls && S.walls.length === CONFIG.walls.length) S.walls.forEach((w, i) => Object.assign(CONFIG.walls[i], this.dec(w, U)));
+    { const ws = CONFIG.walls.filter(w => !w.edge); if (S.walls && S.walls.length === ws.length) S.walls.forEach((w, i) => Object.assign(ws[i], this.dec(w, U))); }
     return true;
   },
   // ---------- 바뀐 값만 (델타) ----------

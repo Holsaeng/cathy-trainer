@@ -61,10 +61,16 @@ const Geo = {
     if (tmax < tmin || tmax < 0) return Infinity;
     return tmin >= 0 ? tmin : Infinity;
   },
+  // 원형 맵: 경계 벽(edge)을 뺀 안쪽 벽 목록(벽 배열이 바뀔 때만 다시 계산) · 광선이 원을 벗어날 수 없으면 경계 벽은 검사 생략
+  round() { this.inner(); const m = Game.map; return this._edge && m && m.round ? m.round : null; },
+  inner() { if (this._wr !== CONFIG.walls) { this._wr = CONFIG.walls; this._in = CONFIG.walls.filter(w => !w.edge); this._edge = this._in.length < CONFIG.walls.length; } return this._in; },
+  wallsFor(o, dist, pad) { const rd = Geo.round(); return rd && V.dist(o, rd.c) + dist + pad < rd.r - 0.01 ? Geo.inner() : CONFIG.walls; },
+  // 광선이 원 밖으로 나가는 거리(안에서 출발할 때)
+  circleExit(o, d, rd) { const fx = o.x - rd.c.x, fy = o.y - rd.c.y, b = fx * d.x + fy * d.y, c = fx * fx + fy * fy - rd.r * rd.r; return -b + Math.sqrt(Math.max(0, b * b - c)); },
   // 광선이 벽/경계에 처음 닿는 거리 (dist 이내가 아니면 Infinity)
   rayHit(o, d, dist, pad) {
     let best = Infinity;
-    for (const w of CONFIG.walls) { const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
+    for (const w of Geo.wallsFor(o, dist, pad)) { const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
     const W = CONFIG.world.w, H = CONFIG.world.h;
     if (d.x > 1e-9) best = Math.min(best, (W - pad - o.x) / d.x); else if (d.x < -1e-9) best = Math.min(best, (pad - o.x) / d.x);
     if (d.y > 1e-9) best = Math.min(best, (H - pad - o.y) / d.y); else if (d.y < -1e-9) best = Math.min(best, (pad - o.y) / d.y);
@@ -148,7 +154,9 @@ const Vision = {
   // 시야 차단 벽까지의 거리 (없으면 Infinity)
   rayBlock(o, d, dist) {
     let best = Infinity;
-    for (const w of CONFIG.walls) { if (!Vision.isBlocker(w)) continue; const t = Geo._slab(o, d, w.x, w.y, w.x + w.w, w.y + w.h); if (t < best) best = t; }
+    const rd = Geo.round(), inC = rd && V.dist(o, rd.c) < rd.r;   // 원형 맵: 원 안에서는 경계를 원으로 계산(벽 134개 대신)
+    for (const w of inC ? Geo.inner() : CONFIG.walls) { if (!Vision.isBlocker(w)) continue; const t = Geo._slab(o, d, w.x, w.y, w.x + w.w, w.y + w.h); if (t < best) best = t; }
+    if (inC) best = Math.min(best, Geo.circleExit(o, d, rd));
     return best <= dist ? Math.max(0, best) : Infinity;
   },
   baseSight() {

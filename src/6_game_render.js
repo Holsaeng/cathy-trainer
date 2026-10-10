@@ -296,7 +296,13 @@ const Render = {
     }
     if (Game.mode && Game.mode.drawWorld && Game.state !== 'menu') Game.mode.drawWorld(ctx);
     // 벽
+    const rd = this.map && this.map.round;
+    if (all && rd) {   // 원형 맵: 원 바깥을 어둡게 + 테두리
+      ctx.save(); ctx.beginPath(); ctx.rect(-1, -1, W + 2, H + 2); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2, true); ctx.fillStyle = T.wall; ctx.fill('evenodd');
+      ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.strokeStyle = '#5a6a8a'; ctx.lineWidth = 0.14; ctx.stroke(); ctx.strokeStyle = 'rgba(255,200,87,.35)'; ctx.lineWidth = 0.05; ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r - 0.12, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
     if (all) for (const w of CONFIG.walls) {
+      if (w.edge && rd) continue;
       if (w.kind === 'low') {   // 낮은 턱·화단: 이동만 막고 시야는 통과
         ctx.fillStyle = '#26303f'; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeStyle = '#4d5a72'; ctx.lineWidth = 0.04; ctx.setLineDash([0.18, 0.12]); ctx.strokeRect(w.x, w.y, w.w, w.h); ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(90,150,90,.35)'; for (let i = 0; i < (w.w + w.h) * 1.5; i++) { const t = (i + 0.5) / ((w.w + w.h) * 1.5); ctx.fillRect(w.x + (w.w > w.h ? t * w.w : w.w * 0.3), w.y + (w.w > w.h ? w.h * 0.3 : t * w.h), 0.12, 0.12); }

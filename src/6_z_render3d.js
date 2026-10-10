@@ -76,7 +76,18 @@ const Render3D = {
     g.fillStyle = jungle ? '#4d6b3c' : '#4a4f57'; g.fillRect(0, 0, c.width, c.height);
     // 보도블록 / 잔디 결
     for (let i = 0; i < W * H * 3; i++) { const x = Math.random() * c.width, y = Math.random() * c.height; g.fillStyle = jungle ? `rgba(${70 + Math.random() * 40},${100 + Math.random() * 50},${50 + Math.random() * 30},.35)` : `rgba(255,255,255,${Math.random() * 0.05})`; g.fillRect(x, y, jungle ? 3 : 6, jungle ? 6 : 6); }
-    if (!jungle) {   // 기본 아레나: 보도블록 줄눈 + 가운데 도로
+    const rd = CONFIG.maps[key] && CONFIG.maps[key].round;
+    if (rd) {        // 원형 투기장: 모래빛 석판 + 동심원 + 가운데 문양
+      g.fillStyle = '#6b5f4e'; g.fillRect(0, 0, c.width, c.height);
+      for (let i = 0; i < W * H * 3; i++) { g.fillStyle = `rgba(${150 + Math.random() * 60},${130 + Math.random() * 50},${100 + Math.random() * 40},.18)`; g.fillRect(Math.random() * c.width, Math.random() * c.height, 5, 5); }
+      const X = rd.c.x * P, Y = rd.c.y * P;
+      g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 2;
+      for (let r = 2; r < rd.r; r += 2) { g.beginPath(); g.arc(X, Y, r * P, 0, Math.PI * 2); g.stroke(); }
+      for (let a = 0; a < 16; a++) { const t = a / 16 * Math.PI * 2; g.beginPath(); g.moveTo(X + Math.cos(t) * 2 * P, Y + Math.sin(t) * 2 * P); g.lineTo(X + Math.cos(t) * rd.r * P, Y + Math.sin(t) * rd.r * P); g.stroke(); }
+      g.strokeStyle = 'rgba(255,200,87,.55)'; g.lineWidth = 5; g.beginPath(); g.arc(X, Y, 1.6 * P, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(X, Y, (rd.r - 0.5) * P, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(255,200,87,.25)'; g.beginPath(); for (let a = 0; a < 8; a++) { const t = a / 8 * Math.PI * 2, rr = a % 2 ? 0.5 : 1.3; g[a ? 'lineTo' : 'moveTo'](X + Math.cos(t) * rr * P, Y + Math.sin(t) * rr * P); } g.closePath(); g.fill();
+    } else if (!jungle) {   // 기본 아레나: 보도블록 줄눈 + 가운데 도로
       g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 2;
       for (let x = 0; x <= W; x += 2) { g.beginPath(); g.moveTo(x * P, 0); g.lineTo(x * P, c.height); g.stroke(); }
       for (let y = 0; y <= H; y += 2) { g.beginPath(); g.moveTo(0, y * P); g.lineTo(c.width, y * P); g.stroke(); }
@@ -101,7 +112,15 @@ const Render3D = {
     // 벽: 높은 벽(콘크리트) · 낮은 턱(화단) · 창문 벽(유리)
     const concrete = this.toonify(this.std('#8d939c')), concreteTop = this.toonify(this.std('#b4b9bf')), planter = this.toonify(this.std('#7f7a70')), hedge = this.toonify(this.std('#4f7d3f')), frame = this.toonify(this.std('#3c4452', { roughness: 0.5, metalness: 0.4 }));
     const glass = this.noLine(this.std('#9fd3ff', { transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.1, depthWrite: false }));
+    const rd = Game.map && Game.map.round;
+    if (rd) {   // 원형 맵: 원통 벽(안쪽 면) + 위 테두리 + 원 바깥 바닥 덮개
+      const side = this.toonify(this.std('#8d939c', { side: T3.BackSide })), wall = new T3.Mesh(new T3.CylinderGeometry(rd.r + 0.15, rd.r + 0.15, 2.0, 96, 1, true), side);
+      wall.position.set(rd.c.x, 1.0, rd.c.y); wall.receiveShadow = true; G.add(wall);
+      const rim = new T3.Mesh(new T3.RingGeometry(rd.r + 0.1, rd.r + 0.45, 96), this.toonify(this.std('#b4b9bf', { side: T3.DoubleSide }))); rim.rotation.x = -Math.PI / 2; rim.position.set(rd.c.x, 2.02, rd.c.y); G.add(rim);
+      const cover = new T3.Mesh(new T3.RingGeometry(rd.r + 0.15, rd.r + 40, 96), this.noLine(this.std('#1d232e', { side: T3.DoubleSide }))); cover.rotation.x = -Math.PI / 2; cover.position.set(rd.c.x, 0.01, rd.c.y); G.add(cover);
+    }
     for (const w of CONFIG.walls) {
+      if (w.edge && rd) continue;
       const cx = w.x + w.w / 2, cz = w.y + w.h / 2;
       if (w.kind === 'low') {
         const b = new T3.Mesh(new T3.BoxGeometry(w.w, 0.45, w.h), planter); b.position.set(cx, 0.225, cz); b.castShadow = b.receiveShadow = true; G.add(b);

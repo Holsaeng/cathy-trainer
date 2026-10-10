@@ -160,14 +160,26 @@
     T.ok('R 75% 못 넘음', !tryDash('cathy', 'R', 0.75, 6)); T.ok('R 85% 넘음', tryDash('cathy', 'R', 0.85, 6));
     T.ok('다니엘 E 40% 못 넘음', !tryDash('daniel', 'E', 0.4, 3)); T.ok('다니엘 E 60% 넘음', tryDash('daniel', 'E', 0.6, 3));
     const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: 16, y: 9 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && Math.random() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && Math.random() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
-    let done = 0, n = 0;
+    let done = 0, n = 0, outC = 0;
     for (const ch of ['cathy', 'daniel']) for (const m of ['katja', 'rio', 'aya', 'nadine', 'daniel']) {
       n++; reset(); Settings.character = ch; Settings.build = ['early', 'mid', 'late'][n % 3]; Settings.tactical = TACTICAL_ORDER[n % 10];
-      Game.start('duel', { diff: ['easy', 'normal', 'hard'][n % 3], motif: m, enemyBuild: Settings.build, map: n % 2 ? 'jungle' : 'basic', animals: n % 3 === 0, rounds: 1, time: ['day', 'night', 'cycle'][n % 3], sphere: n % 4 === 0 });
-      let g = 0; while (Game.state === 'play' && g < 120 * 110) { step(); g++; if (Game.freeze <= 0 && g % 6 === 0) bot(Game.player, Modes.duel.enemy); if (g % 240 === 0) Renderer.frame(); if (g % 600 === 0) Side.update(); }
+      Game.start('duel', { diff: ['easy', 'normal', 'hard'][n % 3], motif: m, enemyBuild: Settings.build, map: ['basic', 'jungle', 'arena'][n % 3 === 2 ? 2 : n % 2], animals: n % 3 === 0, rounds: 1, time: ['day', 'night', 'cycle'][n % 3], sphere: n % 4 === 0 });
+      let g = 0; while (Game.state === 'play' && g < 120 * 110) { step(); g++; if (Game.map.round) for (const u of Game.units) if (!u.dead && u.kind !== 'ward' && V.dist(u.pos, Game.map.round.c) > Game.map.round.r + 0.3) outC++; if (Game.freeze <= 0 && g % 6 === 0) bot(Game.player, Modes.duel.enemy); if (g % 240 === 0) Renderer.frame(); if (g % 600 === 0) Side.update(); }
       if (Game.state === 'result') done++; else T.fail.push(`[벽·AI] 미종료 ${ch} vs ${m}`);
     }
     T.ok('AI 매치업 정상 종료', done === n, done + '/' + n);
+    T.ok('원형 투기장: 대전 중 원 밖으로 안 나감', outC === 0, outC);
+    { const M = CONFIG.maps.arena, rd = M.round, ed = M.walls.filter(w => w.edge);   // 원형 투기장 경계
+      let inC = 0; for (let a = 0; a < 360; a += 1) for (let r = 0; r < rd.r - 0.02; r += 0.1) { const p = { x: rd.c.x + r * Math.cos(a / 57.3), y: rd.c.y + r * Math.sin(a / 57.3) }; if (ed.some(w => p.x > w.x && p.x < w.x + w.w && p.y > w.y && p.y < w.y + w.h)) inC++; }
+      T.ok('원형 투기장: 경계 벽이 원 안으로 안 들어옴', inC === 0, inC);
+      reset(); Settings.character = 'cathy'; Game.start('duel', { map: 'arena', motif: 'rio', rounds: 1 }); run(5);
+      const p = Game.player, t = Vision.rayBlock({ x: rd.c.x, y: rd.c.y + 0.5 }, { x: 1, y: 0 }, 20);
+      T.ok('원형 투기장: 시야가 원 경계에서 끊김', Math.abs(t - Math.sqrt(rd.r * rd.r - 0.25)) < 0.01, t);
+      p.pos = { x: rd.c.x + rd.r - 3, y: rd.c.y }; Modes.duel.enemy.pos = { x: rd.c.x - 6, y: rd.c.y }; p.skills.R.cd = 0; p.cmdSkill('R', { x: rd.c.x + rd.r + 5, y: rd.c.y }); Input.aiming = null; run(400);
+      T.ok('원형 투기장: 경계로 돌진해도 원 안', V.dist(p.pos, rd.c) <= rd.r + 0.3, V.dist(p.pos, rd.c));
+      Sphere.start(); let sm = 0; for (let i = 0; i < 100; i++) sm = Math.max(sm, V.dist(Sphere.pickTarget(), rd.c)); Sphere.stop();
+      T.ok('원형 투기장: 크로노 스피어 이동 목표가 원 안', sm <= rd.r - 3, sm);
+      T.ok('원형 투기장: 시작 위치 원 안', V.dist(M.spawns.p, rd.c) < rd.r - 1 && V.dist(M.spawns.e, rd.c) < rd.r - 1); }
   });
 
   // ---------------- 결과 화면 코칭 ----------------
