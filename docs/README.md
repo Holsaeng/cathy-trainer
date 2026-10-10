@@ -9,6 +9,8 @@
 | [er_notes_characters.md](er_notes_characters.md) | 실험체 91명(출시순·무기·역할), 역할 6종, 무기 23종(사거리·공속·무기 스킬), 조합, 캐시·다니엘·재키·현우·아야 상세 수치 |
 | [er_notes_strategy.md](er_notes_strategy.md) | 일차별 목표, 초반 루트·제작, 운영(시야·오브젝트·서드파티), 교전(조합·포지션·진입·카이팅), 시즌 12 변경점, 추천 유튜브 강의 |
 | [ip_policy_notes.md](ip_policy_notes.md) | 님블뉴런 IP(2차 창작) 정책 연혁·현행 핵심·이 프로젝트 대입 결과·권장 조치 |
+| [er_notes_playables.md](er_notes_playables.md) | 아야·리오·나딘·카티야 플레이어 조작용 스킬 상세(12.5 공식 패치노트·닥지지 대조), CONFIG 불일치·수정 목록, 조작 구현 메모 |
+| [er_notes_teamfight.md](er_notes_teamfight.md) | 팀 교전 규칙(역할·포지션·진입·대상 선정·후퇴·핑퐁·필·플레이어 리더) → 팀 AI 파라미터 (디시 구도공략 시리즈·나무위키·LoL 아레나 보충) |
 | [er_notes_items.md](er_notes_items.md) | 아이템 시스템(부위·등급·능력치 단위·상한), 최종 능력치 계산, 시즌 12 캐시 인기 빌드(dak.gg·나무위키), 아이템 약 55개 12.5 수치 |
 | [er_notes_ai_builds.md](er_notes_ai_builds.md) · [ai_builds_data.json](ai_builds_data.json) | AI 상대 5명의 시즌 12 기본 능력치·캐릭터별 숙련도·인기 빌드(dak.gg 12.5)·아이템 48개 |
 | [build_items_plan.md](build_items_plan.md) | 장비·빌드 선택 기능 설계(준비 단계): 계산식·데이터 형식·화면·검증 계획 |

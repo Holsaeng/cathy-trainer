@@ -417,7 +417,8 @@ class RangedDuelist extends Duelist {
   startKite(p) {
     if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
-    const danger = (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
+    const meleeFoe = !(p.ranged || (p.motif && !p.motif.melee));   // 원거리 상대(플레이어·AI)와는 서로 사거리에서 맞딜 — 진입 거리 밖으로 빠지는 건 근접(캐시·다니엘) 상대일 때만
+    const danger = !meleeFoe ? false : (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
     const want = danger ? Math.max(this.threatRange(p) + 0.4, this.aaRange()) : this.aaRange() - 0.3;
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }

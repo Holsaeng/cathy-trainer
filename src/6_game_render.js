@@ -53,6 +53,7 @@ const Game = {
     Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
+    if (this.player && this.player.ranged && r.key) { r.key += '|c' + this.player.charKey; r.recTitle = `[${this.player.name}] ` + (r.recTitle || r.title); }   // 원거리 실험체별 최고 기록
     if (this.opts && Number.isInteger(this.opts.enemyGear) && r.key) { r.key += '|eg' + this.opts.enemyGear; r.recTitle = (r.recTitle || r.title) + ` · 상대 장비 ${this.opts.enemyGear + 1}`; }
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },

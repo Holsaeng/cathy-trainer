@@ -798,7 +798,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '81baefe1';
+const BUILD_ID = 'a25fdccb';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -3773,7 +3773,8 @@ class RangedDuelist extends Duelist {
   startKite(p) {
     if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
-    const danger = (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
+    const meleeFoe = !(p.ranged || (p.motif && !p.motif.melee));   // 원거리 상대(플레이어·AI)와는 서로 사거리에서 맞딜 — 진입 거리 밖으로 빠지는 건 근접(캐시·다니엘) 상대일 때만
+    const danger = !meleeFoe ? false : (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
     const want = danger ? Math.max(this.threatRange(p) + 0.4, this.aaRange()) : this.aaRange() - 0.3;
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
@@ -5606,6 +5607,7 @@ const Game = {
     Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
+    if (this.player && this.player.ranged && r.key) { r.key += '|c' + this.player.charKey; r.recTitle = `[${this.player.name}] ` + (r.recTitle || r.title); }   // 원거리 실험체별 최고 기록
     if (this.opts && Number.isInteger(this.opts.enemyGear) && r.key) { r.key += '|eg' + this.opts.enemyGear; r.recTitle = (r.recTitle || r.title) + ` · 상대 장비 ${this.opts.enemyGear + 1}`; }
     Grade.compute(r); Records.save(r); UI.showResults(r);
   },
@@ -8090,6 +8092,13 @@ const UI = {
       <tr><td><kbd>D</kbd></td><td>단검: 1차 = 이동 속도 증가(3초) → 2차 = 2.5m 내 대상 뒤로 이동 + 피해 / 쌍검: 돌진 6연타 → 적중 시 5초 내 2식</td></tr>
       <tr><td><kbd>F</kbd></td><td>전술 스킬 — 메인 메뉴에서 선택 (블링크·리펄서 미사일·붉은 폭풍·라이트 윙·진실의 칼날·플라즈마 대시·퀘이크·초월·아티팩트·무효화)</td></tr>
       <tr><td><kbd>ESC</kbd> / <kbd>Tab</kbd></td><td>일시정지·설정·결과 보기 / 통계 패널 켜기·끄기</td></tr></table>
+      <h3>원거리 실험체 (아야 · 리오 · 나딘 · 카티야)</h3><div class="sub">
+      · 평타는 대상에게 날아가는 <b>유도 투사체</b>(지형 무시). 원거리 실험체는 장비·외과 전문의·강화 평타가 없습니다(AI와 같은 실측 능력치).<br>
+      · <b>아야</b>: Q 2연발(대상 지정, 사거리 밖이면 다가가서) · W 고정 사격(방향 고정, 이동 가능, <kbd>W</kbd> 다시 = 중단) · E 무빙턴(4m, 벽 넘기, Q·W 쿨 감소) · R 공포탄(주변 4.5m 공포) · D 무빙 리로드(1초 이속, 다음 평타 2회 공속↑) · P 피격 시 보호막<br>
+      · <b>리오</b>: Q 단궁↔화궁(4.85m/6.3~6.5m) · W 하나레(단궁 부채꼴 5발·바람 / 화궁 관통 직선) · E 비상(5m 도약 후 자동 사격) · R 단궁 연사(<kbd>R</kbd> 다시 = 강한 화살, 벽꿍 기절 1초) / 화궁 정사필중 · D 곡사(28m, 1.5초 뒤 착탄) · 카이츄 3중첩 강화 평타<br>
+      · <b>나딘</b>: Q 황소의 눈(<kbd>Q</kbd> = 충전 시작, 다시 <kbd>Q</kbd> = 발사, 7→14m) · W 다람쥐 덫(두 번 던져 연결) · E 원숭이 와이어(설치 → <kbd>E</kbd> 다시 = 이동, 11m 넘게 멀어지면 끊김) · R 늑대 맹습(평타 3번마다 늑대, 첫 평타부터) · D 강노(부채꼴 + 폭발 표식) · P 야성 중첩만큼 Q·R 피해 증가<br>
+      · <b>카티야</b>: Q 조준 사격(멀리 갈수록 강함) · W 목표물 포착(23m 시야 다트) · E 접근 금지(전방 사격 후 <b>커서 반대쪽</b>으로 도약) · R 정밀 조준(0.8초 스캔 → 사다리꼴 안 최대 3명) · D 저격(제자리 10초 모드, <kbd>D</kbd>를 누를 때마다 커서 방향 발사, 3발째 데드아이, 움직이면 해제) · P Q·E 후 다음 평타 추가 피해<br>
+      · 수치는 12.5 라이브 기준(공식 패치노트·닥지지) — docs/er_notes_playables.md. ⚠ 출처 없는 시간·폭은 추정</div>
       <h3>핵심 메커니즘</h3><div class="sub">
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>
       · <b>선딜 캔슬</b>: 스킬 선딜 중 이동 입력을 하면 스킬이 끊깁니다(실수로 기록).<br>
