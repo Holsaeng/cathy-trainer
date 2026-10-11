@@ -30,7 +30,7 @@
 ## 권장 조치
 1. 고객센터(1:1 문의) 또는 eternalreturn@nimbleneuron.com 으로 비상업 팬 연습 도구 운영·3D 표현 범위를 문의하고 답변을 보관.
 2. ~~답변 전까지 공개판은 일반 요소 기준 유지, 원작풍은 로컬 전용.~~
-3. **2026-10-07 저장소 관리자 결정**: 위 위험을 알고, 공개판에도 직접 만든 Blender 모델(기본)과 원작풍 설계(선택)를 올림. 책임과 대응은 관리자가 맡음. 권리자 요청 시 즉시 내림(해당 파일: `models/*_custom.glb`(캐시·다니엘·아야·리오·나딘·카티야), `models/cathy_ref.json` — 해당 커밋만 되돌리면 이전 상태).
+3. **2026-10-07 저장소 관리자 결정**: 위 위험을 알고, 공개판에도 직접 만든 Blender 모델(기본)과 원작풍 설계(선택)를 올림. 책임과 대응은 관리자가 맡음. 권리자 요청 시 즉시 내림(해당 파일: `models/*_custom.glb`(캐시·다니엘·아야·리오·나딘·카티야·클로에·니나), `models/cathy_ref.json` — 해당 커밋만 되돌리면 이전 상태).
 
 ## 출처
 - 현행 정책: https://support.playeternalreturn.com/hc/en-us/articles/49503976113177-Nimble-Neuron-IP-Usage-Policy-August-7th-2025

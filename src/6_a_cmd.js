@@ -23,7 +23,8 @@ const Cmd = {
   rest() { this.send({ t: 'rest' }); },
   camera(pt) { this.send({ t: 'cam', x: pt.x, y: pt.y }); },
   drone(pt) { this.send({ t: 'drone', x: pt.x, y: pt.y }); },
-  cursor(pt) { this.send({ t: 'cur', x: pt.x, y: pt.y }); },   // 커서 위치가 결과에 영향을 줄 때만(다니엘 걸작 탈출 방향)
+  cursor(pt) { this.send({ t: 'cur', x: pt.x, y: pt.y }); },
+  pet(pt, t) { this.send({ t: 'pet', x: pt.x, y: pt.y, id: t ? this.rel(t) : null }); },   // 클로에: 니나 조종(Alt + 우클릭)   // 커서 위치가 결과에 영향을 줄 때만(다니엘 걸작 탈출 방향)
   apply(u, c) {
     const pt = c.x !== undefined ? { x: c.x, y: c.y } : null;
     if (pt) u.cursor = pt;   // 마지막으로 가리킨 지점
@@ -37,16 +38,17 @@ const Cmd = {
       case 'cam': VisionItems.camera(u, pt); break;
       case 'drone': VisionItems.drone(u, pt); break;
       case 'cur': break;
+      case 'pet': if (u.petCmd) u.petCmd(pt, this.unit(c.id)); break;
     }
   },
   // 명령 형식 검사 (리플레이 파일 읽기)
-  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
+  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur', 'pet'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
   valid(c) {
     if (!c || !this.CMD_T.includes(c.t)) return false;
     if (c.x !== undefined && !(Number.isFinite(c.x) && Number.isFinite(c.y) && Math.abs(c.x) < 1e4 && Math.abs(c.y) < 1e4)) return false;
     if (c.t === 'sk' && !this.SKILL_K.includes(c.s)) return false;
     if (c.t === 'atk' && !Number.isInteger(c.id)) return false;
-    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur'].includes(c.t) && c.x === undefined) return false;
+    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur', 'pet'].includes(c.t) && c.x === undefined) return false;
     return true;
   },
   // ---------- 재생 ----------

@@ -279,6 +279,9 @@ const CONFIG = {
     rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0], aaAmp: [0.039, 0.104, 0.169] },   // 방관은 패시브로 계산
     nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [160, 260, 345], sp: [0, 0, 0],       as: [0.9, 1.3, 1.45],   crit: [0.5, 0.95, 1.0], pen: [0.08, 0.2, 0.3], aaAmp: [0.036, 0.096, 0.156] },
     katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4], aaAmp: [0.06, 0.16, 0.26] },   // aaAmp: 무기 숙련도 기본 공격 증폭(12.5 닥지지, 숙련도 3/8/13레벨) · 사거리 6.4m 설(나무위키)은 ⚠
+    // 클로에(암기, 평타 원딜 + 인형 니나) — 12.5 닥지지 기본 능력치 · 단계별 공격력·공속·치명은 평타 원딜 평균 추정(⚠ 랭크 영상 HUD 미확보) · 기본 공격 증폭 = 암기 숙련도 1.6%/레벨
+    chloe:  { name: '클로에', weapon: '암기',   build: '평타 치명', color: '#f08cbc', aaRange: 4.8,  aaSpeed: 22, ad: [150, 245, 330], sp: [0, 0, 0],       as: [0.92, 1.3, 1.45],  crit: [0.45, 0.9, 1.0], pen: [0.05, 0.15, 0.25], aaAmp: [0.048, 0.128, 0.208],
+              hp: [1240, 1700, 2150] },
     // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
     daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
               hp: [1380, 1910, 2450], def: [72, 92, 113], ms: [3.8, 3.98, 4.0], baseAd: [56, 84, 112], aaAmp: [0.13, 0.27, 0.4],   // 기본 공격 증폭 = 단검 숙련도
@@ -286,6 +289,20 @@ const CONFIG = {
   },
   // 원딜 실제 스킬 (나무위키 2026-10 기준). 피해 = base[레벨] + 공격력×ad + 추가공격력×bad + 스킬증폭×sp (+야성)
   rangedKits: {
+    // 클로에 — 나무위키(2026-10-05 수정판) + 12.2 버프(니나 추가 방어력 20/35/50 · Q 니나 공격력 80%) · 근거 docs/er_notes_playables.md 10장. ⚠ = 출처 없는 추정값
+    chloe: {
+      P: { name: '살아 있는 마리오네트', stab: [20, 50, 80], stabAd: 0.5, marks: 2, respawn: [20, 18, 16], respawnCost: 0.2, respawnHp: 0.8, leash: 10,
+           ratio: 0.6, ratioLv: 0.02, bonusAd: [4, 7, 10], bonusDef: [20, 35, 50], bonusHp: [200, 250, 300], as: 0.8,
+           range: 1.0, windup: 0.25, r: 0.38, follow: 1.3 },   // 니나 = 클로에 공·방·치명·스증·방관(·체력 ⚠)의 60% + 레벨당 2% + 추가 · 공속 0.8 고정 · 사거리 1.0m(근접) ⚠
+      Q: { name: '공격 명령', base: [70, 90, 110, 130, 150], ninaAd: 0.8, cd: 5, radius: 2.5, delay: 0.2, slow: [0.1, 0.15, 0.2, 0.25, 0.3], slowDur: 1.5 },
+      W: { name: '인형극', cd: [15, 14, 13, 12, 11], spin: 3, spinR: 3, tick: [15, 24, 33, 42, 51], tickAd: 0.06, tickEvery: 0.5, spinSlow: 0.35, refund: 0.5,
+           range: 6.5, r: 3, base: [40, 60, 80, 100, 120], ad: 0.8, slow: [0.3, 0.35, 0.4, 0.45, 0.5], slowDur: 1, throwTime: 0.3,
+           slam: [40, 80, 120, 160, 200], slamAd: 0.7, slamR: 4, slamDelay: 0.45, airborne: 0.5, bounce: 2.5, pickR: 0.9, pickLife: 4, ms: 0.4, msDur: 2 },   // 던지기 0.3초·내려찍기 0.45초: 공식 영상 확인(⚠ 대략) · 피해 주기 0.5초 ⚠
+      E: { name: '퀼트 리퍼', cd: [14, 13.5, 13, 12.5, 12], dist: 4, time: 0.2, width: 1.0, base: [40, 55, 70, 85, 100], ad: 0.4, recastAfter: 1, window: 4,
+           ninaDist: 7, ninaSpeed: 22, ninaWidth: 1.0, ninaBase: [50, 80, 110, 140, 170], ninaAd: 0.6 },   // 클로에 돌진 0.2초 ⚠ · 니나 돌진 속도 ⚠
+      R: { name: '생명 공유', cd: [80, 70, 60], dur: 5, as: [0.2, 0.25, 0.3], ms: [0.25, 0.3, 0.35], cdCut: 0.3, lineMin: [30, 60, 90], lineMax: [70, 140, 210], ramp: 2, tick: 0.25, hitShare: 0.7, linkShare: 0.6 },   // 연결선 피해가 최대가 되는 시간 2초 ⚠
+      D: { name: '마름쇠 투척', cd: [25, 25, 25], range: 5, r: 1.8, windup: 0.25, life: 6, base: [60, 90, 120], bad: 0.65, sp: [0.25, 0.3, 0.35], slow: [0.3, 0.4, 0.5], slowDur: 1.5, decay: 0.45, rehit: 0.5 },   // 나무위키 무기 스킬 문서 · 반경 1.8m ⚠
+    },
     katja: {
       P: { name: '잿빛 사신', base: [50, 75, 100], ad: [0.3, 0.45, 0.6], window: 5 },                          // Q·E 후 5초 내 다음 평타 추가 스킬 피해
       Q: { name: '조준 사격', min: [40, 80, 120, 160, 200], minAd: 0.7, max: [60, 120, 180, 240, 300], maxAd: 1.05, cd: [7, 6, 5, 4, 3],
@@ -426,6 +443,7 @@ CONFIG.aiGear = {
         { label: '완성 2위: 템페스트 / 현자의 로브 / 레가투스 / 월왕구천 / 알렉산드로스', gear: {weapon: 115503, chest: 202525, head: 201525, arm: 205305, leg: 204504} },
         { label: '시작(영웅): 대황 / 창파오 / 수정 티아라 / 미닛맨의 표식 / 부케팔로스', gear: {weapon: 115402, chest: 202420, head: 201404, arm: 203415, leg: 204408} },
       ] },
+    chloe: { name: '클로에', weapon: 'directfire', base: {hp: [920,73], ad: [32,4.3], def: [51,2.7], asBonus: 0.09, ms: 3.45, regen: [1.205,0.075]}, weaponAs: 0.55, mastery: {as: 0.031, baAmp: 0.016}, builds: [] },   // 12.5 닥지지 · 인기 빌드 미수집
     katja: { name: '카티야', weapon: 'sniper', base: {hp: [890,80], ad: [36,4.7], def: [52,2.7], asBonus: 0.13, ms: 3.5, regen: [1.2,0.09]}, weaponAs: 0.43, mastery: {as: 0.036, sp: 0, baAmp: 0.02},
       builds: [
         { label: '완성 1위: 현자총통 / 고스트 / 쿼드 아이 / 운명의 주사위 / 갤럭시 스텝', gear: {weapon: 118502, chest: 202510, head: 201518, arm: 205501, leg: 204507} },
@@ -819,7 +837,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '88dc91c4';
+const BUILD_ID = 'e3440772';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -989,7 +1007,7 @@ const Vision = {
   // 플레이어 기준으로 이 지점이 보이는가 (투사체·잔상·흔들림 표시용)
   pointVisible(pt) { const p = Game.player; return !Vision.fogOn || !p || (!p.dead && Vision.inSight(p, pt)) || Vision.zoneSees(p.team, pt) || Vision.allies(p).some(a => Vision.inSight(a, pt)); },
   // 같은 팀의 살아 있는 다른 실험체 (팀 시야 공유)
-  allies(u) { return u ? Game.units.filter(a => a !== u && a.team === u.team && !a.dead && isHero(a)) : []; },
+  allies(u) { return u ? Game.units.filter(a => a !== u && a.team === u.team && !a.dead && (isHero(a) || a.kind === 'doll')) : []; },   // 니나(클로에 인형)도 시야 공유
   // 시야 다각형: 반경까지 광선을 쏴서 시야 차단 벽에 막히는 지점들
   polyFrom(pos, R) {
     const N = CONFIG.vision.rays, pts = [];
@@ -1327,6 +1345,8 @@ const Combat = {
     if (o.min) dmg = Math.max(o.min, dmg);
     dmg *= ItemFx.damageMul(src, tgt, type);   // 장비: 집행자
     dmg = Math.max(0, dmg);
+    const LK = !o.linked && tgt.linkFn && tgt.linkFn();   // 클로에 생명 공유: 맞은 쪽 70% + 연결된 쪽 60%
+    if (LK && dmg > 0) { this.damage(src, LK.u, dmg * LK.share, { type: 'true', source: o.source, linked: true, noShake: true, tick: true }); dmg *= LK.hit; }
     let absorbed = 0;
     if (tgt.shield > 0) { absorbed = Math.min(tgt.shield, dmg); tgt.shield -= absorbed; }
     tgt.hp -= dmg - absorbed;
@@ -1342,6 +1362,7 @@ const Combat = {
     Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
+    if (tgt.hp <= 0 && tgt.linkFn) { const L2 = tgt.linkFn(); if (L2 && !L2.u.dead && L2.u.hp > 1.01) tgt.hp = 1; }   // 생명 공유: 둘 다 체력이 다 떨어져야 사망
     if (tgt.hp <= 0) this.kill(src, tgt);
     if (src) ItemFx.onDamage(src, tgt);   // 장비: 치유 감소
     // 흡혈: 생명력 흡수(평타) · 모든 피해 흡혈(광역은 50%, 야생동물 60% — 노트 2.1)
@@ -3144,6 +3165,311 @@ PKits.katja = {
   },
 };
 
+// ============================== 플레이어블: 클로에 (암기) + 인형 니나 ==============================
+// 클로에 = 원거리 실험체 틀(RangedPlayer + PKits.chloe) · AI 클로에 = RangedDuelist + Kits.chloe(4_d_chloe_ai.js)
+// 니나 = 클로에를 따라다니는 별도 유닛(Doll, kind 'doll' — 실험체 판정 아님). 니나·스킬 효과는 ChloeCore를 플레이어·AI가 함께 씀
+//   주인(o)은 o.ch(어댑터)로 쿨·피해·대상만 알려 줌 → 같은 규칙으로 동작
+// 수치: CONFIG.rangedKits.chloe (나무위키 2026-10-05 + 12.2 버프) · 근거 docs/er_notes_playables.md 10장 · ⚠ = 출처 없는 추정값
+// 니나 조종(플레이어): Alt + 우클릭(또는 휠 클릭) — 적 = 그 적 공격 · 클로에 = 따라다니기만(공격 안 함) · 바닥 = 그 지점으로(도착 전엔 클로에 명령 무시)
+//   기본: 클로에가 평타하는 대상을 같이 공격 · 클로에에게서 10m 넘게 떨어지면 클로에 옆으로 순간이동
+//   소멸: 일정 시간 뒤 클로에 현재 체력 20%를 써서 니나 최대 체력 80%로 부활 · 죽어 있는 동안 Q·R 불가, E 재사용 불가, W 에어본 없음
+
+class Doll extends Unit {
+  constructor(owner) {
+    const K = CONFIG.rangedKits.chloe;
+    super({ team: owner.team, x: owner.pos.x - 0.6, y: owner.pos.y + 0.8, r: K.P.r, hp: 1000, def: 0, ms: owner.baseMs, color: '#f7c6dc', name: '니나', kind: 'doll', facing: owner.facing });
+    Geo.pushOut(this.pos, this.r);
+    Object.assign(this, { owner, K, mode: 'follow', goal: null, order: null, aaCd: 0, swing: null, dash: null, asB: 0, msB: 0, respawnT: 0, busyT: 0 });
+    this.refresh(true);
+  }
+  // 통계: 니나의 공격은 클로에 이름으로 넣으므로(클로에 기록) 니나 자체 통계(받은 피해 등)는 버림 — Unit 기본(NullStats)
+  // 니나 능력치 = 클로에의 (60% + 레벨당 2%) + 패시브 레벨별 추가
+  ratio() { const P = this.K.P; return Math.min(1, P.ratio + P.ratioLv * this.owner.ch.level()); }
+  refresh(full) {
+    const o = this.owner, P = this.K.P, k = this.ratio(), L = o.ch.L('P'), hp0 = this.maxHp;
+    this.ad = o.ad * k + lv(P.bonusAd, L); this.def = o.def * k + lv(P.bonusDef, L);
+    this.critChance = (o.critChance || 0) * k; this.sp = (o.sp || 0) * k; this.penPct = o.ch.pen() * k;
+    this.maxHp = Math.round(o.maxHp * k + lv(P.bonusHp, L)); this.regen = o.regen || 0;
+    if (full) this.hp = this.maxHp; else if (hp0 && hp0 !== this.maxHp) this.hp = Math.min(this.maxHp, this.hp * this.maxHp / hp0);
+  }
+  speed() { const o = this.owner; return (o.baseMs + ItemFx.msFlat(o)) * (1 + this.msB) * this.msMul(); }   // 클로에 이속에 비례
+  atkSpd() { return this.K.P.as * (1 + this.asB); }
+  canMove() { return super.canMove() && !this.dash && !(this.busyT > 0); }   // busyT: W 내려찍기 준비(제자리)
+  foes() { return Game.units.filter(u => u.team !== this.team && u.team !== 2 && !u.dead && u.kind !== 'ward' && !(u.untargetable > 0)); }
+  // 클로에 옆(약간 뒤) 자리
+  followSpot() {
+    const o = this.owner, back = V.fromAng(o.facing + Math.PI * 0.75);
+    return Geo.pushOut(V.add(o.pos, V.mul(back, this.K.P.follow)), this.r);
+  }
+  teleportNear() { this.pos = this.followSpot(); this.moveTarget = null; this.swing = null; FX.ring(this.pos, 0.2, 0.9, this.color, 0.35); }
+  update(dt) {
+    this.tickStatus(dt); if (this.dead) return;
+    const o = this.owner, P = this.K.P;
+    if (o.dead) { this.hp = 0; this.dead = true; return; }
+    if (this.aaCd > 0) this.aaCd -= dt;
+    if (this.busyT > 0) { this.busyT -= dt; this.vel = { x: 0, y: 0 }; return; }
+    // E2 돌진: 클로에 쪽으로 날아가며 경로의 적에게 피해 (지형 통과)
+    const D = this.dash;
+    if (D) {
+      D.t += dt; const k = Math.min(1, D.t / D.dur), prev = V.copy(this.pos); this.pos = V.lerp(D.from, D.to, k);
+      for (const u of this.foes()) if (!D.hit.has(u.id) && Geo.segDist(u.pos, prev, this.pos) <= u.r + D.width / 2) { D.hit.add(u.id); if (D.onHit) D.onHit(u); }
+      if (k >= 1) { this.dash = null; Geo.pushOut(this.pos, this.r); }
+      return;
+    }
+    if (V.dist(this.pos, o.pos) > P.leash) { this.teleportNear(); if (this.mode === 'point') this.mode = 'idle'; }   // 10m 넘게 떨어지면 클로에 옆으로
+    // 평타 휘두르기(선딜 → 타격)
+    if (this.swing) {
+      const S = this.swing; S.t += dt;
+      if (!this.canAct() || S.target.dead) this.swing = null;
+      else if (S.t >= P.windup / Math.max(0.5, this.atkSpd())) { this.swing = null; this.aaCd = 1 / this.atkSpd(); if (V.dist(this.pos, S.target.pos) - S.target.r - this.r <= P.range + 0.6) ChloeCore.ninaHit(o, this, S.target); }
+    }
+    // 대상: 명령한 적 > 클로에가 평타하는 대상 (지점 이동 중·클로에 지정이면 공격 안 함)
+    let tgt = null;
+    if (this.mode === 'enemy') { const t = this.order; if (!t || t.dead || t.untargetable > 0 || !Vision.visible(o, t)) this.mode = 'idle'; else tgt = t; }
+    if (this.mode === 'follow' || this.mode === 'idle') tgt = o.ch.target();
+    if (this.mode === 'point') { this.moveTarget = this.goal; if (V.dist(this.pos, this.goal) < 0.2) { this.mode = 'idle'; this.moveTarget = null; } }
+    else if (tgt) {
+      const d = V.dist(this.pos, tgt.pos) - tgt.r - this.r; this.facing = V.ang(V.sub(tgt.pos, this.pos));
+      if (d <= P.range) { this.moveTarget = null; if (!this.swing && this.aaCd <= 0 && this.canAct()) this.swing = { t: 0, target: tgt }; }
+      else this.moveTarget = V.copy(tgt.pos);
+    } else if (this.mode === 'follow' || this.mode === 'self') {
+      const s = this.followSpot(); this.moveTarget = V.dist(this.pos, s) > 0.5 ? s : null;
+    } else this.moveTarget = null;
+    this.moveStep(dt);
+  }
+}
+
+// ============================== 클로에 공통 규칙 (플레이어·AI) ==============================
+// 주인 o의 어댑터 o.ch: K · L(k) · hit(u, 양, 키, 옵션) · foes() · cdStart(k) · cdMul(k, 배) · cdSet(k, 값) · level() · pen() · target() · noAA(초) · color · S
+const ChloeCore = {
+  attach(o) {
+    Object.assign(o, { nina: null, spin: null, eRe: null, link: null, chPick: null, traps: [], lastAAT: null, chT: [], chSeq: 0 });
+    o.nina = new Doll(o); Game.units.push(o.nina);
+    o.linkFn = () => o.link && o.nina && !o.nina.dead ? { u: o.nina, hit: o.ch.K.R.hitShare, share: o.ch.K.R.linkShare } : null;
+    o.nina.linkFn = () => o.link && !o.dead ? { u: o, hit: o.ch.K.R.hitShare, share: o.ch.K.R.linkShare } : null;
+  },
+  up(o) { return !!(o.nina && !o.nina.dead); },
+  later(o, t, fn) { o.chT.push({ t, fn }); },
+  // 니나 평타: 클로에가 2번 이상 평타한 대상이면 찌르기 추가 피해(표식 터뜨림)
+  ninaHit(o, n, u) {
+    const crit = rnd() < n.critChance, mul = o.diff ? o.diff.dmgMul : 1;
+    Combat.damage(o, u, n.ad * (crit ? 1.75 : 1) * mul, { type: 'normal', source: o.diff ? '적 니나' : 'Nina', crit, pen: n.penPct });
+    FX.burst(u.pos, n.color, 4, 3);
+    const P = o.ch.K.P;
+    if (u.chloeBy === o && u.chloeMarks >= P.marks && Game.time - u.chloeT < 5) { u.chloeMarks = 0; o.ch.hit(u, lv(P.stab, o.ch.L('P')) + n.ad * P.stabAd, 'P', { pen: n.penPct, hid: 'P:' + Game.time }); FX.text(u.pos, '찌르기', n.color, 12, { bold: true }); }
+  },
+  onAAHit(o, u) {
+    o.lastAAT = { u, t: Game.time };
+    u.chloeMarks = (u.chloeBy === o && Game.time - (u.chloeT || -99) < 5 ? u.chloeMarks || 0 : 0) + 1; u.chloeBy = o; u.chloeT = Game.time;
+  },
+  e2Ready(o) { return !!(o.eRe && Game.time - o.eRe.t0 >= o.ch.K.E.recastAfter && this.up(o)); },
+  // ---------- 스킬 효과 ----------
+  // Q 공격 명령: 니나 주변 반경 2.5m 베기 + 둔화 (0.2초 뒤 판정, 클로에 행동은 막지 않음, 니나 평타 초기화)
+  q(o) {
+    const n = o.nina, Q = o.ch.K.Q; if (!this.up(o)) return false;
+    o.ch.cdStart('Q'); n.swing = null; n.aaCd = 0; const cid = ++o.chSeq, l = o.ch.L('Q');
+    FX.ring(n.pos, 0.3, Q.radius, n.color, 0.25);
+    this.later(o, Q.delay, () => {
+      if (n.dead) return; FX.ring(n.pos, Q.radius * 0.6, Q.radius, '#ffffff', 0.25); let hit = false;
+      for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= Q.radius + u.r) { hit = true; o.ch.hit(u, lv(Q.base, l) + n.ad * Q.ninaAd, 'Q', { pen: n.penPct, hid: 'Q:' + cid }); u.addSlow(lv(Q.slow, l), Q.slowDur); }
+      o.ch.S.resolveShot('Q', hit);
+    });
+    return true;
+  },
+  // W 1단계: 3초 회전 (주변 고정 피해 · 둔화, 평타 불가 · Q·E만 사용 가능)
+  w1(o) { o.spin = { t: o.ch.K.W.spin, acc: 0, id: ++o.chSeq, t0: Game.time }; FX.text(o.pos, o.ch.K.W.name, o.ch.color, 12, { bold: true }); Sfx.play('click'); },
+  // W 2단계: 지점(6.5m)에 칼날 자수 → 니나 순간이동 내려찍기(에어본) → 자수가 클로에 쪽으로 튕김
+  w2(o, aim) {
+    const W = o.ch.K.W, l = o.ch.L('W'), d = Math.min(W.range, V.dist(o.pos, aim)), dir = d > 0.05 ? V.norm(V.sub(aim, o.pos)) : V.fromAng(o.facing);
+    const pt = Geo.pushOut(V.add(o.pos, V.mul(dir, d)), 0.2), id = o.spin ? o.spin.id : ++o.chSeq; o.spin = null; o.ch.cdStart('W'); Sfx.play('throw'); o.facing = V.ang(dir);
+    FX.text(pt, '칼날 자수', o.ch.color, 12, { bold: true });
+    this.later(o, W.throwTime, () => {
+      FX.ring(pt, 0.3, W.r, o.ch.color, 0.3); let hit = false;
+      for (const u of o.ch.foes()) if (V.dist(u.pos, pt) <= W.r + u.r) { hit = true; o.ch.hit(u, lv(W.base, l) + o.ad * W.ad, 'W', { hid: 'W2:' + id }); u.addSlow(lv(W.slow, l), W.slowDur); }
+      o.ch.S.resolveShot('W', hit);
+      const n = o.nina; if (!this.up(o) || n.root > 0 || n.stun > 0) return;   // 니나가 이동 방해를 받았으면 내려찍기 없음
+      n.pos = V.copy(pt); n.dash = null; n.swing = null; n.moveTarget = null; n.busyT = W.slamDelay; FX.ring(pt, 0.2, 1, n.color, 0.3);
+      this.later(o, W.slamDelay, () => {
+        if (n.dead) return; FX.ring(n.pos, 0.5, W.slamR, '#ffffff', 0.35);
+        for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= W.slamR + u.r) { o.ch.hit(u, lv(W.slam, l) + n.ad * W.slamAd, 'W', { pen: n.penPct, hid: 'W3:' + id }); if (u.applyCC('stun', W.airborne)) { u.airborneT = Game.time + W.airborne; FX.text(u.pos, '에어본', '#ffd166', 12, { bold: true }); } }
+        const back = V.dist(o.pos, n.pos) > 0.1 ? V.norm(V.sub(o.pos, n.pos)) : { x: 1, y: 0 };
+        o.chPick = { pos: Geo.pushOut(V.add(n.pos, V.mul(back, Math.min(W.bounce, V.dist(o.pos, n.pos)))), 0.2), t: W.pickLife };
+      });
+    });
+  },
+  // E 1단계 경로 피해 (돌진 시작점 → 끝점)
+  e1Hits(o, from, to) { const E = o.ch.K.E, cid = ++o.chSeq; for (const u of o.ch.foes()) if (Geo.segDist(u.pos, from, to) <= u.r + E.width / 2) o.ch.hit(u, lv(E.base, o.ch.L('E')) + o.ad * E.ad, 'E', { hid: 'E:' + cid }); },
+  // E 2단계: 니나가 클로에 쪽으로 최대 7m 돌진 · 적중 시 Q 쿨 초기화
+  e2(o) {
+    const E = o.ch.K.E, l = o.ch.L('E'), n = o.nina; o.eRe = null; o.ch.cdStart('E');
+    const d = Math.min(E.ninaDist, V.dist(n.pos, o.pos)), dir = d > 0.05 ? V.norm(V.sub(o.pos, n.pos)) : V.fromAng(o.facing), cid = ++o.chSeq; let reset = false;
+    n.swing = null; n.dash = { from: V.copy(n.pos), to: V.add(n.pos, V.mul(dir, Math.max(0.5, d))), t: 0, dur: Math.max(0.05, d / E.ninaSpeed), width: E.ninaWidth, hit: new Set(),
+      onHit: u => { o.ch.hit(u, lv(E.ninaBase, l) + n.ad * E.ninaAd, 'E', { pen: n.penPct, hid: 'E2:' + cid }); if (!reset && (isHero(u) || u.kind === 'dummy')) { reset = true; o.ch.cdSet('Q', 0); FX.text(o.pos, 'Q 초기화', '#ffd166', 12, { bold: true }); } } };
+    FX.text(n.pos, '니나 돌진', n.color, 12, { bold: true });
+  },
+  // R 생명 공유: 5초 링크 — 피해 분담(맞은 쪽 70% + 다른 쪽 60%) · 둘 다 체력이 다 떨어져야 사망 · 연결선 고정 피해 · W·E 남은 쿨 30% 감소
+  r(o) {
+    const R = o.ch.K.R; o.ch.cdStart('R'); o.link = { t: R.dur, acc: 0, contact: {}, id: ++o.chSeq };
+    for (const k of ['W', 'E']) o.ch.cdMul(k, 1 - R.cdCut);
+    FX.text(o.pos, R.name, '#ffd166', 14, { bold: true }); Sfx.play('ult');
+  },
+  // D 마름쇠 투척: 지점(5m)에 6초 마름쇠
+  d(o, aim) {
+    const D = o.ch.K.D, l = o.ch.L('D'), dd = Math.min(D.range, V.dist(o.pos, aim)), dir = dd > 0.05 ? V.norm(V.sub(aim, o.pos)) : V.fromAng(o.facing), pos = Geo.pushOut(V.add(o.pos, V.mul(dir, dd)), 0.2);
+    o.traps.push({ pos, r: D.r, life: D.life, n: {}, last: {}, id: ++o.chSeq, dmg: lv(D.base, l) + (o.bonusAd || 0) * D.bad + (o.sp || 0) * lv(D.sp, l) });
+    FX.ring(pos, 0.3, D.r, o.ch.color, 0.3); Sfx.play('throw');
+  },
+  // ---------- 매 스텝 ----------
+  update(o, dt) {
+    const K = o.ch.K, n = o.nina;
+    for (const q of o.chT) if ((q.t -= dt) <= 0 && !q.done) { q.done = true; if (!o.dead) q.fn(); }
+    o.chT = o.chT.filter(q => !q.done);
+    // 니나 소멸 → 부활 (클로에 현재 체력 20% 소모, 니나 최대 체력 80%)
+    if (n && n.dead && !o.dead) {
+      n.respawnT += dt;
+      if (n.respawnT >= lv(K.P.respawn, o.ch.L('P'))) {
+        n.respawnT = 0; n.resetState(); n.refresh(true); n.hp = n.maxHp * K.P.respawnHp; n.mode = 'follow'; n.order = null; n.teleportNear();
+        o.hp = Math.max(1, o.hp - o.hp * K.P.respawnCost); FX.text(n.pos, '니나 부활', n.color, 13, { bold: true });
+      }
+    }
+    if (n && !n.dead && Math.floor(Game.time * 2) !== Math.floor((Game.time - dt) * 2)) n.refresh(false);   // 0.5초마다 능력치 갱신(버프 반영)
+    // W 인형극 회전: 주변 고정 피해 + 둔화, 평타 불가 · 3초 안에 안 던지면 쿨 50% 반환
+    const S = o.spin;
+    if (S) {
+      const W = K.W; S.t -= dt; S.acc += dt; o.ch.noAA(0.15);
+      if (S.acc >= W.tickEvery) {
+        S.acc -= W.tickEvery; const amt = (lv(W.tick, o.ch.L('W')) + o.ad * W.tickAd) * W.tickEvery;
+        for (const u of o.ch.foes()) if (V.dist(u.pos, o.pos) <= W.spinR + u.r) { o.ch.hit(u, amt, 'W', { type: 'true', hid: 'W:' + S.id, tick: true }); u.addSlow(W.spinSlow, W.tickEvery + 0.1); }
+      }
+      if (S.t <= 0 || o.stun > 0 || o.silence > 0 || o.dead) { o.spin = null; o.ch.cdStart('W'); o.ch.cdMul('W', W.refund); }
+    }
+    if (o.chPick && ((o.chPick.t -= dt) <= 0 || V.dist(o.chPick.pos, o.pos) <= K.W.pickR)) {   // 튕겨 나온 칼날 자수 줍기 → 이속
+      if (o.chPick.t > 0) { o.addMsBuff(K.W.ms, K.W.msDur, false, 'chloeW'); FX.text(o.pos, '자수 회수', o.ch.color, 11); }
+      o.chPick = null;
+    }
+    // E 재사용 시간 끝 → 쿨 시작
+    if (o.eRe && (Game.time > o.eRe.until || o.dead)) { o.eRe = null; o.ch.cdStart('E'); }
+    // R 생명 공유: 니나 공속·이속 · 연결선 고정 피해(오래 닿을수록 증가) · 한쪽이 죽으면 체력이 바닥난 다른 쪽도
+    const L = o.link, R = K.R, lr = o.ch.L('R');
+    if (n) { n.asB = L ? lv(R.as, lr) : 0; n.msB = L ? lv(R.ms, lr) : 0; }
+    if (L) {
+      L.t -= dt; L.acc += dt;
+      if (L.acc >= R.tick && n && !n.dead) {
+        L.acc -= R.tick;
+        for (const u of o.ch.foes()) {
+          if (Geo.segDist(u.pos, o.pos, n.pos) <= u.r + 0.15) { const c = (L.contact[u.id] = (L.contact[u.id] || 0) + R.tick), dps = lerp(lv(R.lineMin, lr), lv(R.lineMax, lr), clamp(c / R.ramp, 0, 1)); o.ch.hit(u, dps * R.tick, 'R', { type: 'true', hid: 'R:' + L.id, tick: true }); }
+          else L.contact[u.id] = 0;
+        }
+      }
+      if (n && o.dead !== n.dead) { const alive = o.dead ? n : o; if (alive.hp <= 1.01) Combat.kill(null, alive); }
+      if (L.t <= 0 || !n || n.dead || o.dead) o.link = null;
+    }
+    // D 마름쇠: 밟은 적에게 피해(밟을 때마다 45% 감소) + 둔화
+    const Dk = K.D;
+    for (const z of o.traps) {
+      z.life -= dt;
+      for (const u of o.ch.foes()) {
+        if (u.kind === 'ward' || V.dist(u.pos, z.pos) > z.r + u.r * 0.5) continue;
+        if (Game.time - (z.last[u.id] ?? -99) < Dk.rehit) continue;
+        const cnt = z.n[u.id] || 0; z.n[u.id] = cnt + 1; z.last[u.id] = Game.time;
+        o.ch.hit(u, z.dmg * Math.pow(1 - Dk.decay, cnt), 'D', { hid: 'D:' + z.id }); u.addSlow(lv(Dk.slow, o.ch.L('D')), Dk.slowDur);
+      }
+    }
+    o.traps = o.traps.filter(z => z.life > 0);
+  },
+  // ---------- 그리기 (2D 세계) ----------
+  draw(o, ctx) {
+    const K = o.ch.K, n = o.nina, col = o.ch.color;
+    for (const z of o.traps) { ctx.save(); ctx.globalAlpha = 0.25 * Math.min(1, z.life); ctx.fillStyle = '#c9cfd8'; Draw.circle(ctx, z.pos.x, z.pos.y, z.r); ctx.fill(); ctx.restore(); for (let i = 0; i < 7; i++) { const a = i * 2.4 + z.id, q = V.add(z.pos, V.mul(V.fromAng(a), z.r * (0.25 + (i % 3) * 0.25))); KU.fill(ctx, q, 0.07, '#e6e9ef', 0.9); } }
+    if (o.spin) { KU.ring(ctx, o.pos, K.W.spinR, col, 0.6, true); ctx.save(); ctx.strokeStyle = '#ffe9a8'; ctx.lineWidth = 0.05; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(o.pos.x, o.pos.y, K.W.spinR * 0.8, Game.time * 9, Game.time * 9 + 1.2); ctx.stroke(); ctx.restore(); }
+    if (o.chPick) KU.fill(ctx, o.chPick.pos, 0.22, '#ffd166', 0.9);
+    if (n && !n.dead && (n.team === myTeam() || Vision.visible(Game.player, n))) {
+      if (o.link) { ctx.save(); ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 0.12; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(Game.time * 12); ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.lineTo(n.pos.x, n.pos.y); ctx.stroke(); ctx.restore(); }
+      else { ctx.save(); ctx.strokeStyle = 'rgba(255,190,220,.25)'; ctx.lineWidth = 0.025; ctx.setLineDash([0.12, 0.12]); ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.lineTo(n.pos.x, n.pos.y); ctx.stroke(); ctx.restore(); }   // 재봉실(조종 줄)
+      if (this.e2Ready(o) && o === Game.player) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = n.color; Draw.oRect(ctx, n.pos, V.ang(V.sub(o.pos, n.pos)), Math.min(K.E.ninaDist, V.dist(n.pos, o.pos)), K.E.ninaWidth); ctx.restore(); }
+      if (n.mode === 'point' && n.goal && o === Game.player) KU.ring(ctx, n.goal, 0.3, n.color, 0.6);
+    }
+    for (const u of Game.units) if (u.chloeBy === o && u.chloeMarks > 0 && !u.dead && Game.time - u.chloeT < 5) for (let i = 0; i < Math.min(K.P.marks, u.chloeMarks); i++) KU.fill(ctx, V.add(u.pos, { x: -0.15 + i * 0.3, y: -u.r - 0.25 }), 0.08, '#ff8ab8', 0.95);   // 2타 표식
+  },
+};
+
+// ============================== 플레이어 키트 ==============================
+PKits.chloe = {
+  short: { Q: '공격', W: '인형극', E: '리퍼', R: '생명', D: '마름쇠' },
+  noAim: ['Q', 'W', 'R'],   // W 재입력(던지기)은 커서 지점
+  def: { E: { dash: true }, D: { moveCancel: false } },
+  label(p, k) { if (k === 'W' && p.spin) return '던지기'; if (k === 'E' && ChloeCore.e2Ready(p)) return '니나!'; return this.short[k]; },
+  init(p) {
+    p.ch = { K: p.K, color: p.color,
+      L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1, pen: () => p.penPct || 0,
+      cdStart: k => p.startCd(k), cdMul: (k, m) => { const s = p.skills[k]; s.cd *= m; if (k === 'W' && m < 1 && !p.link) s.cdMax = s.cd; }, cdSet: (k, v) => { p.skills[k].cd = v; },
+      noAA: t => { p.noAA = Math.max(p.noAA, t); }, target: () => this.target(p) };
+    Object.defineProperty(p.ch, 'S', { get: () => p.S });
+    ChloeCore.attach(p);
+    p.petCmd = (pt, t) => this.command(p, pt, t);
+  },
+  // 니나가 같이 칠 대상: 클로에의 평타 대상(또는 방금 평타한 대상)
+  target(p) {
+    const ok = u => u && !u.dead && u.team !== p.team && u.kind !== 'ward' && !(u.untargetable > 0) && Vision.visible(p, u);
+    if (ok(p.attackTarget)) return p.attackTarget;
+    if (p.lastAAT && Game.time - p.lastAAT.t < 2.5 && ok(p.lastAAT.u)) return p.lastAAT.u;
+    return null;
+  },
+  // 니나 명령 (Alt + 우클릭)
+  command(p, pt, t) {
+    const n = p.nina; if (!n || n.dead) { FX.toastFor(p, '니나가 없습니다 (부활 대기)', '#aaa'); return; }
+    if (t && t.team !== p.team && !t.dead) { n.mode = 'enemy'; n.order = t; FX.mark(t.pos, '#ff8ab8'); }
+    else if (V.dist(pt, p.pos) < p.r + 0.4) { n.mode = 'self'; n.order = null; FX.text(p.pos, '니나: 따라와', n.color, 11); }
+    else { n.mode = 'point'; n.goal = Geo.pushOut(V.copy(pt), n.r); n.order = null; FX.mark(n.goal, '#ff8ab8'); }
+  },
+  onAAHit(p, u) { ChloeCore.onAAHit(p, u); },
+  recast(p, k) { return (k === 'W' && !!p.spin) || (k === 'E' && ChloeCore.e2Ready(p)); },
+  busy(p, k) { if (p.spin && !['Q', 'E', 'W'].includes(k)) { FX.toastFor(p, '인형극 중에는 Q·E만 쓸 수 있습니다', '#aaa'); return true; } return false; },
+  update(p, dt) { ChloeCore.update(p, dt); },
+  cast: {
+    Q(p) { if (!ChloeCore.up(p)) { FX.toastFor(p, '니나가 없어 공격 명령을 쓸 수 없습니다', '#aaa'); return false; } ChloeCore.q(p); p.instantUsed('Q'); return true; },
+    W(p, aim) { if (p.spin) { ChloeCore.w2(p, aim); return true; } ChloeCore.w1(p); p.instantUsed('W'); return true; },
+    E(p, aim) {
+      const E = p.K.E;
+      if (p.eRe) {
+        if (!ChloeCore.e2Ready(p)) { FX.toastFor(p, ChloeCore.up(p) ? '니나 돌진 준비 중' : '니나가 없어 재사용할 수 없습니다', '#aaa'); return false; }
+        ChloeCore.e2(p); p.instantUsed('E'); return true;
+      }
+      const dir = p.dirTo(aim), from = V.copy(p.pos);
+      p.dash('E', dir, E.dist, E.time, 0.99, q => ChloeCore.e1Hits(q, from, q.pos));
+      p.eRe = { t0: Game.time, until: Game.time + E.window }; FX.text(p.pos, E.name, p.color, 12, { bold: true }); Sfx.play('blink'); return true;
+    },
+    R(p) {
+      if (PKits.chloe.busy(p, 'R')) return false;
+      if (!ChloeCore.up(p)) { FX.toastFor(p, '니나가 없어 생명 공유를 쓸 수 없습니다', '#aaa'); return false; }
+      ChloeCore.r(p); p.instantUsed('R'); return true;
+    },
+    D(p, aim) {
+      const D = p.K.D; if (PKits.chloe.busy(p, 'D')) return false;
+      p.beginCast('D', aim, { windup: () => D.windup, recovery: () => 0.05, fire(q, c) { q.startCd('D'); ChloeCore.d(q, c.aim); } }, {});
+      return true;
+    },
+  },
+  shape(p, k) {
+    const K = p.K;
+    if (k === 'W') return p.spin ? { kind: 'circle', range: K.W.range, r: K.W.r } : { kind: 'self', r: K.W.spinR };
+    if (k === 'E') return p.eRe ? null : { kind: 'dash', len: K.E.dist };
+    if (k === 'D') return { kind: 'circle', range: K.D.range, r: K.D.r };
+    return null;
+  },
+  draw(p, ctx) { ChloeCore.draw(p, ctx); },
+  hud(p) {
+    const n = p.nina, b = [];
+    if (!n || n.dead) b.push([`니나 부활 ${fmt(Math.max(0, lv(p.K.P.respawn, p.L('P')) - (n ? n.respawnT : 0)), 1)}초`, '#8a93a6']);
+    else b.push([`니나 ${Math.round(n.hp)}/${n.maxHp}${n.mode === 'self' ? ' · 따라오기' : n.mode === 'point' ? ' · 이동' : n.mode === 'enemy' ? ' · 공격' : ''}`, n.color]);
+    if (p.spin) b.push([`인형극 ${fmt(p.spin.t, 1)} (W: 던지기)`, p.color]);
+    if (p.eRe) b.push([ChloeCore.e2Ready(p) ? `E: 니나 돌진 ${fmt(p.eRe.until - Game.time, 1)}` : 'E 재사용 준비…', '#ffffff']);
+    if (p.link) b.push([`생명 공유 ${fmt(p.link.t, 1)}`, '#ffd166']);
+    if (p.chPick) b.push(['자수 줍기 → 이속', '#ffd166']);
+    return b;
+  },
+};
+
 // ============================== 휴식 (X) — 시즌 12 규칙 ==============================
 // 공식 12.0 패치노트(2026-08-06) "휴식 시스템 개편":
 //  · 전투 상태와 무관하게 언제든 시작 · 3단계 캐스팅 — 각 단계가 끝날 때 회복량이 한 번에 적용, 도중 취소 시 진행 중 단계는 회복 없음
@@ -4658,6 +4984,71 @@ Kits.daniel = {
   },
 };
 
+// ============================== AI 클로에 (결투·팀 대전 상대·아군) ==============================
+// 니나·스킬 효과는 플레이어와 같은 ChloeCore(3_z_rangedy_chloe.js). 여기서는 「언제 쓰나」만 정함
+// 판단 근거: 네브짱 「클로에 랭킹 1위 랭크 꿀팁 강의」(docs/er_notes_playables.md 10장)
+//   · 평타 원딜: 기본은 평타 + 니나가 같은 대상을 침(Q는 니나 주변에 적이 있을 때)
+//   · Q → E2 → Q: 니나–클로에–적 일렬이면 E2(적중 시 Q 초기화) → Q 한 번 더
+//   · W1(회전) → 다가오면 W2(던지기 → 니나 내려찍기 에어본) · 도주 = E1 후 걷기(쫓아오는 적에게 E2)
+//   · R 생명 공유: 위기(체력 낮음)·니나가 죽기 직전 — 광역 피해를 둘 다 맞으면 손해라 몰려 있을 땐 아낌 · 근접 상대가 붙으면 마름쇠
+Kits.chloe = {
+  init(ai) {
+    const K = ai.kitCfg;
+    ai.ch = { K, color: ai.motif.color, S: NullStats,
+      L: k => ai.L(k), hit: (u, amt, k, o) => ai.hitP(u, amt * ai.diff.dmgMul, Object.assign({ name: (K[k] && K[k].name) || k }, o)),
+      foes: () => Game.units.filter(u => u.team !== ai.team && u.team !== 2 && !u.dead && u.kind !== 'ward' && !(u.untargetable > 0)),
+      level: () => ai.level || 1, pen: () => ai.pen || 0,
+      cdStart: k => { ai.cds[k] = ai.pick(K[k].cd, k); }, cdMul: (k, m) => { ai.cds[k] *= m; }, cdSet: (k, v) => { ai.cds[k] = v; },
+      noAA: t => { ai.noAA = Math.max(ai.noAA, t); }, target: () => this.target(ai) };
+    ChloeCore.attach(ai);
+  },
+  // 니나가 칠 대상: 지금 싸우는 상대(보이고 가까우면)
+  target(ai) { const f = ai.foe; return f && !f.dead && !(f.untargetable > 0) && Vision.visible(ai, f) && V.dist(ai.pos, f.pos) < 8 ? f : null; },
+  onAAHit(ai, u) { ChloeCore.onAAHit(ai, u); },
+  update(ai, dt) { ChloeCore.update(ai, dt); },
+  think(ai, p, d) {
+    const K = ai.kitCfg, n = ai.nina, up = ChloeCore.up(ai), hard = ai.diffKey === 'hard', hpR = ai.hp / ai.maxHp;
+    // W2: 회전 중 상대가 사거리 안 → 예측 지점에 던지기 (자수 + 니나 내려찍기까지의 시간만큼 앞을 봄)
+    if (ai.spin) {
+      if (Game.time - ai.spin.t0 >= 0.35 && d <= K.W.range + 0.5) { const lead = K.W.throwTime + (up ? K.W.slamDelay * 0.6 : 0); ChloeCore.w2(ai, ai.predict(p, lead)); }
+      return false;
+    }
+    // E2: 니나가 클로에에게 날아오는 길에 상대가 있으면 → 적중 시 Q 초기화
+    if (ChloeCore.e2Ready(ai)) {
+      const E = K.E, dist = Math.min(E.ninaDist, V.dist(n.pos, ai.pos)), end = V.add(n.pos, V.mul(V.norm(V.sub(ai.pos, n.pos)), dist));
+      if (Geo.segDist(p.pos, n.pos, end) <= p.r + E.ninaWidth / 2 + 0.15 || Game.time > ai.eRe.until - 0.3) { ChloeCore.e2(ai); return false; }
+    }
+    // Q: 니나 주변에 상대 (클로에 행동은 막지 않음)
+    if (up && ai.cds.Q <= 0 && V.dist(n.pos, p.pos) <= K.Q.radius + p.r - 0.15) { ChloeCore.q(ai); return false; }
+    // R 생명 공유: 위기이거나 니나가 곧 죽을 때 (근거리 교전 중)
+    if (up && ai.cds.R <= 0 && d < 6.5 && (hpR < 0.45 || n.hp / n.maxHp < 0.3 || (hard && p.hp / p.maxHp < 0.45 && d < 5))) { ChloeCore.r(ai); return false; }
+    // W1 회전: 상대가 던지기 사거리 안
+    if (ai.cds.W <= 0 && d < K.W.range - 0.3) { ChloeCore.w1(ai); return false; }
+    // D 마름쇠: 근접 상대가 다가오면 앞길에 / 아니면 가끔 발밑에
+    if (ai.cds.D <= 0 && d < K.D.range + 0.5 && (TeamAI.isMelee(p) ? d < 4.5 : rnd() < 0.35)) {
+      const D = K.D, at = ai.predict(p, D.windup + 0.4);
+      ai.startCast(D.windup, () => ChloeCore.d(ai, at), { kind: 'circle', pos: at, r: D.r });
+      return true;
+    }
+    // E1 진입: 상대 체력이 낮고 평타 사거리 조금 밖이면 붙어서 마무리 (니나가 뒤에 있으면 E2가 따라옴)
+    if (ai.cds.E <= 0 && !ai.eRe && up && hpR > 0.5 && p.hp / p.maxHp < 0.35 && d > ai.aaRange() && d < ai.aaRange() + K.E.dist - 0.5) {
+      this.dashE(ai, V.norm(V.sub(p.pos, ai.pos))); return true;
+    }
+    return false;
+  },
+  dashE(ai, dir) {
+    const E = ai.kitCfg.E, from = V.copy(ai.pos); ai.dashTo(dir, E.dist, E.time, true, E.name);
+    ChloeCore.e1Hits(ai, from, ai.act && ai.act.to ? ai.act.to : from); ai.eRe = { t0: Game.time, until: Game.time + E.window }; Sfx.play('blink');
+  },
+  // 위급: E1로 빠지기 (쫓아오면 E2로 니나가 날아와 경로의 적을 침)
+  escape(ai, p, dir) {
+    if (ai.cds.E <= 0 && !ai.eRe) { this.dashE(ai, dir); return true; }
+    if (ChloeCore.e2Ready(ai)) { ChloeCore.e2(ai); return false; }
+    return false;
+  },
+  draw(ai, ctx) { if (Vision.visible(Game.player, ai) || ai.team === myTeam()) ChloeCore.draw(ai, ctx); },
+};
+
 // ============================== 씬 구성 도우미 ==============================
 const Scene = {
   // 플레이어 실험체: 캐시(기본) / 다니엘 / 원거리 4명(아야·리오·나딘·카티야) — 콤보 트레이너는 캐시 전용
@@ -4931,7 +5322,7 @@ Modes.duel = {
   name: '1:1 결투',
   start(o) {
     this.diff = o.diff || 'normal'; this.need = o.rounds === 1 ? 1 : 2;
-    const keys = Object.keys(CONFIG.rangedMotifs);
+    const keys = Object.keys(CONFIG.rangedMotifs).filter(k => !CONFIG.rangedMotifs[k].playerOnly);
     this.motifKey = o.motif && CONFIG.rangedMotifs[o.motif] ? o.motif : keys[Math.floor(rnd() * keys.length)];   // 기본: 무작위
     this.motif = CONFIG.rangedMotifs[this.motifKey];
     const eb = o.enemyBuild && o.enemyBuild !== 'same' ? o.enemyBuild : Game.buildId;   // 상대 레벨: 캐시와 같게 / 직접 선택
@@ -5029,7 +5420,7 @@ Modes.team = {
   name: 'AI 팀 대전',
   start(o) {
     this.diff = o.diff || 'normal'; this.size = 3; this.need = o.rounds === 1 ? 1 : 2;
-    const keys = Object.keys(CONFIG.rangedMotifs);
+    const keys = Object.keys(CONFIG.rangedMotifs).filter(k => !CONFIG.rangedMotifs[k].playerOnly);
     // 팀 구성: 지정한 칸은 그대로, 비운 칸은 무작위(같은 팀 안에서는 겹치지 않게)
     const fill = (want, n) => { const out = [], pool = keys.slice(); for (let i = 0; i < n; i++) { let k = want && want[i] && CONFIG.rangedMotifs[want[i]] ? want[i] : null; if (!k) { const free = pool.filter(x => !out.includes(x)); k = free[Math.floor(rnd() * free.length)] || keys[0]; } out.push(k); } return out; };
     this.allyKeys = fill(o.allies, this.size - 1); this.enemyKeys = fill(o.enemies, this.size);
@@ -5472,7 +5863,8 @@ const Cmd = {
   rest() { this.send({ t: 'rest' }); },
   camera(pt) { this.send({ t: 'cam', x: pt.x, y: pt.y }); },
   drone(pt) { this.send({ t: 'drone', x: pt.x, y: pt.y }); },
-  cursor(pt) { this.send({ t: 'cur', x: pt.x, y: pt.y }); },   // 커서 위치가 결과에 영향을 줄 때만(다니엘 걸작 탈출 방향)
+  cursor(pt) { this.send({ t: 'cur', x: pt.x, y: pt.y }); },
+  pet(pt, t) { this.send({ t: 'pet', x: pt.x, y: pt.y, id: t ? this.rel(t) : null }); },   // 클로에: 니나 조종(Alt + 우클릭)   // 커서 위치가 결과에 영향을 줄 때만(다니엘 걸작 탈출 방향)
   apply(u, c) {
     const pt = c.x !== undefined ? { x: c.x, y: c.y } : null;
     if (pt) u.cursor = pt;   // 마지막으로 가리킨 지점
@@ -5486,16 +5878,17 @@ const Cmd = {
       case 'cam': VisionItems.camera(u, pt); break;
       case 'drone': VisionItems.drone(u, pt); break;
       case 'cur': break;
+      case 'pet': if (u.petCmd) u.petCmd(pt, this.unit(c.id)); break;
     }
   },
   // 명령 형식 검사 (리플레이 파일 읽기)
-  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
+  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur', 'pet'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
   valid(c) {
     if (!c || !this.CMD_T.includes(c.t)) return false;
     if (c.x !== undefined && !(Number.isFinite(c.x) && Number.isFinite(c.y) && Math.abs(c.x) < 1e4 && Math.abs(c.y) < 1e4)) return false;
     if (c.t === 'sk' && !this.SKILL_K.includes(c.s)) return false;
     if (c.t === 'atk' && !Number.isInteger(c.id)) return false;
-    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur'].includes(c.t) && c.x === undefined) return false;
+    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur', 'pet'].includes(c.t) && c.x === undefined) return false;
     return true;
   },
   // ---------- 재생 ----------
@@ -5838,6 +6231,7 @@ const Input = {
       this.lock(cv);
       const p = Game.player;
       const w = this.world, mb = this.moveBtn();
+      if (p.petCmd && ((e.button === 2 && e.altKey) || e.button === 1)) { block(e); this.aiming = null; this.amove = false; Cmd.pet(w, Game.pickEnemyAt(w, 0.35, p)); return; }   // 클로에: 니나 조종
       if (e.button === 0 && (this.aiming || this.amove)) {   // 스킬 조준·공격 이동 확정은 항상 좌클릭
         if (this.aiming) { Cmd.skill(this.aiming, w); this.aiming = null; } else { Cmd.amove(w); this.amove = false; }
       } else if (e.button === mb) {   // 이동/공격 (누르고 있으면 계속 따라감)
@@ -5852,6 +6246,7 @@ const Input = {
     window.addEventListener('keyup', e => this.onKeyUp(e));
   },
   onKey(e) {
+    if (e.key === 'Alt' && Game.state === 'play') e.preventDefault();   // Alt(니나 조종)를 눌러도 브라우저 메뉴로 포커스가 가지 않게
     if (UI.waitKey) {
       e.preventDefault();
       if (e.key === 'Escape') { UI.waitKey = null; UI.showSettings(UI.settingsBack); return; }
@@ -5893,6 +6288,7 @@ const Input = {
     this.aiming = act; this.amove = false;
   },
   onKeyUp(e) {
+    if (e.key === 'Alt' && Game.state === 'play') e.preventDefault();
     if (e.key === ' ') this.spaceHeld = false;
     if (!this.holdKey || Game.state !== 'play' || Game.paused || !Game.player) { this.holdKey = null; return; }
     const act = Object.keys(Settings.keys).find(a => Settings.keys[a] === e.key.toLowerCase());
@@ -6784,6 +7180,129 @@ const DESIGNS = {
       {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0.045, 0, 0], "set": {"y": 0.24}}, "s": [0.006, 0.016, 0.02], "c": "buckle", "w": ["LowerLeg%"]},
       {"t": "torus", "at": [0, 0.955, 0.05], "R": 0.118, "r": 0.012, "zs": 0.84, "c": "strap", "w": ["Hips", "Abdomen"]}
     ]
+  },
+  "chloe": {
+    "rig": "cathy",
+    "colors": {"skin": "#ecc9b1", "hair": "#b9ab9c", "hairShade": "#9b8f82", "eye": "#6b6876", "lash": "#3d3434", "lip": "#c07c72", "blush": "#f1ada4", "white": "#ffffff", "knit": "#ebe2d3", "knitShade": "#d3c8b6", "sleeve": "#f3f0ea", "cuff": "#d9d3c9", "glove": "#1d1c20", "belt": "#232226", "chain": "#a3a9b1", "pouch": "#3a3436", "skirt": "#97683f", "skirtDark": "#7a5233", "skirtHem": "#ede4d5", "tights": "#5e4130", "boot": "#1b1a1e", "sole": "#2b2a2f", "lace": "#c9c4bb", "ribbon": "#7a4a30"},
+    "skirt": {"top": 0.95, "span": 0.7, "max": 0.82},
+    "parts": [
+      {"t": "sphere", "rel": "Head", "at": [0, 0.093, 0.01], "s": [0.114, 0.126, 0.12], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.042, 0.088, 0.123], "s": [0.017, 0.022, 0.008], "seg": [6, 5], "c": "eye", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0.048, 0.096, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [-0.036, 0.096, 0.13], "s": [0.005, 0.006, 0.003], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.045, 0.111, 0.125], "s": [0.03, 0.005, 0.005], "rot": [0, 0, 0.16], "c": "lash", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.045, 0.133, 0.121], "s": [0.028, 0.005, 0.005], "rot": [0, 0, 0.08], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.068, 0.058, 0.112], "s": [0.017, 0.008, 0.005], "seg": [6, 3], "c": "blush", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.063, 0.13], "s": [0.009, 0.013, 0.01], "seg": [5, 4], "c": "skin", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "at": [0, 0.033, 0.123], "s": [0.024, 0.005, 0.004], "c": "lip", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.115, -0.005], "s": [0.134, 0.134, 0.132], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.093, -0.004], "s": [0.137, 0.134, 0.133], "seg": [16, 8], "ang": [1.08, 0.84, 0, 0.82], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.168, 0.09], "s": [0.124, 0.044, 0.06], "seg": [14, 6], "c": "hair", "w": ["Head"]},
+      {"t": "tube", "rel": "Head", "a": [0, 0.235, 0], "b": [0.02, 0.29, 0.035], "r": [0.012, 0.003], "seg": 5, "c": "hair", "w": ["Head"]},
+      {"t": "tube", "rel": "Head", "sym": true, "a": [0.11, 0.14, 0.055], "b": [0.116, -0.2, 0.07], "r": [0.03, 0.014], "seg": 7, "rings": 4, "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "lathe", "rel": "Head", "prof": [[0.13, 0.12], [0.137, 0], [0.126, -0.12], [0.138, -0.3], [0.15, -0.5], [0.158, -0.66], [0.15, -0.76]], "cz": -0.05, "zs": 0.9, "n": 16, "p": [0.6, 0.8], "c": "hair", "w": ["Head", "Neck", "Chest", "Torso", "Abdomen"]},
+      {"t": "lathe", "rel": "Head", "prof": [[0.15, -0.75], [0.132, -0.83]], "cz": -0.05, "zs": 0.9, "n": 16, "p": [0.64, 0.72], "c": "hairShade", "w": ["Abdomen", "Hips"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.0997, 0, -0.0629], "s": [0.023571428571428573, 0.029464285714285717, 0.023571428571428573], "seg": [8, 6], "rot": [0, 0, -0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.1031, -0.04, -0.0686], "s": [0.022714285714285715, 0.028392857142857143, 0.022714285714285715], "seg": [8, 6], "rot": [0, 0, 0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.1066, -0.08, -0.0743], "s": [0.021857142857142856, 0.02732142857142857, 0.021857142857142856], "seg": [8, 6], "rot": [0, 0, -0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.11, -0.12, -0.08], "s": [0.020999999999999998, 0.026249999999999996, 0.020999999999999998], "seg": [8, 6], "rot": [0, 0, 0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.1134, -0.16, -0.0857], "s": [0.020142857142857143, 0.02517857142857143, 0.020142857142857143], "seg": [8, 6], "rot": [0, 0, -0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.1169, -0.2, -0.0914], "s": [0.019285714285714285, 0.024107142857142855, 0.019285714285714285], "seg": [8, 6], "rot": [0, 0, 0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "sphere", "rel": "Head", "sym": false, "at": [0.1203, -0.24, -0.0971], "s": [0.018428571428571426, 0.023035714285714284, 0.018428571428571426], "seg": [8, 6], "rot": [0, 0, -0.35], "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "box", "rel": "Head", "at": [0.124, -0.28, -0.1], "s": [0.04, 0.02, 0.012], "rot": [0, 0, 0.3], "c": "ribbon", "w": ["Chest"]},
+      {"t": "tube", "a": [0, 1.36, 0.045], "b": [0, 1.46, 0.045], "r": [0.043, 0.04], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"]},
+      {"t": "tube", "a": [0, 1.34, 0.045], "b": [0, 1.445, 0.045], "r": [0.056, 0.052], "seg": 12, "rings": 3, "c": "knit", "w": ["Neck", "Chest"]},
+      {"t": "lathe", "prof": [[0.11, 0.98], [0.106, 1.04], [0.112, 1.13], [0.126, 1.22], [0.122, 1.29], [0.096, 1.33], [0.056, 1.36]], "cz": 0.05, "zs": 0.82, "n": 16, "c": "knit", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"]},
+      {"t": "box", "at": [0.03, 1.17, 0.152], "s": [0.006, 0.2, 0.004], "c": "knitShade", "w": ["Chest", "Torso"]},
+      {"t": "box", "at": [-0.03, 1.17, 0.152], "s": [0.006, 0.2, 0.004], "c": "knitShade", "w": ["Chest", "Torso"]},
+      {"t": "sphere", "sym": true, "at": {"b": "UpperArm%"}, "s": [0.058, 0.058, 0.058], "seg": [8, 6], "c": "skin", "w": ["UpperArm%", "Shoulder%", "Chest"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.052, 0.047], "seg": 9, "rings": 4, "c": "skin", "w": ["UpperArm%", "LowerArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperArm%", "o": [0.11, 0, 0]}, "b": {"b": "LowerArm%"}, "r": [0.054, 0.064], "seg": 10, "rings": 3, "c": "sleeve", "w": ["UpperArm%", "LowerArm%"]},
+      {"t": "torus", "sym": true, "at": {"b": "UpperArm%", "o": [0.11, 0, 0]}, "R": 0.054, "r": 0.008, "zs": 1, "rot": [0, 0, 1.5708], "c": "cuff", "w": ["UpperArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "sleeve", "w": ["LowerArm%", "UpperArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "Wrist%", "o": [-0.03, 0, 0]}, "r": [0.068, 0.072], "seg": 10, "rings": 3, "c": "sleeve", "w": ["LowerArm%", "Wrist%"]},
+      {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.035, 0, 0]}, "b": {"b": "Wrist%", "o": [0, 0, 0]}, "r": [0.04, 0.036], "seg": 9, "c": "glove", "w": ["Wrist%", "LowerArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.03, 0, 0]}, "b": {"b": "Wrist%", "o": [0, 0, 0]}, "r": [0.034, 0.033], "seg": 8, "c": "glove", "w": ["Wrist%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.045, -0.003, 0.004]}, "s": [0.045, 0.022, 0.036], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.02, 0, 0.03]}, "s": [0.018, 0.014, 0.02], "seg": [6, 4], "c": "glove", "w": ["Wrist%"]},
+      {"t": "lathe", "prof": [[0.118, 0.965], [0.121, 1], [0.116, 1.05], [0.11, 1.07]], "cz": 0.05, "zs": 0.84, "n": 16, "c": "belt", "w": ["Hips", "Abdomen"]},
+      {"t": "torus", "at": [0.1, 0.94, 0.12], "R": 0.014, "r": 0.0035, "zs": 1, "rot": [1.5708, 0, 0], "c": "chain", "w": ["Hips"]},
+      {"t": "torus", "at": [0.08800000000000001, 0.9119999999999999, 0.11599999999999999], "R": 0.014, "r": 0.0035, "zs": 1, "rot": [1.5708, 0, 0.6], "c": "chain", "w": ["Hips"]},
+      {"t": "torus", "at": [0.07600000000000001, 0.8839999999999999, 0.11199999999999999], "R": 0.014, "r": 0.0035, "zs": 1, "rot": [1.5708, 0, 0], "c": "chain", "w": ["Hips"]},
+      {"t": "torus", "at": [0.064, 0.856, 0.108], "R": 0.014, "r": 0.0035, "zs": 1, "rot": [1.5708, 0, 0.6], "c": "chain", "w": ["Hips"]},
+      {"t": "box", "at": [0.12, 0.9, 0.09], "s": [0.035, 0.05, 0.03], "rot": [0, 0.5, 0], "c": "pouch", "w": ["Hips"]},
+      {"t": "box", "at": [0.1, 0.86, 0.11], "s": [0.03, 0.045, 0.028], "rot": [0, 0.35, 0.1], "c": "pouch", "w": ["Hips"]},
+      {"t": "lathe", "prof": [[0.113, 1.05], [0.12, 0.98], [0.135, 0.9], [0.16, 0.74], [0.185, 0.55], [0.205, 0.36], [0.22, 0.19]], "cz": 0.05, "zs": 0.86, "n": 28, "c": "skirt", "w": ["Hips", "Abdomen"], "skirt": true},
+      {"t": "box", "at": [0.1456, 0.6, 0.141], "s": [0.012, 0.8, 0.006], "rot": [0, 0.942, 0], "c": "skirtDark", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [0.1456, 0.6, -0.041], "s": [0.012, 0.8, 0.006], "rot": [0, 2.199, 0], "c": "skirtDark", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [-0.0556, 0.6, -0.0972], "s": [0.012, 0.8, 0.006], "rot": [0, 3.456, 0], "c": "skirtDark", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [-0.18, 0.6, 0.05], "s": [0.012, 0.8, 0.006], "rot": [0, 4.712, 0], "c": "skirtDark", "w": ["Hips"], "skirt": true},
+      {"t": "lathe", "prof": [[0.2205, 0.195], [0.222, 0.17]], "cz": 0.05, "zs": 0.86, "n": 28, "c": "skirtHem", "w": ["Hips"], "skirt": true},
+      {"t": "lathe", "prof": [[0.105, 0.86], [0.112, 0.92], [0.108, 0.97]], "cz": 0.05, "zs": 0.85, "n": 14, "c": "tights", "w": ["Hips", "UpperLegL", "UpperLegR"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%", "set": {"y": 0.66}}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "tights", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%", "set": {"y": 0.665}}, "b": {"b": "LowerLeg%"}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "tights", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.042, 0.042, 0.042], "seg": [8, 6], "c": "tights", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.1}}, "r": [0.04, 0.033], "seg": 9, "rings": 5, "c": "tights", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.11}}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.01], "set": {"y": 0.05}}, "r": [0.027, 0.027], "seg": 8, "c": "tights", "w": ["LowerLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.22}}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.035}}, "r": [0.048, 0.043], "seg": 10, "rings": 3, "c": "boot", "w": ["LowerLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.04, "z": 0.098}}, "s": [0.045, 0.04, 0.105], "seg": [10, 6], "c": "boot", "w": ["Foot%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.012, "z": 0.098}}, "s": [0.047, 0.014, 0.108], "seg": [10, 4], "c": "sole", "w": ["Foot%"]},
+      {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0, 0, 0.04], "set": {"y": 0.19}}, "s": [0.05, 0.005, 0.006], "c": "lace", "w": ["LowerLeg%"]},
+      {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0, 0, 0.04], "set": {"y": 0.15}}, "s": [0.05, 0.005, 0.006], "c": "lace", "w": ["LowerLeg%"]},
+      {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0, 0, 0.04], "set": {"y": 0.11}}, "s": [0.05, 0.005, 0.006], "c": "lace", "w": ["LowerLeg%"]},
+      {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0, 0, 0.04], "set": {"y": 0.07}}, "s": [0.05, 0.005, 0.006], "c": "lace", "w": ["LowerLeg%"]}
+    ]
+  },
+  "nina": {
+    "rig": "cathy",
+    "scale": 0.64,
+    "colors": {"skin": "#f6e4da", "hair": "#cdc1b4", "hairShade": "#ada194", "eye": "#7c7286", "lash": "#4b4048", "lip": "#d08a86", "blush": "#f4b6b0", "white": "#ffffff", "dress": "#f7f5f1", "dressShade": "#e2ddd5", "frill": "#ffffff", "ribbon": "#ffffff", "joint": "#5b5f68", "blade": "#2b2d33", "edge": "#c9cfd6", "key": "#c9a24a"},
+    "skirt": {"top": 0.9, "span": 0.42, "max": 0.7},
+    "parts": [
+      {"t": "sphere", "rel": "Head", "at": [0, 0.1097, 0.0118], "s": [0.1345, 0.1487, 0.1416], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.0496, 0.1038, 0.1451], "s": [0.0201, 0.026, 0.0094], "seg": [6, 5], "c": "eye", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0.0566, 0.1133, 0.1534], "s": [0.0059, 0.0071, 0.0035], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [-0.0425, 0.1133, 0.1534], "s": [0.0059, 0.0071, 0.0035], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.0531, 0.131, 0.1475], "s": [0.0354, 0.0059, 0.0059], "rot": [0, 0, 0.16], "c": "lash", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.0531, 0.1569, 0.1428], "s": [0.033, 0.0059, 0.0059], "rot": [0, 0, 0.08], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.0802, 0.0684, 0.1322], "s": [0.0201, 0.0094, 0.0059], "seg": [6, 3], "c": "blush", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.0743, 0.1534], "s": [0.0106, 0.0153, 0.0118], "seg": [5, 4], "c": "skin", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "at": [0, 0.0389, 0.1451], "s": [0.0283, 0.0059, 0.0047], "c": "lip", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.1357, -0.0059], "s": [0.1581, 0.1581, 0.1558], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.1097, -0.0047], "s": [0.1617, 0.1581, 0.1569], "seg": [16, 8], "ang": [1.08, 0.84, 0, 0.82], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.1982, 0.1062], "s": [0.1463, 0.0519, 0.0708], "seg": [14, 6], "c": "hair", "w": ["Head"]},
+      {"t": "tube", "rel": "Head", "a": [0.1298, 0.1888, -0.059], "b": [0.2006, -0.4248, -0.0944], "r": [0.059, 0.0212], "seg": 8, "rings": 5, "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "tube", "rel": "Head", "a": [-0.1298, 0.1888, -0.059], "b": [-0.2006, -0.4248, -0.0944], "r": [0.059, 0.0212], "seg": 8, "rings": 5, "c": "hair", "w": ["Head", "Neck", "Chest"]},
+      {"t": "box", "rel": "Head", "at": [0.1357, 0.2124, -0.0531], "s": [0.0826, 0.059, 0.0236], "rot": [0, 0, 0.35], "c": "ribbon", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "at": [-0.1357, 0.2124, -0.0531], "s": [0.0826, 0.059, 0.0236], "rot": [0, 0, -0.35], "c": "ribbon", "w": ["Head"]},
+      {"t": "tube", "a": [0, 1.36, 0.045], "b": [0, 1.46, 0.045], "r": [0.043, 0.04], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"]},
+      {"t": "lathe", "prof": [[0.11, 0.9], [0.112, 0.97], [0.1, 1.04], [0.108, 1.13], [0.12, 1.22], [0.118, 1.3], [0.08, 1.355], [0.05, 1.37]], "cz": 0.05, "zs": 0.82, "n": 16, "c": "dress", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"]},
+      {"t": "torus", "at": [0, 1.345, 0.045], "R": 0.07, "r": 0.016, "zs": 0.86, "c": "frill", "w": ["Neck", "Chest"]},
+      {"t": "lathe", "prof": [[0.104, 1], [0.13, 0.92], [0.17, 0.8], [0.205, 0.68], [0.22, 0.6]], "cz": 0.05, "zs": 0.88, "n": 24, "c": "dress", "w": ["Hips", "Abdomen"], "skirt": true},
+      {"t": "lathe", "prof": [[0.222, 0.61], [0.235, 0.57], [0.232, 0.55]], "cz": 0.05, "zs": 0.88, "n": 24, "c": "frill", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [0.1712, 0.76, 0.0989], "s": [0.01, 0.3, 0.006], "rot": [0, 1.257, 0], "c": "dressShade", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [0.1058, 0.76, -0.0781], "s": [0.01, 0.3, 0.006], "rot": [0, 2.513, 0], "c": "dressShade", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [-0.1058, 0.76, -0.0781], "s": [0.01, 0.3, 0.006], "rot": [0, 3.77, 0], "c": "dressShade", "w": ["Hips"], "skirt": true},
+      {"t": "box", "at": [-0.1712, 0.76, 0.0989], "s": [0.01, 0.3, 0.006], "rot": [0, 5.027, 0], "c": "dressShade", "w": ["Hips"], "skirt": true},
+      {"t": "torus", "at": [0, 0.99, 0.05], "R": 0.108, "r": 0.014, "zs": 0.84, "c": "ribbon", "w": ["Hips", "Abdomen"]},
+      {"t": "sphere", "at": [0, 1, -0.07], "s": [0.06, 0.035, 0.02], "seg": [8, 5], "c": "ribbon", "w": ["Abdomen"]},
+      {"t": "box", "at": [0, 1.15, -0.085], "s": [0.02, 0.05, 0.03], "c": "key", "w": ["Chest"]},
+      {"t": "box", "at": [0, 1.15, -0.105], "s": [0.07, 0.022, 0.008], "c": "key", "w": ["Chest"]},
+      {"t": "sphere", "sym": true, "at": {"b": "UpperArm%", "o": [0.02, 0, 0]}, "s": [0.075, 0.07, 0.07], "seg": [8, 6], "c": "frill", "w": ["UpperArm%", "Shoulder%", "Chest"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.052, 0.047], "seg": 9, "rings": 4, "c": "skin", "w": ["UpperArm%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.047, 0.047, 0.047], "seg": [8, 6], "c": "skin", "w": ["LowerArm%", "UpperArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "LowerArm%", "o": [0.07, 0, 0.006]}, "r": [0.047, 0.046], "seg": 9, "c": "skin", "w": ["LowerArm%", "Wrist%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerArm%", "o": [0.08, 0, 0.008]}, "b": {"b": "Wrist%", "o": [-0.02, 0, 0]}, "r": [0.034, 0.029], "seg": 8, "rings": 3, "c": "skin", "w": ["LowerArm%", "Wrist%"]},
+      {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.03, 0, 0]}, "b": {"b": "Wrist%", "o": [0, 0, 0]}, "r": [0.034, 0.033], "seg": 8, "c": "skin", "w": ["Wrist%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.045, -0.003, 0.004]}, "s": [0.045, 0.022, 0.036], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.02, 0, 0.03]}, "s": [0.018, 0.014, 0.02], "seg": [6, 4], "c": "skin", "w": ["Wrist%"]},
+      {"t": "lathe", "prof": [[0.105, 0.86], [0.112, 0.92], [0.108, 0.97]], "cz": 0.05, "zs": 0.85, "n": 14, "c": "joint", "w": ["Hips", "UpperLegL", "UpperLegR"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%", "set": {"y": 0.66}}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "joint", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%", "set": {"y": 0.665}}, "b": {"b": "LowerLeg%"}, "r": [0.051, 0.041], "seg": 9, "rings": 5, "c": "joint", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.05, 0.05, 0.05], "seg": [8, 6], "c": "joint", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, 0.02], "set": {"y": 0.015}}, "r": [0.046, 0.004], "seg": 6, "rings": 5, "c": "blade", "w": ["LowerLeg%"]},
+      {"t": "box", "sym": true, "at": {"b": "LowerLeg%", "o": [0, 0, 0.04], "set": {"y": 0.27}}, "s": [0.006, 0.42, 0.012], "rot": [-0.06, 0, 0], "c": "edge", "w": ["LowerLeg%"]}
+    ]
   }
 };
 
@@ -6806,6 +7325,8 @@ const Models = {
     rio:    { file: 'ranged', tint: true },
     katja:  { file: 'ranged', tint: true },
     nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
+    chloe:  { file: 'ranged', tint: true },
+    nina:   { file: 'cathy', h: 0.64, colors: { Red: '#f2f0ec', Brown: '#cdc1b4', LimeGreen: '#f7f5f1', Gold: '#2b2d33' } },   // 클로에의 인형 니나(아이 크기)
   },
   TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
   ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
@@ -6827,7 +7348,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
@@ -6867,6 +7388,7 @@ const Models = {
     return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
   },
   keyFor(u) {
+    if (u.kind === 'doll') return 'nina';   // 클로에의 인형
     if (u.kind === 'player') return u.ranged ? (this.LOOKS[u.charKey] ? u.charKey : null) : u.charKey === 'daniel' ? 'daniel' : 'cathy';
     if (u.motifKey && this.LOOKS[u.motifKey]) return u.motifKey;
     return null;   // 허수아비·야생동물·카메라·회피 모드 적은 기존 모형
@@ -6884,7 +7406,7 @@ const Models = {
     }
     if (!S) return null;
     const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
-    obj.scale.setScalar(S.scale); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X)
+    obj.scale.setScalar(S.scale * ((S.design && S.design.scale) || look.h || 1)); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X) · 니나는 작게
     obj.traverse(o => {
       if (!o.isMesh) return;
       o.userData.sharedGeo = true;   // 원본과 공유 — 유닛 삭제 시 지오메트리는 버리지 않음
@@ -6972,6 +7494,10 @@ const Models = {
       add('WristR', new T3.BoxGeometry(0.035, 0.07, 0.025), grip, 0, -G, -0.01);
       add('WristR', new T3.BoxGeometry(0.04, 0.36, 0.05), wood, 0, -G - 0.12, 0.035);
       add('WristR', new T3.TorusGeometry(0.2, 0.013, 4, 12, Math.PI * 0.8), grip, 0, -G - 0.18, 0.035, Math.PI / 2, 0, Math.PI * 1.1);   // 활대(가로)
+    } else if (w === '암기') {   // 표창: 십자 날 + 가운데 고리
+      const st = M('#c9cfd6', { metalness: 0.7, roughness: 0.3 });
+      for (const a of [0, Math.PI / 2]) add('WristR', new T3.BoxGeometry(0.012, 0.2, 0.05), st, 0, -G - 0.06, 0.03, a, 0, 0);
+      add('WristR', new T3.TorusGeometry(0.03, 0.008, 4, 10), M('#c9a24a'), 0, -G - 0.06, 0.03, 0, Math.PI / 2, 0);
     } else if (w === '활') {
       add('WristR', new T3.TorusGeometry(0.42, 0.016, 4, 16, Math.PI * 0.75), wood, 0, -G + 0.3, 0, 0, Math.PI / 2, -Math.PI * 0.875);   // 세로 활대
     }
@@ -7164,7 +7690,7 @@ const Models = {
       // 타격 후 이동하면 회수 동작을 끊고 바로 달리기(무빙)
       if (this.meleeAA(rig, u) && !(moving && u.aa.phase === 'none' && (rig.recov = 0, true))) { rig.wasAtk = false; this.step(rig, dt); return; }
     }
-    const attacking = (!rig.melee && u.aa && u.aa.phase === 'windup') || (u.act && u.act.type === 'cast') || (!rig.melee && u.act && u.act.type === 'aa') || (u.cast && u.cast.phase !== 'recovery');
+    const attacking = (u.kind === 'doll' && !!u.swing) || (!rig.melee && u.aa && u.aa.phase === 'windup') || (u.act && u.act.type === 'cast') || (!rig.melee && u.act && u.act.type === 'aa') || (u.cast && u.cast.phase !== 'recovery');
     if (attacking && !rig.wasAtk && rig.oneShot <= 0) { const n = rig.ranged ? 'shoot' : 'slash'; this.play(rig, n, 0.08, rig.ranged ? 1.4 : 1.7); rig.oneShot = rig.ranged ? 0.45 : 0.4; }
     else if (u.flash > 0.1 && !rig.wasHit && rig.oneShot <= 0 && !moving) { this.play(rig, 'hit', 0.08, 1.5); rig.oneShot = 0.3; }
     else if (rig.oneShot <= 0) {
@@ -7591,7 +8117,7 @@ const Render3D = {
   pxPerMeter(p) { const a = this.toScreen(p), b = this.toScreen({ x: p.x + 1, y: p.y }); return Math.max(4, Math.hypot(b.x - a.x, b.y - a.y)); },
   overhead(u) { const head = this.toScreen(u.pos, this.unitHeight(u) + 0.25), foot = this.toScreen(u.pos); return { x: head.x, top: head.y - 10, bottom: foot.y + 14 }; },
   inputCanvas() { return Render.cv; },
-  unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : 1.75; },
+  unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : u.kind === 'doll' ? 1.15 : 1.75; },
   // ---------- 재질 ----------
   mat(key, make) { return this.mats[key] || (this.mats[key] = make()); },
   // ---------- 카툰 렌더링 (셀 셰이딩 3단 + 외곽선) ----------
@@ -8327,7 +8853,7 @@ const UI = {
     } else if (id === 'team') {
       const o = this.quickOpts('team'), n = 3;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
-      const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
+      const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
@@ -8350,7 +8876,7 @@ const UI = {
     } else if (id === 'duel') {
       const dd = Settings.duelDiff || 'normal', dm = Settings.duelMotif || null;
       const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${dd === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');
-      const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
+      const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
       const mb = ms.map(([k, l, c]) => `<button class="btn ${(dm || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
       const cur = CONFIG.rangedMotifs[dm];
       this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 원거리 딜러 4명 + 근거리 암살자 다니엘 모티브 AI (실제 스킬 수치, 랭크 영상 HUD 실측 능력치).</div>
@@ -8444,7 +8970,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>
@@ -8498,6 +9024,10 @@ const UI = {
       · <b>나딘</b>: Q 황소의 눈(<kbd>Q</kbd> = 충전 시작, 다시 <kbd>Q</kbd> = 발사, 7→14m) · W 다람쥐 덫(두 번 던져 연결) · E 원숭이 와이어(설치 → <kbd>E</kbd> 다시 = 이동, 11m 넘게 멀어지면 끊김) · R 늑대 맹습(평타 3번마다 늑대, 첫 평타부터) · D 강노(부채꼴 + 폭발 표식) · P 야성 중첩만큼 Q·R 피해 증가<br>
       · <b>카티야</b>: Q 조준 사격(멀리 갈수록 강함) · W 목표물 포착(23m 시야 다트) · E 접근 금지(전방 사격 후 <b>커서 반대쪽</b>으로 도약) · R 정밀 조준(0.8초 스캔 → 사다리꼴 안 최대 3명) · D 저격(제자리 10초 모드, <kbd>D</kbd>를 누를 때마다 커서 방향 발사, 3발째 데드아이, 움직이면 해제) · P Q·E 후 다음 평타 추가 피해<br>
       · 수치는 12.5 라이브 기준(공식 패치노트·닥지지) — docs/er_notes_playables.md. ⚠ 출처 없는 시간·폭은 추정</div>
+      <h3>클로에 + 인형 니나</h3><div class="sub">
+      · <b>니나 조종</b>: <b>Alt + 우클릭</b>(또는 <b>휠 클릭</b>) — 적 = 그 적 공격 · 클로에 = 옆에 붙어 따라오기(공격 안 함) · 바닥 = 그 지점으로 이동(도착 전엔 클로에 명령 무시). 기본은 클로에가 평타하는 대상을 같이 공격, 10m 넘게 떨어지면 클로에 옆으로 순간이동.<br>
+      · <b>Q</b> 니나 주변 베기(클로에 행동을 막지 않음) · <b>W</b> 회전(Q·E만 가능) → <b>W</b> 다시 = 커서 지점에 던지기 → 니나 내려찍기 에어본 → 튕겨 나온 자수를 주우면 이속 · <b>E</b> 돌진 → 1초 뒤 <b>E</b> 다시 = 니나가 클로에에게 날아옴(적중 시 Q 초기화) · <b>R</b> 생명 공유 5초(피해 분담 70%/60%, 둘 다 체력이 다 떨어져야 사망) · <b>D</b> 마름쇠.<br>
+      · 니나가 쓰러지면 Q·R 불가, E 재사용 불가, W 에어본 없음. 부활할 때 클로에 현재 체력 20%를 씁니다. 콤보: <b>Q → E2 → Q</b>(니나–클로에–적 일렬).</div>
       <h3>핵심 메커니즘</h3><div class="sub">
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>
       · <b>선딜 캔슬</b>: 스킬 선딜 중 이동 입력을 하면 스킬이 끊깁니다(실수로 기록).<br>

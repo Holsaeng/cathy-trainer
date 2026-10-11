@@ -18,6 +18,8 @@ const Models = {
     rio:    { file: 'ranged', tint: true },
     katja:  { file: 'ranged', tint: true },
     nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
+    chloe:  { file: 'ranged', tint: true },
+    nina:   { file: 'cathy', h: 0.64, colors: { Red: '#f2f0ec', Brown: '#cdc1b4', LimeGreen: '#f7f5f1', Gold: '#2b2d33' } },   // 클로에의 인형 니나(아이 크기)
   },
   TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
   ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
@@ -39,7 +41,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
@@ -79,6 +81,7 @@ const Models = {
     return { scene: g.scene, scale: this.HEIGHT / Math.max(0.01, h * 1.04), clips };
   },
   keyFor(u) {
+    if (u.kind === 'doll') return 'nina';   // 클로에의 인형
     if (u.kind === 'player') return u.ranged ? (this.LOOKS[u.charKey] ? u.charKey : null) : u.charKey === 'daniel' ? 'daniel' : 'cathy';
     if (u.motifKey && this.LOOKS[u.motifKey]) return u.motifKey;
     return null;   // 허수아비·야생동물·카메라·회피 모드 적은 기존 모형
@@ -96,7 +99,7 @@ const Models = {
     }
     if (!S) return null;
     const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
-    obj.scale.setScalar(S.scale); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X)
+    obj.scale.setScalar(S.scale * ((S.design && S.design.scale) || look.h || 1)); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X) · 니나는 작게
     obj.traverse(o => {
       if (!o.isMesh) return;
       o.userData.sharedGeo = true;   // 원본과 공유 — 유닛 삭제 시 지오메트리는 버리지 않음
@@ -184,6 +187,10 @@ const Models = {
       add('WristR', new T3.BoxGeometry(0.035, 0.07, 0.025), grip, 0, -G, -0.01);
       add('WristR', new T3.BoxGeometry(0.04, 0.36, 0.05), wood, 0, -G - 0.12, 0.035);
       add('WristR', new T3.TorusGeometry(0.2, 0.013, 4, 12, Math.PI * 0.8), grip, 0, -G - 0.18, 0.035, Math.PI / 2, 0, Math.PI * 1.1);   // 활대(가로)
+    } else if (w === '암기') {   // 표창: 십자 날 + 가운데 고리
+      const st = M('#c9cfd6', { metalness: 0.7, roughness: 0.3 });
+      for (const a of [0, Math.PI / 2]) add('WristR', new T3.BoxGeometry(0.012, 0.2, 0.05), st, 0, -G - 0.06, 0.03, a, 0, 0);
+      add('WristR', new T3.TorusGeometry(0.03, 0.008, 4, 10), M('#c9a24a'), 0, -G - 0.06, 0.03, 0, Math.PI / 2, 0);
     } else if (w === '활') {
       add('WristR', new T3.TorusGeometry(0.42, 0.016, 4, 16, Math.PI * 0.75), wood, 0, -G + 0.3, 0, 0, Math.PI / 2, -Math.PI * 0.875);   // 세로 활대
     }
@@ -376,7 +383,7 @@ const Models = {
       // 타격 후 이동하면 회수 동작을 끊고 바로 달리기(무빙)
       if (this.meleeAA(rig, u) && !(moving && u.aa.phase === 'none' && (rig.recov = 0, true))) { rig.wasAtk = false; this.step(rig, dt); return; }
     }
-    const attacking = (!rig.melee && u.aa && u.aa.phase === 'windup') || (u.act && u.act.type === 'cast') || (!rig.melee && u.act && u.act.type === 'aa') || (u.cast && u.cast.phase !== 'recovery');
+    const attacking = (u.kind === 'doll' && !!u.swing) || (!rig.melee && u.aa && u.aa.phase === 'windup') || (u.act && u.act.type === 'cast') || (!rig.melee && u.act && u.act.type === 'aa') || (u.cast && u.cast.phase !== 'recovery');
     if (attacking && !rig.wasAtk && rig.oneShot <= 0) { const n = rig.ranged ? 'shoot' : 'slash'; this.play(rig, n, 0.08, rig.ranged ? 1.4 : 1.7); rig.oneShot = rig.ranged ? 0.45 : 0.4; }
     else if (u.flash > 0.1 && !rig.wasHit && rig.oneShot <= 0 && !moving) { this.play(rig, 'hit', 0.08, 1.5); rig.oneShot = 0.3; }
     else if (rig.oneShot <= 0) {

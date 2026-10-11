@@ -218,7 +218,7 @@ const UI = {
     } else if (id === 'team') {
       const o = this.quickOpts('team'), n = 3;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
-      const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
+      const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
@@ -241,7 +241,7 @@ const UI = {
     } else if (id === 'duel') {
       const dd = Settings.duelDiff || 'normal', dm = Settings.duelMotif || null;
       const db = Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => `<button class="btn ${dd === k ? 'sel' : ''}" data-a="diff" data-v="${k}">${d.label}</button>`).join('');
-      const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
+      const ms = [['random', '🎲 랜덤', '#e6e9ef']].concat(Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => [k, `${m.name} (${m.weapon})`, m.color]));
       const mb = ms.map(([k, l, c]) => `<button class="btn ${(dm || 'random') === k ? 'sel' : ''}" data-a="motif" data-v="${k}" style="color:${c}">${l}</button>`).join('');
       const cur = CONFIG.rangedMotifs[dm];
       this.show(`<h2>⚔ 1:1 결투</h2><div class="sub">3판 2선승. 상대는 이터널 리턴 원거리 딜러 4명 + 근거리 암살자 다니엘 모티브 AI (실제 스킬 수치, 랭크 영상 HUD 실측 능력치).</div>
@@ -335,7 +335,7 @@ const UI = {
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>
@@ -389,6 +389,10 @@ const UI = {
       · <b>나딘</b>: Q 황소의 눈(<kbd>Q</kbd> = 충전 시작, 다시 <kbd>Q</kbd> = 발사, 7→14m) · W 다람쥐 덫(두 번 던져 연결) · E 원숭이 와이어(설치 → <kbd>E</kbd> 다시 = 이동, 11m 넘게 멀어지면 끊김) · R 늑대 맹습(평타 3번마다 늑대, 첫 평타부터) · D 강노(부채꼴 + 폭발 표식) · P 야성 중첩만큼 Q·R 피해 증가<br>
       · <b>카티야</b>: Q 조준 사격(멀리 갈수록 강함) · W 목표물 포착(23m 시야 다트) · E 접근 금지(전방 사격 후 <b>커서 반대쪽</b>으로 도약) · R 정밀 조준(0.8초 스캔 → 사다리꼴 안 최대 3명) · D 저격(제자리 10초 모드, <kbd>D</kbd>를 누를 때마다 커서 방향 발사, 3발째 데드아이, 움직이면 해제) · P Q·E 후 다음 평타 추가 피해<br>
       · 수치는 12.5 라이브 기준(공식 패치노트·닥지지) — docs/er_notes_playables.md. ⚠ 출처 없는 시간·폭은 추정</div>
+      <h3>클로에 + 인형 니나</h3><div class="sub">
+      · <b>니나 조종</b>: <b>Alt + 우클릭</b>(또는 <b>휠 클릭</b>) — 적 = 그 적 공격 · 클로에 = 옆에 붙어 따라오기(공격 안 함) · 바닥 = 그 지점으로 이동(도착 전엔 클로에 명령 무시). 기본은 클로에가 평타하는 대상을 같이 공격, 10m 넘게 떨어지면 클로에 옆으로 순간이동.<br>
+      · <b>Q</b> 니나 주변 베기(클로에 행동을 막지 않음) · <b>W</b> 회전(Q·E만 가능) → <b>W</b> 다시 = 커서 지점에 던지기 → 니나 내려찍기 에어본 → 튕겨 나온 자수를 주우면 이속 · <b>E</b> 돌진 → 1초 뒤 <b>E</b> 다시 = 니나가 클로에에게 날아옴(적중 시 Q 초기화) · <b>R</b> 생명 공유 5초(피해 분담 70%/60%, 둘 다 체력이 다 떨어져야 사망) · <b>D</b> 마름쇠.<br>
+      · 니나가 쓰러지면 Q·R 불가, E 재사용 불가, W 에어본 없음. 부활할 때 클로에 현재 체력 20%를 씁니다. 콤보: <b>Q → E2 → Q</b>(니나–클로에–적 일렬).</div>
       <h3>핵심 메커니즘</h3><div class="sub">
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>
       · <b>선딜 캔슬</b>: 스킬 선딜 중 이동 입력을 하면 스킬이 끊깁니다(실수로 기록).<br>

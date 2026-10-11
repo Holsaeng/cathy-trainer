@@ -182,7 +182,7 @@ const Vision = {
   // 플레이어 기준으로 이 지점이 보이는가 (투사체·잔상·흔들림 표시용)
   pointVisible(pt) { const p = Game.player; return !Vision.fogOn || !p || (!p.dead && Vision.inSight(p, pt)) || Vision.zoneSees(p.team, pt) || Vision.allies(p).some(a => Vision.inSight(a, pt)); },
   // 같은 팀의 살아 있는 다른 실험체 (팀 시야 공유)
-  allies(u) { return u ? Game.units.filter(a => a !== u && a.team === u.team && !a.dead && isHero(a)) : []; },
+  allies(u) { return u ? Game.units.filter(a => a !== u && a.team === u.team && !a.dead && (isHero(a) || a.kind === 'doll')) : []; },   // 니나(클로에 인형)도 시야 공유
   // 시야 다각형: 반경까지 광선을 쏴서 시야 차단 벽에 막히는 지점들
   polyFrom(pos, R) {
     const N = CONFIG.vision.rays, pts = [];
@@ -520,6 +520,8 @@ const Combat = {
     if (o.min) dmg = Math.max(o.min, dmg);
     dmg *= ItemFx.damageMul(src, tgt, type);   // 장비: 집행자
     dmg = Math.max(0, dmg);
+    const LK = !o.linked && tgt.linkFn && tgt.linkFn();   // 클로에 생명 공유: 맞은 쪽 70% + 연결된 쪽 60%
+    if (LK && dmg > 0) { this.damage(src, LK.u, dmg * LK.share, { type: 'true', source: o.source, linked: true, noShake: true, tick: true }); dmg *= LK.hit; }
     let absorbed = 0;
     if (tgt.shield > 0) { absorbed = Math.min(tgt.shield, dmg); tgt.shield -= absorbed; }
     tgt.hp -= dmg - absorbed;
@@ -535,6 +537,7 @@ const Combat = {
     Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
     if (tgt.onDamaged && !tgt.dead) tgt.onDamaged(dmg, src);   // 피격 반응(예: 아야 패시브 보호막)
+    if (tgt.hp <= 0 && tgt.linkFn) { const L2 = tgt.linkFn(); if (L2 && !L2.u.dead && L2.u.hp > 1.01) tgt.hp = 1; }   // 생명 공유: 둘 다 체력이 다 떨어져야 사망
     if (tgt.hp <= 0) this.kill(src, tgt);
     if (src) ItemFx.onDamage(src, tgt);   // 장비: 치유 감소
     // 흡혈: 생명력 흡수(평타) · 모든 피해 흡혈(광역은 50%, 야생동물 60% — 노트 2.1)

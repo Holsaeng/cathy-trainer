@@ -448,6 +448,84 @@
   });
 
   // ---------------- 리플레이 (저장·다시 보기) ----------------
+  G('클로에', () => {
+    const K = CONFIG.rangedKits.chloe, e0 = errs.length;
+    const setup = (o = { count: 1, hp: 99999, def: 50, infinite: true }) => { reset(); Settings.character = 'chloe'; Game.start('dummy', Object.assign({ seed: 9 }, o)); Game.freeze = 0; run(10); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 11, y: 9 }; p.cmdStop(); return { p, n: p.nina, d }; };
+    T.ok('수치: 나무위키 + 12.2(니나 방어 20/35/50 · Q 80%) · 마름쇠 60/90/120', K.P.bonusDef[0] === 20 && K.Q.ninaAd === 0.8 && K.W.range === 6.5 && K.E.ninaDist === 7 && K.R.hitShare === 0.7 && K.R.linkShare === 0.6 && K.D.base[2] === 120 && K.D.decay === 0.45);
+    let { p, n, d } = setup();
+    T.ok('플레이어블: 원거리 + 니나(실험체 아님)', p instanceof RangedPlayer && p.charKey === 'chloe' && n instanceof Doll && n.kind === 'doll' && !isHero(n) && Game.units.includes(n) && p.aaCfg().range === 4.8);
+    const k = Math.min(1, K.P.ratio + K.P.ratioLv * p.build.level);
+    T.ok('니나 능력치 = 클로에 × (60% + 레벨당 2%) + 추가', Math.abs(n.ad - (p.ad * k + K.P.bonusAd[p.L('P') - 1])) < 1e-6 && n.maxHp === Math.round(p.maxHp * k + K.P.bonusHp[p.L('P') - 1]), fmt(n.ad, 1));
+    T.ok('메뉴: 실험체 선택에 클로에', !!PKits.chloe && Object.keys(PKits).includes('chloe'));
+    // 평타 → 니나가 같은 대상 공격 · 2타 표식 → 니나 찌르기
+    p.cmdAttack(d); run(360); p.cmdStop();
+    T.ok('니나가 클로에의 평타 대상을 같이 공격', (Stats.dmgBy.Nina || 0) > 0 && V.dist(n.pos, d.pos) < K.P.range + d.r + n.r + 0.7, Math.round(Stats.dmgBy.Nina || 0));
+    T.ok('2타 표식 → 니나 찌르기(P)', (Stats.dmgBy.P || 0) > 0, Math.round(Stats.dmgBy.P || 0));
+    // Q: 니나 주변 2.5m 베기 + 둔화 (0.2초 뒤)
+    ({ p, n, d } = setup()); n.pos = { x: 10, y: 9 }; n.mode = 'idle'; let h = d.hp; p.cmdSkill('Q', p.pos); run(12); const qEarly = h - d.hp; run(20);
+    T.ok('Q: 0.2초 뒤 니나 주변 피해 + 둔화', qEarly === 0 && h - d.hp > 0 && d.slows.length > 0 && p.skills.Q.cd > 0, Math.round(h - d.hp));
+    // W: 회전(고정 피해·평타 불가) → 던지기 → 니나 내려찍기 에어본 / 안 던지면 쿨 50%
+    ({ p, n, d } = setup()); d.pos = { x: 10, y: 9 }; h = d.hp; p.cmdSkill('W', p.pos); run(130);
+    T.ok('W1: 주변 고정 피해 + 둔화 + 평타 불가', !!p.spin && h - d.hp > 0 && d.slows.length > 0 && p.noAA > 0, Math.round(h - d.hp));
+    d.pos = { x: 13, y: 9 }; p.cmdSkill('W', d.pos); run(Math.round((K.W.throwTime + K.W.slamDelay) * 120) + 4);
+    T.ok('W2: 던지기 → 니나 순간이동 내려찍기 에어본', !p.spin && d.airborneT > Game.time - 0.6 && V.dist(n.pos, d.pos) < 1 && p.skills.W.cd > 5);
+    ({ p, n, d } = setup()); p.cmdSkill('W', p.pos); run(Math.round(K.W.spin * 120) + 5);
+    T.ok('W: 3초 안에 안 던지면 쿨 50% 반환', !p.spin && Math.abs(p.skills.W.cd - lv(K.W.cd, p.L('W')) * 0.5) < 0.1, fmt(p.skills.W.cd, 2));
+    // E: 4m 돌진(벽 통과) → 1초 뒤 재입력 = 니나 돌진, 적중 시 Q 초기화
+    ({ p, n, d } = setup()); n.pos = { x: 14, y: 9 }; n.mode = 'idle'; p.skills.Q.cd = 3; p.cmdSkill('E', { x: 4, y: 9 }); run(40);
+    T.ok('E1: 4m 돌진 + 재사용 대기', Math.abs(V.dist(p.pos, { x: 8, y: 9 }) - K.E.dist) < 0.05 && !!p.eRe && !p.recastReady('E'));
+    n.pos = { x: 14, y: 9 }; run(100); T.ok('E: 1초 뒤 재사용 가능', p.recastReady('E') && p.instantKey('E'));
+    h = d.hp; p.cmdSkill('E', p.pos); run(60);
+    T.ok('E2: 니나 돌진 적중 → Q 쿨 초기화 + E 쿨 시작', h - d.hp > 0 && p.skills.Q.cd === 0 && p.skills.E.cd > 5 && !p.eRe);
+    // R: 피해 분담 70%/60% · 둘 다 체력이 다 떨어져야 사망 · W·E 남은 쿨 30% 감소 · 연결선 피해
+    ({ p, n, d } = setup()); p.skills.W.cd = 10; p.skills.E.cd = 10; p.cmdSkill('R', p.pos); run(2);
+    T.ok('R: 링크 + W·E 남은 쿨 30% 감소 + 니나 공속·이속', !!p.link && Math.abs(p.skills.W.cd - 7) < 0.05 && Math.abs(p.skills.E.cd - 7) < 0.05 && n.asB > 0 && n.msB > 0);
+    let ph = p.hp, nh = n.hp; Combat.damage(d, p, 1000, { type: 'true' });
+    T.ok('R: 맞은 쪽 70% + 니나 60%', Math.abs(ph - p.hp - 700) < 1 && Math.abs(nh - n.hp - 600) < 1, Math.round(ph - p.hp) + '/' + Math.round(nh - n.hp));
+    p.hp = 50; Combat.damage(d, p, 300, { type: 'true' }); T.ok('R: 니나가 살아 있으면 클로에는 죽지 않음(체력 1)', !p.dead && p.hp === 1);
+    n.hp = 5; Combat.damage(d, n, 300, { type: 'true' }); run(2); T.ok('R: 둘 다 체력이 다 떨어지면 함께 사망', p.dead && n.dead);
+    ({ p, n, d } = setup()); d.pos = { x: 10, y: 10.5 }; n.pos = { x: 12, y: 12 }; n.mode = 'idle'; p.cmdSkill('R', p.pos); h = d.hp; for (let i = 0; i < 120; i++) { n.pos = { x: 12, y: 12 }; step(); }
+    T.ok('R: 연결선에 닿은 적에게 고정 피해', h - d.hp > 0, Math.round(h - d.hp));
+    // D 마름쇠: 밟을 때마다 피해 45% 감소 + 둔화
+    ({ p, n, d } = setup()); n.mode = 'self'; d.pos = { x: 11, y: 9 }; p.cmdSkill('D', d.pos); run(32); const z = p.traps[0];
+    T.ok('D: 0.25초 뒤 마름쇠', !!z && z.life > 5.5);
+    const dmgD = []; let last = d.hp; for (let i = 0; i < 3; i++) { run(Math.round(K.D.rehit * 120) + 1); dmgD.push(last - d.hp); last = d.hp; }
+    T.ok('D: 밟을 때마다 피해 감소 + 둔화', dmgD[0] > 0 && dmgD[1] < dmgD[0] * 0.6 && dmgD[2] < dmgD[1] && d.slows.length > 0, dmgD.map(v => Math.round(v)).join('/'));
+    // 니나 소멸 → Q·R 불가 → 부활(클로에 현재 체력 20%, 니나 80%)
+    ({ p, n, d } = setup()); n.hp = 1; Combat.damage(d, n, 999, { type: 'true' }); run(2);
+    p.skills.Q.cd = 0; p.skills.R.cd = 0; p.cmdSkill('Q', p.pos); p.cmdSkill('R', p.pos); run(2);
+    T.ok('니나 소멸 중 Q·R 사용 불가', n.dead && p.skills.Q.cd === 0 && p.skills.R.cd === 0 && !p.link);
+    const chp = p.hp; run(Math.round(lv(K.P.respawn, p.L('P')) * 120) + 5);
+    T.ok('니나 부활: 클로에 현재 체력 20% 소모 · 니나 80%', !n.dead && Math.abs((chp - p.hp) / chp - 0.2) < 0.01 && Math.abs(n.hp / n.maxHp - 0.8) < 0.01);
+    // 조종: 명령(리플레이 기록) · Alt + 우클릭 · 휠 클릭 · 10m 순간이동
+    ({ p, n, d } = setup()); Cmd.pet({ x: 12, y: 12 }, null); run(2); T.ok('조종: 지점 이동(명령 기록)', n.mode === 'point' && Cmd.log.some(c => c.t === 'pet'));
+    run(240); T.ok('조종: 도착하면 대기', n.mode === 'idle' && V.dist(n.pos, n.goal) < 0.3, fmt(V.dist(n.pos, n.goal), 2));
+    Cmd.pet(p.pos, null); run(2); T.ok('조종: 클로에 지정 = 따라오기(공격 안 함)', n.mode === 'self');
+    const cv = Renderer.inputCanvas(), sp = Renderer.toScreen(d.pos); cv.dispatchEvent(new MouseEvent('mousemove', { clientX: sp.x, clientY: sp.y, bubbles: true }));
+    cv.dispatchEvent(new MouseEvent('mousedown', { button: 2, buttons: 2, altKey: true, clientX: sp.x, clientY: sp.y, bubbles: true, cancelable: true })); window.dispatchEvent(new MouseEvent('mouseup', { button: 2, bubbles: true }));
+    run(2); T.ok('입력: Alt + 우클릭 → 니나가 그 적 공격 (클로에는 안 움직임)', n.mode === 'enemy' && n.order === d && !p.attackTarget && !p.moveTarget);
+    cv.dispatchEvent(new MouseEvent('mousedown', { button: 1, buttons: 4, clientX: sp.x + 60, clientY: sp.y, bubbles: true, cancelable: true })); run(2);
+    T.ok('입력: 휠 클릭 → 니나 지점 이동', n.mode === 'point');
+    n.pos = { x: 25, y: 9 }; run(2); T.ok('10m 넘게 떨어지면 클로에 옆으로', V.dist(n.pos, p.pos) < 2.5);
+    // 결정성: 니나 명령 포함 같은 기록 = 같은 결과
+    ({ p, n, d } = setup()); const bot = t => { if (t === 10) Cmd.attack(d); if (t === 200) Cmd.pet({ x: 12, y: 7 }, null); if (t === 400) Cmd.skill('Q', p.pos); if (t === 500) Cmd.skill('W', p.pos); if (t === 700) Cmd.skill('W', d.pos); if (t === 900) Cmd.skill('R', p.pos); };
+    for (let t = 0; t < 1200; t++) { bot(t); step(); } const rec = Cmd.record(), hA = Cmd.hash();
+    Game.start('dummy', { count: 1, hp: 99999, def: 50, infinite: true, seed: 9 }); Cmd.replay(rec.log); Game.freeze = 0; run(10); Game.player.pos = { x: 8, y: 9 }; Game.units.find(u => u.kind === 'dummy').pos = { x: 11, y: 9 }; Game.player.cmdStop(); run(1200);
+    T.ok('결정성: 니나 명령 포함 같은 기록 = 같은 결과', rec.log.some(c => c.t === 'pet') && Cmd.valid(rec.log.find(c => c.t === 'pet')) && Cmd.hash() === hA, hA + ' / ' + Cmd.hash());
+    // AI 클로에: 결투·팀 대전이 오류 없이 끝남 · 니나를 데리고 스킬 사용
+    for (const [ch, map] of [['cathy', 'basic'], ['katja', 'arena']]) {
+      reset(); Settings.character = ch; let g = 0; Game.start('duel', { diff: 'normal', motif: 'chloe', enemyBuild: 'mid', map, rounds: 1, seed: 3 }); const ai = Modes.duel.enemy; let used = 0;
+      const botP = () => { const q = Game.player; if (q.dead || Game.freeze > 0) return; if (q.attackTarget !== ai && !ai.dead) q.cmdAttack(ai); };
+      while (Game.state === 'play' && g < 120 * 90) { step(); g++; if (g % 12 === 0) botP(); if (ai.spin || ai.link || ai.traps.length) used++; }
+      T.ok(`AI 클로에(${ch} 상대·${map}): 결투가 끝나고 니나·스킬 사용`, Game.state === 'result' && ai.nina instanceof Doll && used > 0 && errs.length === e0, `${(g / 120).toFixed(1)}s`);
+    }
+    reset(); Settings.character = 'chloe'; let g2 = 0; Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 2, allies: ['chloe', 'rio'], enemies: ['chloe', 'katja', 'daniel'] });
+    while (Game.state === 'play' && g2 < 120 * 120) { step(); g2++; if (g2 % 12 === 0) { const q = Game.player; if (!q.dead && Game.freeze <= 0) { const t = Game.nearestEnemy(q.pos, 9, q); if (t && q.attackTarget !== t) q.cmdAttack(t); else if (!t && !q.moveTarget) q.cmdMove({ x: 18, y: 18 }); } } }
+    T.ok('팀 대전: 클로에 2명(나·상대 AI) 오류 없이 끝남 · 니나는 생존 판정에서 빠짐', Game.state === 'result' && errs.length === e0 && Game.mode.team(0).length === 3, `${(g2 / 120).toFixed(0)}s`);
+    Renderer.frame(); T.ok('그리기 오류 없음', errs.length === e0, errs.slice(e0).join('/'));
+    Settings.character = 'cathy';
+  });
+
   G('리플레이', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.tactical = 'blink'; Settings.fog = true;
     const opts = { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'day', seed: 4321 };
@@ -722,7 +800,7 @@
         }
         Settings.models3dBy = {}; Models.ver++; Renderer.frame(); Settings.character = 'cathy'; }
       // 원거리 실험체 4명: 직접 만든 모델·Blender 모델(공용 설계, 여성 뼈대) — 같은 뼈대·동작, 무기는 실험체 무기
-      for (const k of ['aya', 'rio', 'nadine', 'katja']) {
+      for (const k of ['aya', 'rio', 'nadine', 'katja', 'chloe']) {
         reset(); Settings.character = k; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
         T.ok(k + ' 직접 만든 모델 생성', !!Models.src[k + 'Proc'] && Models.src[k + 'Proc'].design === DESIGNS[k] && DESIGNS[k].rig === 'cathy');
         for (const m of ['proc', 'blend']) {
@@ -733,6 +811,16 @@
         }
         Settings.models3dBy = {}; Models.ver++; Renderer.frame();
         T.ok(k + ' 기본 = Blender 모델(있으면)', Models.choice(k) === (Models.src[k + 'Blend'] ? 'blend' : 'cc0'));
+      }
+      // 니나(클로에 인형): 직접 만든·Blender 모델, 아이 크기로 축소, 휘두를 때 공격 동작
+      { reset(); Settings.character = 'chloe'; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2); const nn = Game.player.nina;
+        T.ok('니나 직접 만든 모델 생성', !!Models.src.ninaProc && DESIGNS.nina.scale < 1 && Models.keyFor(nn) === 'nina');
+        for (const m of ['proc', 'blend']) {
+          if (m === 'blend' && !Models.src.ninaBlend) continue;
+          Settings.models3dBy = { nina: m }; Models.ver++; Renderer.frame(); const rn = rigOf(nn);
+          T.ok('니나 ' + m + ' 모델(작게 · 동작)', !!rn && Math.abs(rn.obj.scale.x - Models.src.cathy.scale * DESIGNS.nina.scale) < 1e-6 && !!rn.actions.slash && !!rn.actions.run, rn && fmt(rn.obj.scale.x, 3));
+        }
+        Settings.models3dBy = {}; Models.ver++; Renderer.frame();
       }
       Settings.character = 'cathy';
       Settings.models3d = false; Render3D.refreshModels(); Renderer.frame(); T.ok('모델 끄기 → 인형', !rigOf(Game.player));

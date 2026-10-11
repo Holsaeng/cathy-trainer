@@ -7,7 +7,7 @@ Modes.team = {
   name: 'AI 팀 대전',
   start(o) {
     this.diff = o.diff || 'normal'; this.size = 3; this.need = o.rounds === 1 ? 1 : 2;
-    const keys = Object.keys(CONFIG.rangedMotifs);
+    const keys = Object.keys(CONFIG.rangedMotifs).filter(k => !CONFIG.rangedMotifs[k].playerOnly);
     // 팀 구성: 지정한 칸은 그대로, 비운 칸은 무작위(같은 팀 안에서는 겹치지 않게)
     const fill = (want, n) => { const out = [], pool = keys.slice(); for (let i = 0; i < n; i++) { let k = want && want[i] && CONFIG.rangedMotifs[want[i]] ? want[i] : null; if (!k) { const free = pool.filter(x => !out.includes(x)); k = free[Math.floor(rnd() * free.length)] || keys[0]; } out.push(k); } return out; };
     this.allyKeys = fill(o.allies, this.size - 1); this.enemyKeys = fill(o.enemies, this.size);

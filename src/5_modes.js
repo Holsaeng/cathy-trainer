@@ -272,7 +272,7 @@ Modes.duel = {
   name: '1:1 결투',
   start(o) {
     this.diff = o.diff || 'normal'; this.need = o.rounds === 1 ? 1 : 2;
-    const keys = Object.keys(CONFIG.rangedMotifs);
+    const keys = Object.keys(CONFIG.rangedMotifs).filter(k => !CONFIG.rangedMotifs[k].playerOnly);
     this.motifKey = o.motif && CONFIG.rangedMotifs[o.motif] ? o.motif : keys[Math.floor(rnd() * keys.length)];   // 기본: 무작위
     this.motif = CONFIG.rangedMotifs[this.motifKey];
     const eb = o.enemyBuild && o.enemyBuild !== 'same' ? o.enemyBuild : Game.buildId;   // 상대 레벨: 캐시와 같게 / 직접 선택

@@ -155,6 +155,7 @@ const Input = {
       this.lock(cv);
       const p = Game.player;
       const w = this.world, mb = this.moveBtn();
+      if (p.petCmd && ((e.button === 2 && e.altKey) || e.button === 1)) { block(e); this.aiming = null; this.amove = false; Cmd.pet(w, Game.pickEnemyAt(w, 0.35, p)); return; }   // 클로에: 니나 조종
       if (e.button === 0 && (this.aiming || this.amove)) {   // 스킬 조준·공격 이동 확정은 항상 좌클릭
         if (this.aiming) { Cmd.skill(this.aiming, w); this.aiming = null; } else { Cmd.amove(w); this.amove = false; }
       } else if (e.button === mb) {   // 이동/공격 (누르고 있으면 계속 따라감)
@@ -169,6 +170,7 @@ const Input = {
     window.addEventListener('keyup', e => this.onKeyUp(e));
   },
   onKey(e) {
+    if (e.key === 'Alt' && Game.state === 'play') e.preventDefault();   // Alt(니나 조종)를 눌러도 브라우저 메뉴로 포커스가 가지 않게
     if (UI.waitKey) {
       e.preventDefault();
       if (e.key === 'Escape') { UI.waitKey = null; UI.showSettings(UI.settingsBack); return; }
@@ -210,6 +212,7 @@ const Input = {
     this.aiming = act; this.amove = false;
   },
   onKeyUp(e) {
+    if (e.key === 'Alt' && Game.state === 'play') e.preventDefault();
     if (e.key === ' ') this.spaceHeld = false;
     if (!this.holdKey || Game.state !== 'play' || Game.paused || !Game.player) { this.holdKey = null; return; }
     const act = Object.keys(Settings.keys).find(a => Settings.keys[a] === e.key.toLowerCase());

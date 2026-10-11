@@ -52,7 +52,7 @@ const Render3D = {
   pxPerMeter(p) { const a = this.toScreen(p), b = this.toScreen({ x: p.x + 1, y: p.y }); return Math.max(4, Math.hypot(b.x - a.x, b.y - a.y)); },
   overhead(u) { const head = this.toScreen(u.pos, this.unitHeight(u) + 0.25), foot = this.toScreen(u.pos); return { x: head.x, top: head.y - 10, bottom: foot.y + 14 }; },
   inputCanvas() { return Render.cv; },
-  unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : 1.75; },
+  unitHeight(u) { return u.kind === 'animal' ? 0.8 : u.kind === 'ward' ? 0.6 : u.kind === 'dummy' ? 1.7 : u.kind === 'doll' ? 1.15 : 1.75; },
   // ---------- 재질 ----------
   mat(key, make) { return this.mats[key] || (this.mats[key] = make()); },
   // ---------- 카툰 렌더링 (셀 셰이딩 3단 + 외곽선) ----------
