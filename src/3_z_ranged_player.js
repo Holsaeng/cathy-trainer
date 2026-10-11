@@ -27,7 +27,7 @@ class RangedPlayer extends Cathy {
   skillDef(k) {
     if (k === 'F') return super.skillDef('F');
     const d = this.K[k] || {}, x = (this.kit.def && this.kit.def[k]) || {};
-    return Object.assign({ short: this.kit.label ? this.kit.label(this, k) : this.kit.short[k] }, d, { fixedCd: k === 'D' || !!x.fixedCd }, x);
+    return Object.assign({}, d, { fixedCd: k === 'D' || !!x.fixedCd }, x, { short: this.kit.label ? this.kit.label(this, k) : this.kit.short[k] });   // 이름은 마지막에 (리오 설정의 short = 단궁 수치라 덮어쓰지 않게)
   }
   baseAaCfg() { return { label: this.weapon, range: this.kit.aaRange ? this.kit.aaRange(this) : this.motif.aaRange, windupRatio: CONFIG.rangedAI.aaWindup, backRatio: 0.12, critMul: 1.75, hits: 1, hitRatio: 1 }; }
   atkSpd() { let b = 0; for (const a of this.asBuffs) b += a.p; return Math.max(0.2, (this.as + (this.kit.asFlat ? this.kit.asFlat(this) : 0)) * (1 + b)) * (this.lightWing ? 1 + CONFIG.tactical.lightwing.as : 1) * ItemFx.asMul(this); }

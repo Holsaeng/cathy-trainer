@@ -694,6 +694,20 @@
           T.ok('다니엘 ' + m + ' 다리 관절(무릎 옆 벌어짐·발목)', side < 0.04 && gap < 0.03, (side * 100).toFixed(1) + 'cm / ' + (gap * 100).toFixed(1) + 'cm');
         }
         Settings.models3dBy = {}; Models.ver++; Renderer.frame(); Settings.character = 'cathy'; }
+      // 원거리 실험체 4명: 직접 만든 모델·Blender 모델(공용 설계, 여성 뼈대) — 같은 뼈대·동작, 무기는 실험체 무기
+      for (const k of ['aya', 'rio', 'nadine', 'katja']) {
+        reset(); Settings.character = k; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
+        T.ok(k + ' 직접 만든 모델 생성', !!Models.src[k + 'Proc'] && Models.src[k + 'Proc'].design === DESIGNS[k] && DESIGNS[k].rig === 'cathy');
+        for (const m of ['proc', 'blend']) {
+          if (m === 'blend' && !Models.src[k + 'Blend']) continue;
+          Settings.models3dBy = { [k]: m }; Models.ver++; Renderer.frame(); const rr = rigOf(Game.player); let n = 0; rr && rr.obj.traverse(o => { if (o.isSkinnedMesh && o.material.name === m) n++; });
+          T.ok(k + ' ' + m + ' 모델(스키닝·사격 동작·무기)', !!rr && n >= 1 && rr.ranged && !!rr.actions.shoot && !!rr.actions.idleGun && !!rr.obj.getObjectByName('WristR').children.find(c => c.type === 'Group') && Models.weaponKind(Game.player, Models.src[k + 'Proc']) === CONFIG.rangedMotifs[k].weapon, 'meshes ' + n);
+          if (m === 'blend') T.ok(k + ' Blender 모델 축척 = 원본', Math.abs(Models.src[k + 'Blend'].scale - Models.src.cathy.scale) < 1e-9);
+        }
+        Settings.models3dBy = {}; Models.ver++; Renderer.frame();
+        T.ok(k + ' 기본 = Blender 모델(있으면)', Models.choice(k) === (Models.src[k + 'Blend'] ? 'blend' : 'cc0'));
+      }
+      Settings.character = 'cathy';
       Settings.models3d = false; Render3D.refreshModels(); Renderer.frame(); T.ok('모델 끄기 → 인형', !rigOf(Game.player));
       Settings.models3d = true; Render3D.refreshModels();
     } else T.ok('모델 ' + Models.state + ' → 인형 대체', !rigOf(Game.player) && Render3D.unitMeshes.get(Game.player.id).userData.body.children.length > 5);

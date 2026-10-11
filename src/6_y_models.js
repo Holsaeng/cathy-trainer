@@ -17,7 +17,7 @@ const Models = {
     aya:    { file: 'ranged', tint: true },
     rio:    { file: 'ranged', tint: true },
     katja:  { file: 'ranged', tint: true },
-    nadine: { file: 'male',   colors: { White: '#5b6640', Purple: '#7a5534', LightBlue: '#e0a35a', Hair: '#5a4632', Eyebrows: '#5a4632' } },   // 사냥꾼: 올리브 셔츠·갈색 후드
+    nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
   },
   TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
   ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
@@ -39,7 +39,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)

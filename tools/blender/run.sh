@@ -11,7 +11,7 @@ if [ -z "$B" ]; then
 fi
 if [ -z "$B" ]; then echo "Blender를 찾지 못했습니다. https://www.blender.org/download/ 에서 설치하거나 BLENDER=경로 로 지정하세요."; exit 1; fi
 echo "Blender: $B"
-KEYS="${*:-cathy daniel}"
+KEYS="${*:-cathy daniel aya rio nadine katja}"
 for k in $KEYS; do
   echo "== $k"
   "$B" -b -P tools/blender/make_model.py -- "$k" 2>&1 | grep -E "내보냄|미리보기|Error|Traceback|File \"" | tail -8
