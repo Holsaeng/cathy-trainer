@@ -277,7 +277,7 @@ const CONFIG = {
       Q: { name: '조준 사격', min: [40, 80, 120, 160, 200], minAd: 0.7, max: [60, 120, 180, 240, 300], maxAd: 1.05, cd: [7, 6, 5, 4, 3],
            range: 11, width: 1.2, speed: 26, windup: 0.3, asBuff: [0.2, 0.25, 0.3, 0.35, 0.4], asDur: 4 },
       E: { name: '접근 금지', base: [50, 75, 100, 125, 150], ad: 1.0, cd: [12, 11, 10, 9, 8], range: 4.5, angle: 30, windup: 0.2,
-           slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.3, msBuff: 0.4, msDur: 2 },   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
+           slow: [0.5, 0.55, 0.6, 0.65, 0.7], slowDur: 1, leap: 4, leapTime: 0.2, msBuff: 0.4, msDur: 2 },   // 도약 0.2초: 영상 실측(약 0.17~0.2초, 거리 약 4.3m)   // 사격 후 뒤로 도약(벽 넘기 가능, 시전 후 CC 무시)
       W: { name: '목표물 포착', cd: [30, 27, 24, 21, 18], range: 23, speed: 30, radius: 4.5, dur: 3 },   // 정찰 다트: 착탄 지점 반경 4.5m 시야 3초 (부쉬 체크)
       R: { name: '정밀 조준', base: [300, 450, 600], ad: 1.5, cd: [80, 70, 60], range: 23, scan: 0.8, radius: 3, speed: 40, refund: 0.35, len: 6, w0: 3, w1: 5, max: 3,
            shots: [{ base: [300, 450, 600], ad: 1.5 }, { base: [350, 500, 650], ad: 1.8 }, { base: [400, 700, 1000], ad: 1.5 }] },   // 스캔 0.8초(제자리 고정) → 사다리꼴 안 최대 3명에게 가까운 순서로 회피 불가 탄
@@ -291,12 +291,14 @@ const CONFIG = {
            stacks: 3, shortMs: [0.06, 0.07, 0.08, 0.09, 0.1], shortAs: [0.2, 0.25, 0.3, 0.35, 0.4], buffDur: 2, longRange: 0.4, longMissing: 0.3 },
       W: { name: '하나레', cd: [6, 5.75, 5.5, 5.25, 5], cdReduce: 1,
            short: { base: [50, 70, 90, 110, 130], ad: 0.8, arrows: 5, range: 7.5, width: 0.6, spread: 30, repeat: 0.2, slow: 0.25, zoneDur: 1.5, zoneR: 1.2 },   // 둔화 25% (12.5)
-           long: { base: [90, 105, 120, 135, 150], ad: 0.9, range: 10.5, width: 1.2, speed: 30, slow: 0.2, slowDur: 1, behind: { base: [45, 50, 55, 60, 65], ad: 0.45 } } },   // 화궁: 첫 대상 뒤의 적 추가 피해
-      E: { name: '비상', cd: [16, 15, 14, 13, 12], leap: 5, leapTime: 0.45,   // 쿨 16~12 (12.1)
+           long: { base: [90, 105, 120, 135, 150], ad: 0.9, range: 10.5, width: 1.2, speed: 18, slow: 0.2, slowDur: 1,   // 탄속 18: 영상 실측(약 17~19m/s)
+                 behind: { base: [45, 50, 55, 60, 65], ad: 0.45 } } },   // 화궁: 첫 대상 뒤의 적 추가 피해
+      E: { name: '비상', cd: [16, 15, 14, 13, 12], leap: 5, leapTime: 0.6,   // 도약 0.6초: 공식 스킬 영상 실측   // 쿨 16~12 (12.1)
            short: { base: [10, 20, 30, 40, 50], ad: 0.3, arrows: 3 }, long: { base: [70, 90, 110, 130, 150], ad: 0.4, aoe: [20, 40, 60, 80, 100], aoeAd: 0.35 } },
       R: { name: '연사 / 정사필중', cd: [80, 70, 60],
            short: { base: [40, 70, 100], ad: 0.4, arrows: 3, range: 8.5, width: 1.5, push: 0.6, recast: { base: [100, 150, 200], ad: 0.6, knock: 4, wallBase: [100, 125, 250], wallAd: 0.4, stun: 1.0, grace: 3 } },   // 벽꿍 기절 1.0초 (12.5) · 강한 화살: R 재입력(3초 안, 지나면 자동)
-           long: { base: [200, 340, 480], ad: 0.8, windup: 0.6, width: 1, speed: 16, boostAfter: 0.8, boost: 0.2, slow: 0.8, slowDur: 1.5 } },   // 0.8초 뒤 피해 +20%·둔화 3초, 둔화 80% ⚠(나무위키)
+           long: { base: [200, 340, 480], ad: 0.8, windup: 1.0, width: 1, speed: 16,   // 시전 1.0초: 영상 실측(활 당기기 ~1.0~1.1초), 탄속 16은 실측 약 17.7로 확인
+                 boostAfter: 0.8, boost: 0.2, slow: 0.8, slowDur: 1.5 } },   // 0.8초 뒤 피해 +20%·둔화 3초, 둔화 80% ⚠(나무위키)
       D: { name: '곡사', base: [90, 170, 250], bad: 1.0, sp: 0.4, inner: [180, 340, 500], innerBad: 1.7, innerSp: 0.55,   // 12.1 하향
            cd: [35, 30, 25], range: 28, delay: 1.5, radius: 3, innerR: 1.2, slow: 0.25, slowDur: 2, windup: 0.3 },
     },
@@ -306,7 +308,7 @@ const CONFIG = {
            asBuff: [0.4, 0.45, 0.5, 0.55, 0.6], asDur: 5 },   // 대상 지정, 1발 평타(110%) + 2발 스킬 피해, 시전 중 고정
       W: { name: '고정 사격', base: [30, 40, 50, 60, 70], ad: 0.55, sp: [0.3, 0.35, 0.4, 0.45, 0.5], cd: [10, 9, 8, 7, 6], dur: 2.2, shots: 6, maxShots: 10,
            range: 8, width: 0.4, speed: 30 },   // 한 방향 연사, 이동 가능
-      E: { name: '무빙턴', cd: [15, 14, 13, 12, 11], dist: 4, time: 0.12, qwReduce: [0.4, 0.45, 0.5, 0.55, 0.6] },   // 즉시 대시(벽 통과)
+      E: { name: '무빙턴', cd: [15, 14, 13, 12, 11], dist: 4, time: 0.3, qwReduce: [0.4, 0.45, 0.5, 0.55, 0.6] },   // 대시(벽 통과) — 시간 0.3초: 공식 스킬 영상 실측(0.3~0.43초)
       R: { name: '공포탄', base: [120, 240, 360], ad: 0.2, sp: 0.95, cd: [80, 65, 50], radius: 4.5, delay: 0.66, fear: 1.25 },
       D: { name: '무빙 리로드', ms: [0.4, 0.55, 0.7], dur: 1, asBuff: 0.7, asShots: 2, cd: [35, 30, 25] },   // 1초 이속(평타 불가) → 다음 평타 2회 공속 +70%
     },
