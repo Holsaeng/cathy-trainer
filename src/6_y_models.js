@@ -23,7 +23,7 @@ const Models = {
   ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
   // 근접 평타 구간(초) — 클립에서 손목 위치를 측정: s = 휘두르기 시작, hit = 손이 가장 앞으로 나온 순간(타격), end = 자세 회수
   MELEE: { slash: { s: 0.08, hit: 0.45, end: 0.95 }, stabR: { s: 0.40, hit: 0.70, end: 1.0 }, stabL: { s: 0.44, hit: 0.72, end: 1.0 },
-           dualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, dualX: { s: 0.04, hit: 0.38, end: 0.70 } },   // dual*: 직접 만든 쌍검 동작(Motions.HITS와 같음)
+           dualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, dualX: { s: 0.04, hit: 0.38, end: 0.70 } },   // dual*: 직접 만든 쌍검 동작(Motions.CLIPS의 DualAA·DualX 타격 시점)
 
   supported() { return /^https?:$/.test(location.protocol) && !!(window.THREE && THREE.GLTFLoader && THREE.SkeletonUtils); },
   load() {

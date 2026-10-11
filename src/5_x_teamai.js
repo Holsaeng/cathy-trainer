@@ -21,8 +21,9 @@ CONFIG.teamAI = {
   chaseDist: 8.0,                   // 아군 중심에서 이보다 먼 적은 쫓지 않음
   regroup: 10, regroupBack: 4.0,    // 혼자 떨어지면 합류 · 후퇴 지점(아군 중심에서 적 반대 4m)
   edgeLimit: 12.0,                  // 원딜이 원형 투기장 중심에서 넘지 않을 반지름
-  engageScore: 3, retreatScore: 1,  // 4항목 체크리스트(체력 합·핵심 쿨·인원·위치)
+  diveScore: 2, retreatScore: 1,    // 4항목 체크리스트(체력 합·핵심 쿨·인원·위치): 팔 짧은 팀은 이 이상이면 진입 · 이 이하면 후퇴
   isolate: 5.0,                     // 적이 자기 팀 중심에서 이만큼 떨어지면 고립
+  huntDist: { ahead: 1.5, even: 4.5 },   // 적이 안 보일 때 추정 위치까지 둘 거리: 수적 우위 → 파고들어 찾음 · 동수 → 시야 닿게 좁힘 · 열세 → 1:1 기본(7m) 유지
   reachMargin: 0.5,                 // 팔 길이(팀 최대 사거리) 비교 여유 — 짧은 팀이 먼저 진입(dive), 긴 팀은 받아침(hold) · 햄찌 「상대가 팔이 긴 교전은 대치를 오래 하면 손해」
 };
 const TeamAI = {
@@ -148,6 +149,11 @@ const TeamAI = {
     if (V.dist(ai.pos, c) > T.regroup && (!p || p.dead || d > 9)) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.6), ai.r), 0.5, 'regroups');
     return false;
   },
+  // 안 보이는 적 찾기: 수적 우위면 추정 위치로 파고듦(3:1로 대치만 하다 끝나지 않게)
+  huntDist(ai) {
+    const H = CONFIG.teamAI.huntDist, us = this.heroes(ai.team).length, them = this.heroes(1 - ai.team).length;
+    return us > them ? H.ahead : us === them ? H.even : CONFIG.rangedAI.hunt.safeDist;
+  },
   // 팀 자세: 팔 길이(살아 있는 실험체의 최대 사거리)가 짧은 팀은 먼저 진입(dive), 긴 팀은 받아침(hold)
   reach(t) { return Math.max(0, ...this.heroes(t).map(u => this.isMelee(u) ? 3 : (u.aaRange ? u.aaRange() : u.aaCfg ? u.aaCfg().range : 5))); },
   stance(t) { return this.reach(t) < this.reach(1 - t) - CONFIG.teamAI.reachMargin ? 'dive' : 'hold'; },
@@ -162,7 +168,7 @@ const TeamAI = {
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
-    if (this.stance(ai.team) === 'dive' && CL.score >= 2) return true;
+    if (this.stance(ai.team) === 'dive' && CL.score >= CONFIG.teamAI.diveScore) return true;
     if (mates.some(a => now - (a.lastFight || -99) < 2 && V.dist(a.pos, p.pos) < 8)) return true;
     if (CL.us > CL.them || p.hp / p.maxHp < 0.4) return true;
     const pm = this.heroes(p.team).filter(u => u !== p), pc = this.center(pm);
@@ -182,4 +188,5 @@ Object.assign(Modes.team, {
   mayEngage(ai, p) { return TeamAI.mayEngage(ai, p); },
   spotPenalty(ai, q) { return TeamAI.spotPenalty(ai, q); },
   holdUlt(ai, p) { return TeamAI.holdUlt(ai, p); },
+  huntDist(ai) { return TeamAI.huntDist(ai); },
 });

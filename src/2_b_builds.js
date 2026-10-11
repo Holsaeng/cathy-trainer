@@ -12,7 +12,7 @@ const Builds = {
   SLOT_LABEL: { weapon: '무기', chest: '옷', head: '머리', arm: '팔/장식', leg: '다리' },
   GRADE_LABEL: { epic: '영웅', legend: '전설', mythic: '초월' },
   // 캐시 기본 능력치 [1레벨, 성장] — docs/er_notes_items.md 2.1
-  BASE: { hp: [970, 88], ad: [29, 4.3], def: [53, 3.2], ms: 3.5, asBonus: 0.09 },
+  BASE: { hp: [970, 88], ad: [29, 4.3], def: [53, 3.2], ms: 3.5, asBonus: 0.09, regen: [1.8, 0.135] },
   WEAPON_AS: { dagger: 0.58, dual: 0.43 },
   MASTERY: { dagger: { as: 0.034, sp: 0.043 }, dual: { as: 0.03, sp: 0.045 } },   // 레벨당 (12.5)
   // 단계별 숙련도 레벨 ⚠ 추정 (캐릭터 레벨은 CONFIG.builds의 level)
@@ -31,6 +31,12 @@ const Builds = {
   any(gear) { return !!gear && this.SLOTS.some(s => gear[s]); },
   // 장비 서명 (기록 키·표시용)
   sig(gear) { return this.SLOTS.map(s => gear && gear[s] || 0).join('-'); },
+  // 체력 재생(초당): 실험체 기본값(레벨 성장) × (1 + 장비 체력 재생%). 캐시 = BASE, 나머지 = CONFIG.aiGear 기본 능력치
+  //   ⚠ 표기값을 「초당」으로 봄(틱 간격 자료 없음 — docs/er_notes_systems.md)
+  regen(key, lv, pct = 0) {
+    const r = key === 'cathy' ? this.BASE.regen : CONFIG.aiGear && CONFIG.aiGear.characters[key] && CONFIG.aiGear.characters[key].base.regen;
+    return r ? (r[0] + r[1] * ((lv || 1) - 1)) * (1 + pct) : 0;
+  },
   short(gear) { return this.SLOTS.map(s => { const it = this.item(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
   // 단계 + 장비 → 캐시 빌드 (CONFIG.builds와 같은 모양 + 새 능력치)
   resolve(stage, gear, weapon) {
@@ -117,7 +123,6 @@ const Builds = {
   // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
   //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
   aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
-  aiBuilds(motif) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; return C ? C.builds : []; },
   resolveAI(motif, stage, idx) {
     const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
     const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
@@ -135,7 +140,7 @@ const Builds = {
       as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),
       ms: +((C.base.ms + S('ms')) * (1 + S('msPct') / 100)).toFixed(3),
       crit: Math.min(this.RULES.critCap, S('crit') / 100), critDmg: S('critDmg') / 100,
-      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'),
+      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'), ultCdr: S('ultCdr'), regenPct: S('regen') / 100,
       aaAmp: (M.baAmp || 0) * mLv,
       passives: [...new Set(items.flatMap(it => (it.pas || '').split(' / ').filter(Boolean)))], passiveK: this.passiveK(items),
     };

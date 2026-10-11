@@ -1,16 +1,45 @@
 
 // ============================== 크로노 스피어 (시즌 12 임시 안전지대) ==============================
 // 공식 12.0 패치노트 스케줄: 반경 30m로 5초 대기 → 20초에 걸쳐 10m → 10초간 이동 목표 표시 → 이동 → 15초에 걸쳐 5m → 40초 유지 → 5초에 걸쳐 0m
-// 활성화 후에는 차단벽을 넘을 수 없음(이동기도 벽에 부딪혀 종료). 결투에서는 끝까지 승부가 안 나면 남은 체력 비율로 판정
+// 활성화 후에는 차단벽을 넘을 수 없음(이동기도 벽에 부딪혀 종료). 활성화 순간 차단벽 밖의 실험체는 즉사
+// 금지구역 폭발 타이머: 시작 30초(20 + 6일차 밤 +10), 처치 관여 +7초(최대 30), 스피어가 소멸하면 전 지역이 금지구역 → 타이머가 많이 남은 쪽이 이김
+//   같은 순간 양 팀이 모두 폭사하면(처치 없는 결투 등) 남은 체력 비율로 판정
 const Sphere = {
   active: false,
   start() {
     const S = CONFIG.sphere, W = CONFIG.world;
     this.active = true; this.done = false; this.t = 0; this.i = 0;
     this.c = { x: W.w / 2, y: W.h / 2 }; this.r = S.phases[0].r; this.from = { c: V.copy(this.c), r: this.r };
-    this.target = null;
+    this.target = null; this.armed = false; this.tie = null;
+    const B = CONFIG.sphere.boom;
+    for (const u of Game.units) if (isHero(u)) { u.boom = Math.min(B.start, B.max) + B.night; u.boomWarn = false; u.hitBy = null; }
   },
-  stop() { this.active = false; },
+  stop() { this.active = false; for (const u of Game.units) if (isHero(u)) u.boom = null; },
+  heroes() { return Game.units.filter(u => isHero(u) && !u.dead && u.boom != null); },
+  // 지금 금지구역에 있나: 차단벽 밖, 또는 스피어 소멸 후 전 지역
+  inZone(u) { return this.done || V.dist(u.pos, this.c) > this.r + 0.05; },
+  draining(u) { return this.active && u.boom != null && !u.dead && this.inZone(u) && !u.stasis; },
+  // 처치 관여: 처치자 + 최근 피해를 준 적 실험체 → +7초(최대 30초, 이미 넘으면 그대로)
+  onKill(src, tgt) {
+    if (!isHero(tgt)) return;
+    const B = CONFIG.sphere.boom, who = new Set();
+    if (src && isHero(src)) who.add(src);
+    if (tgt.hitBy) for (const [u, t] of tgt.hitBy) if (Game.time - t <= B.assist) who.add(u);
+    for (const u of who) {
+      if (u.dead || u.boom == null || u.team === tgt.team) continue;
+      const nb = Math.max(u.boom, Math.min(B.max, u.boom + B.kill));
+      if (nb > u.boom) { FX.text(u.pos, `폭발 타이머 +${fmt(nb - u.boom, 1)}초`, '#9fe0ff', 12, { bold: true }); u.boom = nb; if (u.boom > B.warn) u.boomWarn = false; }
+    }
+  },
+  // 폭사: 빈사·보호막과 무관하게 즉사
+  explode(u, why) {
+    if (u.dead) return;
+    u.boom = 0; u.infinite = false; u.shield = 0;
+    FX.burst(u.pos, '#ff5d5d', 34, 9, 0.9, 0.14); FX.ring(u.pos, 0.4, 3, '#ffb347', 0.6);
+    FX.text(u.pos, why || '폭사', '#ff5d5d', 16, { bold: true });
+    Combat.kill(null, u);
+  },
+  tieWin() { return this.tie && this.tie[1] > this.tie[0] ? 'e' : 'p'; },
   phase() { return CONFIG.sphere.phases[this.i]; },
   // 이동 목표: 반경 10m 원이 아레나 안쪽에 오도록
   pickTarget() {
@@ -23,7 +52,13 @@ const Sphere = {
     return V.copy(this.c);
   },
   update(dt) {
-    if (!this.active || this.done) return;
+    if (!this.active) return;
+    if (!this.armed) {   // 활성화: 차단벽 밖에 있는 실험체는 즉사
+      this.armed = true;
+      for (const u of this.heroes()) if (V.dist(u.pos, this.c) > this.r) this.explode(u, '차단벽 밖 — 즉사');
+    }
+    this.tickBoom(dt);
+    if (this.done) return;
     const P = this.phase(); this.t += dt;
     const k = P.dur > 0 ? clamp(this.t / P.dur, 0, 1) : 1;
     if (P.type === 'shrink') this.r = lerp(this.from.r, P.r, k);
@@ -32,7 +67,7 @@ const Sphere = {
     if (this.t >= P.dur) {
       this.i++; this.t = 0; this.from = { c: V.copy(this.c), r: this.r };
       if (P.type === 'move') this.target = null;
-      if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; return; }
+      if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; FX.toastAll('크로노 스피어 소멸 — 전 지역 금지구역! 폭발 타이머 감소', '#ff8a8a'); return; }
       const N = this.phase(); if (N.label) FX.toastAll(`크로노 스피어: ${N.label}`, '#9fe0ff');
     }
     // 차단벽: 모든 유닛을 원 안으로 (이동기·강제 이동 포함)
@@ -47,11 +82,34 @@ const Sphere = {
       }
     }
   },
+  // 폭발 타이머: 금지구역에 있으면 감소, 0이면 폭사. 같은 순간 양 팀이 다 터지면 남은 체력 비율 기록(판정용)
+  tickBoom(dt) {
+    const B = CONFIG.sphere.boom, live = this.heroes(), gone = [];
+    for (const u of live) {
+      if (!this.draining(u)) continue;
+      u.boom = Math.max(0, u.boom - dt);
+      if (u.boom <= B.warn && !u.boomWarn) { u.boomWarn = true; if (u === Game.player) FX.toast(`폭발 ${B.warn}초 전!`, '#ff5d5d'); }
+      if (u.boom <= 0) gone.push(u);
+    }
+    if (!gone.length) return;
+    const left = t => live.filter(u => u.team === t && !gone.includes(u)).length;
+    if (!left(0) && !left(1)) { const r = t => { const a = gone.filter(u => u.team === t); return a.reduce((s, u) => s + Math.max(0, u.hp) / u.maxHp, 0) / Math.max(1, a.length); }; this.tie = { 0: r(0), 1: r(1) }; }
+    for (const u of gone) this.explode(u, '폭사');
+  },
+  // 화면 위: 스피어 단계 + 내 폭발 타이머
+  drawHud(ctx, L, oy = 0) {
+    if (!this.active) return;
+    Draw.text(ctx, this.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: this.done ? '#ff8a8a' : '#9fe0ff', stroke: true });
+    const p = Game.player; if (!p || p.boom == null || p.dead) return;
+    const dr = this.draining(p), low = p.boom <= CONFIG.sphere.boom.warn;
+    Draw.text(ctx, `폭발 타이머 ${fmt(p.boom, 1)}초${dr ? (p.stasis ? '' : ' ▼') : ''}${p.stasis && this.inZone(p) ? ' (경직 — 정지)' : ''}`, L.W / 2, 66 + oy,
+      { size: low ? 17 : 14, bold: true, align: 'center', color: low && dr && Math.floor(Game.time * 4) % 2 ? '#ffffff' : dr ? '#ff5d5d' : '#ffd27a', stroke: true });
+  },
   // AI 이동 후보 점수용: 차단벽 근처·밖은 감점
   penalty(q) { if (!this.active) return 0; const d = V.dist(q, this.c), m = this.r - 1.2; return d > m ? (d - m) * 4 : 0; },
   label() {
     if (!this.active) return '';
-    const P = this.phase(); if (!P) return '크로노 스피어 종료';
+    const P = this.phase(); if (!P || this.done) return '크로노 스피어 소멸 · 전 지역 금지구역 — 폭발 타이머가 많이 남은 쪽이 승리';
     return `크로노 스피어 · ${P.label || ''} · 반경 ${fmt(this.r, 1)}m · ${Math.ceil(P.dur - this.t)}초`;
   },
   draw(ctx) {

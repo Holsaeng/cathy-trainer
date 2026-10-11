@@ -2,8 +2,8 @@
 // ============================== 엔티티: 기본 유닛 ==============================
 let UID = 0;
 class Unit {
-  // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(온라인 대전 상대 캐릭터 등)은 버림
-  get S() { return this === Game.player ? Stats : (this.rstats || NullStats); }   // 내 캐릭터만 통계 기록
+  // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(AI 등)은 버림
+  get S() { return this === Game.player ? Stats : NullStats; }
   constructor(o) {
     this.id = ++UID; this.team = o.team ?? 1; this.name = o.name || ''; this.kind = o.kind || 'unit';
     this.pos = { x: o.x, y: o.y }; this.spawn = { x: o.x, y: o.y }; this.r = o.r || 0.5;
@@ -48,6 +48,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    if (this.regen > 0 && !this.dead && this.hp < this.maxHp) this.heal(this.regen * dt, true);   // 체력 재생(초당, 치유 감소 적용)
     ItemFx.tick(this, dt);   // 장비 고유 효과(부패 틱·파열 폭발·의념 타이머)
     Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
@@ -93,7 +94,7 @@ class Cathy extends Unit {
     this.as = b.computed ? b.as : +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 실측 빌드: 무기별 공속 보정(쌍검은 느림) / 장비 빌드: 이미 무기 기준으로 계산됨
     // 장비 능력치: 방어 관통(고정·%), 치명타 피해 증가, 흡혈, 고유 효과 수치
     this.penFlat = b.pen || 0; this.penPct = b.penPct || 0; this.critDmg = b.critDmg || 0; this.omni = b.omni || 0; this.ls = b.ls || 0;
-    this.pasK = b.passiveK || {}; this.gear = b.gear || null;
+    this.pasK = b.passiveK || {}; this.gear = b.gear || null; this.regen = Builds.regen('cathy', b.level, b.regenPct || 0);
     this.pendingHits = []; this.baseHpAtLv = 970 + 88 * (b.level - 1);   // 레벨 기본 체력(나무위키) — 추가 체력 계산용
     this.maxSt = b.stamina; this.st = b.stamina;
     this.skills = {};

@@ -151,6 +151,9 @@ const CONFIG = {
       { type: 'wait', dur: 40, r: 5, label: '반경 5m 유지' },
       { type: 'shrink', dur: 5, r: 0, label: '3차 축소 → 0m' },
     ],
+    // 금지구역 폭발 타이머 (docs/er_notes_systems.md 1.7): 시작 20초 + 6일차 밤 +10초(상한 무시) · 처치 관여 +7초(최대 30초) · 0이 되면 빈사와 무관하게 즉사
+    //  금지구역(차단벽 밖, 스피어 소멸 후엔 전 지역)에 있을 때만 줄고, 아티팩트 경직 중엔 멈춤. assist = 처치 관여로 치는 최근 피해 시간(추정)
+    boom: { start: 20, night: 10, kill: 7, max: 30, assist: 10, warn: 5 },
   },
   // 휴식(X) — 시즌 12 개편 (공식 12.0 패치노트): 단계 완료 시 최대 체력 15% / 15% / 50% 일괄 회복, 전투 중에도 가능
   //  combatDur: AI가 '안전하다'고 판단하는 데 쓰는 전투 상태 시간(추정)
@@ -336,7 +339,7 @@ const CONFIG = {
   // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"
   // · 들켰는데 E부터 쓰고 들어가면 죽는다 → 거리를 두고 서성이다 각이 보일 때만 진입  · 궁 이후 도망치는 상대를 잡도록 E는 아껴 둠
   // · 사거리가 모자라면 E 평타를 동물에 써서 순간이동으로 접근
-  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12, comboGap: 0.08 },
+  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12 },
   modes: {
     dummy: { respawn: 2 },
     dodge: { lives: 5, cdMul: 0.6, circleTele: 1.25, circleTeleMin: 0.55 },   // 보라 장판 예고시간(기존 1.05 / 최소 0.45)

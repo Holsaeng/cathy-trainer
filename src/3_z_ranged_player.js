@@ -13,7 +13,7 @@ class RangedPlayer extends Cathy {
     this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs; this.baseHpAtLv = 900 + 76 * (S0.level - 1);
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.penPct = M.pen[si]; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0;
     this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdr = 0; this.stacks = S0.stacks;
-    this.build = Object.assign({}, this.build, { level: S0.level });
+    this.build = Object.assign({}, this.build, { level: S0.level }); this.regen = Builds.regen(key, S0.level);
     const L = M.skillLv ? M.skillLv[si] : S0.skillLv; this.plv = L.P || 1;
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
     this.K = CONFIG.rangedKits[key]; this.kit = PKits[key];

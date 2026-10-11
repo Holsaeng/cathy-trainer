@@ -11,6 +11,8 @@ const AI = {
 
 // ============================== AI: 1:1 결투 상대 ==============================
 class Duelist extends Unit {
+  // 쿨 감소: 장비 쿨감 = 쿨 × 100/(100+쿨감) · R은 궁 쿨감(현자의 로브)도 더함
+  cdTick(dt) { for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + ((this.cdrAi || 0) + (k === 'R' ? this.ultCdrAi || 0 : 0)) / 100)); }
   constructor(x, y, diffKey) {
     const E = CONFIG.enemy, p = Game.player || { maxHp: 2000, build: { def: 100 }, ad: 200 };
     super({ team: 1, x, y, r: E.r, hp: Math.round(p.maxHp * E.hpMul), def: p.build.def * E.defMul, ms: E.ms, color: E.color, name: E.name, kind: 'duelist', facing: Math.PI });
@@ -21,7 +23,7 @@ class Duelist extends Unit {
   }
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감
+    this.cdTick(dt);
     this.aaCd -= dt;
     if (this.healing) {   // 재생 — 치명적 외상의 치유 감소 적용
       const h = Math.min(dt, this.healing.t); this.healing.t -= dt;
@@ -154,8 +156,9 @@ class RangedDuelist extends Duelist {
     if (G) {
       Object.assign(this, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, pen: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, pasK: G.passiveK, cdrAi: G.cdr });
       if (G.aaAmp) this.aaAmp = G.aaAmp;
-      this.gearInfo = G;
+      this.gearInfo = G; this.ultCdrAi = G.ultCdr || 0;
     }
+    this.regen = Builds.regen(motifKey, S0.level, G ? G.regenPct : 0);   // 체력 재생(초당)
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -174,7 +177,6 @@ class RangedDuelist extends Duelist {
   curAs() { let b = 0; for (const a of this.asBuffs) b += a.p; return Math.max(0.2, (this.as + (this.kit.asFlat ? this.kit.asFlat(this) : 0)) * (1 + b)); }
   addAs(p, dur, tag) { if (tag) this.asBuffs = this.asBuffs.filter(a => a.tag !== tag); this.asBuffs.push({ p, t: dur, tag }); }
   aaRange() { return this.kit.aaRange ? this.kit.aaRange(this) : this.motif.aaRange; }
-  cathyThreat(p) { return ['Q', 'E', 'R'].filter(k => p.skills[k].lv > 0 && p.skills[k].cd <= 0.8).length; }
   predict(p, t) { return V.add(p.pos, V.mul(p.vel, t * this.diff.lead)); }
   aimDir(p, windup, speed) { const d = V.dist(this.pos, p.pos), pred = this.predict(p, windup + d / speed); return V.fromAng(V.ang(V.sub(pred, this.pos)) + (rnd() - 0.5) * 2 * this.diff.aimErr); }
   // 적에게 스킬 피해 (키트 onHit 훅 → 카이츄·잿빛 사신·아야 쿨감 등)
@@ -215,7 +217,7 @@ class RangedDuelist extends Duelist {
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
     this.setFoe(this.pickFoe());
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감 = 쿨 × 100/(100+쿨감)
+    this.cdTick(dt);
     this.aaCd -= dt; if (this.noAA > 0) this.noAA -= dt;
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
@@ -403,13 +405,14 @@ class RangedDuelist extends Duelist {
   }
   huntSpot(est) {
     const H = CONFIG.rangedAI.hunt, RA = CONFIG.rangedAI, B = this.belief, base = V.ang(V.sub(this.pos, est)); let best = null, bs = -Infinity;
+    const safe = Game.mode && Game.mode.huntDist ? Game.mode.huntDist(this) : H.safeDist;   // 팀 대전: 수적 우위면 파고들어 찾음
     if (rnd() < 0.1) this.side *= -1;
     for (let i = 0; i < 16; i++) {
       const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), H.step)), this.r);
       const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
       let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
       const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
-      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
+      const sc = -Math.abs(dq - safe) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -487,10 +490,6 @@ class RangedDuelist extends Duelist {
 
 // ============================== 통계 ==============================
 const Stats = {
-  // 다른 캐릭터(온라인 대전 손님) 전용 통계 — 같은 기능, 알림은 그 캐릭터 주인에게만
-  make(owner) { const s = Object.create(Stats); s.reset(); s.remote = true; s.owner = owner || null; return s; },
-  // 전송용 데이터(함수·주인 제외)
-  data() { const o = {}; for (const k of Object.keys(this)) if (k !== 'owner' && k !== 'remote' && typeof this[k] !== 'function') o[k] = this[k]; return o; },
   reset() {
     Object.assign(this, {
       t: 0, inputs: 0, casts: {}, hits: {}, hitKeys: new Set(), dmgBy: {}, dealtTotal: 0, takenTotal: 0, timeline: [],
@@ -506,13 +505,13 @@ const Stats = {
   dealt(src, d) { this.dmgBy[src] = (this.dmgBy[src] || 0) + d; this.dealtTotal += d; const i = Math.floor(this.t); this.timeline[i] = (this.timeline[i] || 0) + d; },
   mistake(txt) {
     this.mistakes[txt] = (this.mistakes[txt] || 0) + 1;
-    if (this.remote) FX.toastFor(this.owner, '⚠ ' + txt, '#ffb347'); else FX.toast('⚠ ' + txt, '#ffb347');   // 내 실수는 이 화면에만, 손님 실수는 손님에게만
+    FX.toast('⚠ ' + txt, '#ffb347');
   },
   // 스킬샷 연속 명중 (Q/W/E)
   resolveShot(k, hit) {
     if (!['Q', 'W', 'E'].includes(k)) return;
     this.shots++;
-    if (hit) { this.shotHits++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak); if (!this.remote) Events.emit('streak', { n: this.streak }); }
+    if (hit) { this.shotHits++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak); Events.emit('streak', { n: this.streak }); }
     else this.streak = 0;
   },
   // 교전 중(적 8m 이내)인데 쿨이 돌아 있는 스킬을 안 쓴 시간

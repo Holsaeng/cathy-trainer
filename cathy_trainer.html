@@ -151,6 +151,9 @@ const CONFIG = {
       { type: 'wait', dur: 40, r: 5, label: '반경 5m 유지' },
       { type: 'shrink', dur: 5, r: 0, label: '3차 축소 → 0m' },
     ],
+    // 금지구역 폭발 타이머 (docs/er_notes_systems.md 1.7): 시작 20초 + 6일차 밤 +10초(상한 무시) · 처치 관여 +7초(최대 30초) · 0이 되면 빈사와 무관하게 즉사
+    //  금지구역(차단벽 밖, 스피어 소멸 후엔 전 지역)에 있을 때만 줄고, 아티팩트 경직 중엔 멈춤. assist = 처치 관여로 치는 최근 피해 시간(추정)
+    boom: { start: 20, night: 10, kill: 7, max: 30, assist: 10, warn: 5 },
   },
   // 휴식(X) — 시즌 12 개편 (공식 12.0 패치노트): 단계 완료 시 최대 체력 15% / 15% / 50% 일괄 회복, 전투 중에도 가능
   //  combatDur: AI가 '안전하다'고 판단하는 데 쓰는 전투 상태 시간(추정)
@@ -336,7 +339,7 @@ const CONFIG = {
   // 근거리 암살자 AI (네브짱 '장인초대석' 다니엘 랭킹 1위 강의): "정정당당하게 싸우면 안 된다 — 무조건 기습하거나 빈틈을 노린다"
   // · 들켰는데 E부터 쓰고 들어가면 죽는다 → 거리를 두고 서성이다 각이 보일 때만 진입  · 궁 이후 도망치는 상대를 잡도록 E는 아껴 둠
   // · 사거리가 모자라면 E 평타를 동물에 써서 순간이동으로 접근
-  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12, comboGap: 0.08 },
+  meleeAI: { stalk: 6.2, stalkBand: 1.0, engageHp: 0.55, lowHp: 0.3, bushPrefer: 2.5, think: 0.12 },
   modes: {
     dummy: { respawn: 2 },
     dodge: { lives: 5, cdMul: 0.6, circleTele: 1.25, circleTeleMin: 0.55 },   // 보라 장판 예고시간(기존 1.05 / 최소 0.45)
@@ -650,7 +653,7 @@ const Builds = {
   SLOT_LABEL: { weapon: '무기', chest: '옷', head: '머리', arm: '팔/장식', leg: '다리' },
   GRADE_LABEL: { epic: '영웅', legend: '전설', mythic: '초월' },
   // 캐시 기본 능력치 [1레벨, 성장] — docs/er_notes_items.md 2.1
-  BASE: { hp: [970, 88], ad: [29, 4.3], def: [53, 3.2], ms: 3.5, asBonus: 0.09 },
+  BASE: { hp: [970, 88], ad: [29, 4.3], def: [53, 3.2], ms: 3.5, asBonus: 0.09, regen: [1.8, 0.135] },
   WEAPON_AS: { dagger: 0.58, dual: 0.43 },
   MASTERY: { dagger: { as: 0.034, sp: 0.043 }, dual: { as: 0.03, sp: 0.045 } },   // 레벨당 (12.5)
   // 단계별 숙련도 레벨 ⚠ 추정 (캐릭터 레벨은 CONFIG.builds의 level)
@@ -669,6 +672,12 @@ const Builds = {
   any(gear) { return !!gear && this.SLOTS.some(s => gear[s]); },
   // 장비 서명 (기록 키·표시용)
   sig(gear) { return this.SLOTS.map(s => gear && gear[s] || 0).join('-'); },
+  // 체력 재생(초당): 실험체 기본값(레벨 성장) × (1 + 장비 체력 재생%). 캐시 = BASE, 나머지 = CONFIG.aiGear 기본 능력치
+  //   ⚠ 표기값을 「초당」으로 봄(틱 간격 자료 없음 — docs/er_notes_systems.md)
+  regen(key, lv, pct = 0) {
+    const r = key === 'cathy' ? this.BASE.regen : CONFIG.aiGear && CONFIG.aiGear.characters[key] && CONFIG.aiGear.characters[key].base.regen;
+    return r ? (r[0] + r[1] * ((lv || 1) - 1)) * (1 + pct) : 0;
+  },
   short(gear) { return this.SLOTS.map(s => { const it = this.item(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
   // 단계 + 장비 → 캐시 빌드 (CONFIG.builds와 같은 모양 + 새 능력치)
   resolve(stage, gear, weapon) {
@@ -755,7 +764,6 @@ const Builds = {
   // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
   //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
   aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
-  aiBuilds(motif) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; return C ? C.builds : []; },
   resolveAI(motif, stage, idx) {
     const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
     const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
@@ -773,7 +781,7 @@ const Builds = {
       as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),
       ms: +((C.base.ms + S('ms')) * (1 + S('msPct') / 100)).toFixed(3),
       crit: Math.min(this.RULES.critCap, S('crit') / 100), critDmg: S('critDmg') / 100,
-      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'),
+      pen: S('penPct') / 100, penFlat: S('pen'), ls: S('ls') / 100, omni: S('omni') / 100, cdr: S('cdr'), ultCdr: S('ultCdr'), regenPct: S('regen') / 100,
       aaAmp: (M.baAmp || 0) * mLv,
       passives: [...new Set(items.flatMap(it => (it.pas || '').split(' / ').filter(Boolean)))], passiveK: this.passiveK(items),
     };
@@ -790,7 +798,7 @@ const Builds = {
 // ============================== 유틸 ==============================
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
-// 판정용 난수(시드): 같은 시드 + 같은 입력 = 같은 결과 → 리플레이·온라인 대전 준비. Game.start마다 새 시드(opts.seed로 지정 가능)
+// 판정용 난수(시드): 같은 시드 + 같은 입력 = 같은 결과 → 리플레이·결정성 검사. Game.start마다 새 시드(opts.seed로 지정 가능)
 //   치명타·AI 판단·소음 위치·회피 패턴처럼 결과에 영향을 주는 곳만 rnd()/rand(). 화면 효과·소리는 Math.random 그대로
 const Rng = {
   s: 1, seed0: 1,
@@ -798,9 +806,9 @@ const Rng = {
   next() { let t = (this.s = (this.s + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; },   // mulberry32
 };
 const rnd = () => Rng.next();
-// 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
-// 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
-const BUILD_ID = '47f8a267';
+// 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
+// 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
+const BUILD_ID = '19471cc5';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -1127,7 +1135,7 @@ const Sfx = {
     if (/활|석궁|bow|crossbow/i.test(w)) return 'hitArrow';
     return src.melee ? 'hitBlade' : 'hit';
   },
-  // u의 주인(그 캐릭터를 조종하는 사람)에게는 n, 다른 사람에게는 other(없으면 무음). 온라인 대전에선 손님에게도 시점에 맞게 전달
+  // u가 내 캐릭터면 n, 아니면 other(없으면 무음)
   playFor(u, n, pos, other) {
     const name = u === Game.player ? n : other;
     if (name) this.play(name, pos);
@@ -1318,6 +1326,7 @@ const Combat = {
     if (tgt.S) { tgt.S.takenTotal += dmg; tgt.S.playerHits++; }
     if (tgt === Game.player) Events.emit('playerHit', { dmg });
     if (isHero(tgt)) tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal);   // 피격 시 위치 노출 (실험체)
+    if (src && isHero(src) && isHero(tgt) && src.team !== tgt.team) (tgt.hitBy || (tgt.hitBy = new Map())).set(src, Game.time);   // 처치 관여(폭발 타이머 +7초)
     if (!o.tick) { Sfx.playFor(tgt, 'hurt'); Sfx.play(Sfx.hitKind(src, type, o) || 'hit', tgt.pos); }   // 맞은 사람에겐 아픈 소리 추가
     Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
@@ -1331,7 +1340,7 @@ const Combat = {
     }
     if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);
     if (typeof Game !== 'undefined' && Game.mode && Game.mode.onDamage) Game.mode.onDamage(src, tgt, dmg, o);   // 팀 대전: 압박·집중 대상 기록   // 다니엘: 영감 축적·최근 피해
-    if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준(온라인 대전 상대 캐시도)
+    if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준
     return dmg;
   },
   kill(src, tgt) {
@@ -1341,7 +1350,8 @@ const Combat = {
     FX.burst(tgt.pos, tgt.color, 26, 7, 0.8, 0.12); FX.ring(tgt.pos, 0.3, 2, '#ffffff', 0.5);
     if (src && src.S) src.S.kills++;
     Sfx.playFor(tgt, 'death', tgt.pos, 'kill');   // 쓰러진 사람에겐 쓰러지는 소리, 나머지는 처치음
-    Events.emit('kill', { unit: tgt });
+    Events.emit('kill', { unit: tgt, src });
+    if (typeof Sphere !== 'undefined' && Sphere.active) Sphere.onKill(src, tgt);   // 크로노 스피어: 처치 관여 시 폭발 타이머 +7초
     if (Game.time - (tgt.rMaxMark ?? -99) < 0.3) { Events.emit('rKillMax'); FX.toastFor(src, '응급 OP 최대 피해 처치!', CONFIG.theme.gold); }
   },
 };
@@ -1407,8 +1417,8 @@ const Passive = {
 // ============================== 엔티티: 기본 유닛 ==============================
 let UID = 0;
 class Unit {
-  // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(온라인 대전 상대 캐릭터 등)은 버림
-  get S() { return this === Game.player ? Stats : (this.rstats || NullStats); }   // 내 캐릭터만 통계 기록
+  // 통계·실수 기록: 내 캐릭터만 실제 Stats에 기록, 다른 유닛(AI 등)은 버림
+  get S() { return this === Game.player ? Stats : NullStats; }
   constructor(o) {
     this.id = ++UID; this.team = o.team ?? 1; this.name = o.name || ''; this.kind = o.kind || 'unit';
     this.pos = { x: o.x, y: o.y }; this.spawn = { x: o.x, y: o.y }; this.r = o.r || 0.5;
@@ -1453,6 +1463,7 @@ class Unit {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
     ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
+    if (this.regen > 0 && !this.dead && this.hp < this.maxHp) this.heal(this.regen * dt, true);   // 체력 재생(초당, 치유 감소 적용)
     ItemFx.tick(this, dt);   // 장비 고유 효과(부패 틱·파열 폭발·의념 타이머)
     Rest.update(this, dt);   // 휴식(X)
     if (this.traumaT > 0) { this.traumaT -= dt; if (this.traumaT <= 0) this.trauma = 0; }
@@ -1498,7 +1509,7 @@ class Cathy extends Unit {
     this.as = b.computed ? b.as : +(b.as * (CONFIG.basicAttack[this.weapon].asMul || 1)).toFixed(2);   // 실측 빌드: 무기별 공속 보정(쌍검은 느림) / 장비 빌드: 이미 무기 기준으로 계산됨
     // 장비 능력치: 방어 관통(고정·%), 치명타 피해 증가, 흡혈, 고유 효과 수치
     this.penFlat = b.pen || 0; this.penPct = b.penPct || 0; this.critDmg = b.critDmg || 0; this.omni = b.omni || 0; this.ls = b.ls || 0;
-    this.pasK = b.passiveK || {}; this.gear = b.gear || null;
+    this.pasK = b.passiveK || {}; this.gear = b.gear || null; this.regen = Builds.regen('cathy', b.level, b.regenPct || 0);
     this.pendingHits = []; this.baseHpAtLv = 970 + 88 * (b.level - 1);   // 레벨 기본 체력(나무위키) — 추가 체력 계산용
     this.maxSt = b.stamina; this.st = b.stamina;
     this.skills = {};
@@ -2240,7 +2251,7 @@ class DanielPlayer extends Cathy {
     this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si]; this.baseHpAtLv = 920 + 90 * (CONFIG.rangedAI.stages[st].level - 1);
     this.ad = M.ad[si]; this.bonusAd = Math.max(0, M.ad[si] - M.baseAd[si]); this.sp = 0; this.critChance = M.crit[si]; this.pen = M.pen[si]; this.aaAmp = M.aaAmp[si];
     this.baseAs = M.as[si]; this.as = this.baseAs; this.cdr = [0.15, 0.25, 0.25][si];   // 쿨감: HUD 실측 Lv11~20 25%
-    this.build = Object.assign({}, this.build, { level: CONFIG.rangedAI.stages[st].level });
+    this.build = Object.assign({}, this.build, { level: CONFIG.rangedAI.stages[st].level }); this.regen = Builds.regen('daniel', this.build.level);
     const L = M.skillLv[si]; this.plv = L.P;
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k];
     this.K = CONFIG.rangedKits.daniel;
@@ -2473,7 +2484,7 @@ class RangedPlayer extends Cathy {
     this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs; this.baseHpAtLv = 900 + 76 * (S0.level - 1);
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.penPct = M.pen[si]; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0;
     this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdr = 0; this.stacks = S0.stacks;
-    this.build = Object.assign({}, this.build, { level: S0.level });
+    this.build = Object.assign({}, this.build, { level: S0.level }); this.regen = Builds.regen(key, S0.level);
     const L = M.skillLv ? M.skillLv[si] : S0.skillLv; this.plv = L.P || 1;
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
     this.K = CONFIG.rangedKits[key]; this.kit = PKits[key];
@@ -3369,6 +3380,8 @@ const AI = {
 
 // ============================== AI: 1:1 결투 상대 ==============================
 class Duelist extends Unit {
+  // 쿨 감소: 장비 쿨감 = 쿨 × 100/(100+쿨감) · R은 궁 쿨감(현자의 로브)도 더함
+  cdTick(dt) { for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + ((this.cdrAi || 0) + (k === 'R' ? this.ultCdrAi || 0 : 0)) / 100)); }
   constructor(x, y, diffKey) {
     const E = CONFIG.enemy, p = Game.player || { maxHp: 2000, build: { def: 100 }, ad: 200 };
     super({ team: 1, x, y, r: E.r, hp: Math.round(p.maxHp * E.hpMul), def: p.build.def * E.defMul, ms: E.ms, color: E.color, name: E.name, kind: 'duelist', facing: Math.PI });
@@ -3379,7 +3392,7 @@ class Duelist extends Unit {
   }
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감
+    this.cdTick(dt);
     this.aaCd -= dt;
     if (this.healing) {   // 재생 — 치명적 외상의 치유 감소 적용
       const h = Math.min(dt, this.healing.t); this.healing.t -= dt;
@@ -3512,8 +3525,9 @@ class RangedDuelist extends Duelist {
     if (G) {
       Object.assign(this, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, pen: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, pasK: G.passiveK, cdrAi: G.cdr });
       if (G.aaAmp) this.aaAmp = G.aaAmp;
-      this.gearInfo = G;
+      this.gearInfo = G; this.ultCdrAi = G.ultCdr || 0;
     }
+    this.regen = Builds.regen(motifKey, S0.level, G ? G.regenPct : 0);   // 체력 재생(초당)
     this.name = `${M.name} Lv${S0.level} (${M.weapon})`; this.color = M.color;
     this.kitCfg = CONFIG.rangedKits[motifKey]; this.kit = Kits[motifKey];
     this.cds = { Q: 1.2, W: 2.5, E: 3, R: 4, D: 5 };
@@ -3532,7 +3546,6 @@ class RangedDuelist extends Duelist {
   curAs() { let b = 0; for (const a of this.asBuffs) b += a.p; return Math.max(0.2, (this.as + (this.kit.asFlat ? this.kit.asFlat(this) : 0)) * (1 + b)); }
   addAs(p, dur, tag) { if (tag) this.asBuffs = this.asBuffs.filter(a => a.tag !== tag); this.asBuffs.push({ p, t: dur, tag }); }
   aaRange() { return this.kit.aaRange ? this.kit.aaRange(this) : this.motif.aaRange; }
-  cathyThreat(p) { return ['Q', 'E', 'R'].filter(k => p.skills[k].lv > 0 && p.skills[k].cd <= 0.8).length; }
   predict(p, t) { return V.add(p.pos, V.mul(p.vel, t * this.diff.lead)); }
   aimDir(p, windup, speed) { const d = V.dist(this.pos, p.pos), pred = this.predict(p, windup + d / speed); return V.fromAng(V.ang(V.sub(pred, this.pos)) + (rnd() - 0.5) * 2 * this.diff.aimErr); }
   // 적에게 스킬 피해 (키트 onHit 훅 → 카이츄·잿빛 사신·아야 쿨감 등)
@@ -3573,7 +3586,7 @@ class RangedDuelist extends Duelist {
   update(dt) {
     this.tickStatus(dt); if (this.dead) return;
     this.setFoe(this.pickFoe());
-    for (const k in this.cds) this.cds[k] = Math.max(0, this.cds[k] - dt * (1 + (this.cdrAi || 0) / 100));   // 장비 쿨감 = 쿨 × 100/(100+쿨감)
+    this.cdTick(dt);
     this.aaCd -= dt; if (this.noAA > 0) this.noAA -= dt;
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }
@@ -3761,13 +3774,14 @@ class RangedDuelist extends Duelist {
   }
   huntSpot(est) {
     const H = CONFIG.rangedAI.hunt, RA = CONFIG.rangedAI, B = this.belief, base = V.ang(V.sub(this.pos, est)); let best = null, bs = -Infinity;
+    const safe = Game.mode && Game.mode.huntDist ? Game.mode.huntDist(this) : H.safeDist;   // 팀 대전: 수적 우위면 파고들어 찾음
     if (rnd() < 0.1) this.side *= -1;
     for (let i = 0; i < 16; i++) {
       const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), H.step)), this.r);
       const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
       let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
       const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
-      const sc = -Math.abs(dq - H.safeDist) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
+      const sc = -Math.abs(dq - safe) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -3845,10 +3859,6 @@ class RangedDuelist extends Duelist {
 
 // ============================== 통계 ==============================
 const Stats = {
-  // 다른 캐릭터(온라인 대전 손님) 전용 통계 — 같은 기능, 알림은 그 캐릭터 주인에게만
-  make(owner) { const s = Object.create(Stats); s.reset(); s.remote = true; s.owner = owner || null; return s; },
-  // 전송용 데이터(함수·주인 제외)
-  data() { const o = {}; for (const k of Object.keys(this)) if (k !== 'owner' && k !== 'remote' && typeof this[k] !== 'function') o[k] = this[k]; return o; },
   reset() {
     Object.assign(this, {
       t: 0, inputs: 0, casts: {}, hits: {}, hitKeys: new Set(), dmgBy: {}, dealtTotal: 0, takenTotal: 0, timeline: [],
@@ -3864,13 +3874,13 @@ const Stats = {
   dealt(src, d) { this.dmgBy[src] = (this.dmgBy[src] || 0) + d; this.dealtTotal += d; const i = Math.floor(this.t); this.timeline[i] = (this.timeline[i] || 0) + d; },
   mistake(txt) {
     this.mistakes[txt] = (this.mistakes[txt] || 0) + 1;
-    if (this.remote) FX.toastFor(this.owner, '⚠ ' + txt, '#ffb347'); else FX.toast('⚠ ' + txt, '#ffb347');   // 내 실수는 이 화면에만, 손님 실수는 손님에게만
+    FX.toast('⚠ ' + txt, '#ffb347');
   },
   // 스킬샷 연속 명중 (Q/W/E)
   resolveShot(k, hit) {
     if (!['Q', 'W', 'E'].includes(k)) return;
     this.shots++;
-    if (hit) { this.shotHits++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak); if (!this.remote) Events.emit('streak', { n: this.streak }); }
+    if (hit) { this.shotHits++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak); Events.emit('streak', { n: this.streak }); }
     else this.streak = 0;
   },
   // 교전 중(적 8m 이내)인데 쿨이 돌아 있는 스킬을 안 쓴 시간
@@ -4936,10 +4946,10 @@ Modes.duel = {
     if (frozen || this.ended) return;
     if (this.sphere) {
       Sphere.update(dt);
-      if (Sphere.done && !this.enemy.dead && !Game.player.dead) {   // 끝까지 승부가 안 나면 남은 체력 비율로 판정
-        const pr = Game.player.hp / Game.player.maxHp, er = this.enemy.hp / this.enemy.maxHp;
-        FX.toast(`크로노 스피어 종료 — 판정 (${Math.round(pr * 100)}% vs ${Math.round(er * 100)}%)`, '#9fe0ff');
-        this.roundEnd(pr >= er ? 'p' : 'e'); return;
+      if (this.enemy.dead && Game.player.dead) {   // 같은 순간 둘 다 폭사 → 남은 체력 비율로 판정
+        const T = Sphere.tie || { 0: 1, 1: 1 };
+        FX.toast(`동시 폭사 — 체력 판정 (${Math.round(T[0] * 100)}% vs ${Math.round(T[1] * 100)}%)`, '#9fe0ff');
+        this.roundEnd(Sphere.tieWin()); return;
       }
     }
     if (this.enemy.dead) this.roundEnd('p'); else if (Game.player.dead) this.roundEnd('e');
@@ -4952,7 +4962,6 @@ Modes.duel = {
     const sum = { round: this.round, winner: w, time: Game.time - this.roundStart, dealt: St.dealtTotal - s0.dealt, taken: St.takenTotal - s0.taken, casts, hits,
       mistakes: Object.entries(mist).sort((a, b) => b[1] - a[1]).slice(0, 3), eDodge: e.stats.dodges, eS1: `${e.stats.s1Hits}/${e.stats.s1Casts}`, pHp: Math.max(0, p.hp / p.maxHp), eHp: Math.max(0, e.hp / e.maxHp) };
     this.history.push(sum);
-    if (this.onRoundSum) this.onRoundSum(sum);   // 온라인 대전: 손님용 요약 추가
     if (w === 'p') Events.emit('roundWin');
     Sfx.playFor(Game.player, w === 'p' ? 'win' : 'fail', null, w === 'p' ? 'fail' : 'win');
     if (this.wins.p >= this.need || this.wins.e >= this.need) { Game.finish('duelEnd'); return; }
@@ -4960,7 +4969,7 @@ Modes.duel = {
   },
   drawScreen(ctx, L, oy = 0) {
     Draw.text(ctx, `${Game.player ? Game.player.name : '캐시'} ${this.wins.p}  :  ${this.wins.e} ${this.motif.name}  ·  ROUND ${this.round}`, L.W / 2, 24 + oy, { size: 18, bold: true, align: 'center', stroke: true });
-    if (this.sphere && Sphere.active) Draw.text(ctx, Sphere.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: '#9fe0ff', stroke: true });
+    if (this.sphere) Sphere.drawHud(ctx, L, oy);
     if (this.banner) { Draw.text(ctx, this.banner.text, L.W / 2, L.H * 0.4, { size: 46, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true }); if (this.banner.sub) Draw.text(ctx, this.banner.sub, L.W / 2, L.H * 0.4 + 44, { size: 18, bold: true, align: 'center', color: this.motif.color, stroke: true }); }
     if (this.inter) {
       const s = this.inter.sum, w = 420, h = 230, x = L.W / 2 - w / 2, y = L.H * 0.22;
@@ -5000,14 +5009,14 @@ Modes.duel = {
   },
 };
 
-// ============================== 5. AI 팀 대전 (2:2 · 3:3) ==============================
+// ============================== 5. AI 팀 대전 (3:3) ==============================
 // 나 + 아군 AI vs 상대 AI 팀. 맵 기본 = 원형 투기장(LoL 아레나풍), 라운드제(3판 2선승) — 한 팀이 모두 쓰러지면 라운드 끝
 // AI는 1:1 결투와 같은 실험체 AI(RangedDuelist + 키트)를 쓰고, 팀 판단만 이 모드가 더함:
 //   팀 판단(역할·대상 점수·후퇴·핑퐁·추격 한계)은 TeamAI (src/5_x_teamai.js, 근거 docs/er_notes_teamfight.md)
 Modes.team = {
   name: 'AI 팀 대전',
   start(o) {
-    this.diff = o.diff || 'normal'; this.size = clamp((o.size | 0) || 3, 2, 3); this.need = o.rounds === 1 ? 1 : 2;
+    this.diff = o.diff || 'normal'; this.size = 3; this.need = o.rounds === 1 ? 1 : 2;
     const keys = Object.keys(CONFIG.rangedMotifs);
     // 팀 구성: 지정한 칸은 그대로, 비운 칸은 무작위(같은 팀 안에서는 겹치지 않게)
     const fill = (want, n) => { const out = [], pool = keys.slice(); for (let i = 0; i < n; i++) { let k = want && want[i] && CONFIG.rangedMotifs[want[i]] ? want[i] : null; if (!k) { const free = pool.filter(x => !out.includes(x)); k = free[Math.floor(rnd() * free.length)] || keys[0]; } out.push(k); } return out; };
@@ -5045,10 +5054,10 @@ Modes.team = {
     if (frozen || this.ended) return;
     if (this.sphere) {
       Sphere.update(dt);
-      if (Sphere.done && this.alive(0).length && this.alive(1).length) {   // 끝까지 승부가 안 나면 팀 남은 체력 비율로 판정
-        const r = t => { const a = this.team(t); return a.reduce((s, u) => s + Math.max(0, u.hp) / u.maxHp, 0) / Math.max(1, a.length); }, pr = r(0), er = r(1);
-        FX.toast(`크로노 스피어 종료 — 판정 (${Math.round(pr * 100)}% vs ${Math.round(er * 100)}%)`, '#9fe0ff');
-        this.roundEnd(pr >= er ? 'p' : 'e'); return;
+      if (!this.alive(0).length && !this.alive(1).length) {   // 같은 순간 양 팀 모두 폭사 → 남은 체력 비율로 판정
+        const T = Sphere.tie || { 0: 1, 1: 1 };
+        FX.toast(`동시 폭사 — 체력 판정 (${Math.round(T[0] * 100)}% vs ${Math.round(T[1] * 100)}%)`, '#9fe0ff');
+        this.roundEnd(Sphere.tieWin()); return;
       }
     }
     if (!this.alive(1).length) this.roundEnd('p'); else if (!this.alive(0).length) this.roundEnd('e');
@@ -5070,7 +5079,7 @@ Modes.team = {
   drawScreen(ctx, L, oy = 0) {
     const a = this.alive(0).length, e = this.alive(1).length;
     Draw.text(ctx, `블루 ${this.wins.p}  :  ${this.wins.e} 레드  ·  ROUND ${this.round}  ·  생존 ${a} vs ${e}`, L.W / 2, 24 + oy, { size: 18, bold: true, align: 'center', stroke: true });
-    if (this.sphere && Sphere.active) Draw.text(ctx, Sphere.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: '#9fe0ff', stroke: true });
+    if (this.sphere) Sphere.drawHud(ctx, L, oy);
     if (this.banner) { Draw.text(ctx, this.banner.text, L.W / 2, L.H * 0.4, { size: 46, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true }); if (this.banner.sub) Draw.text(ctx, this.banner.sub, L.W / 2, L.H * 0.4 + 44, { size: 18, bold: true, align: 'center', color: '#ff8a8a', stroke: true }); }
     if (Game.player && Game.player.dead && !this.inter && this.alive(0).length) Draw.text(ctx, '쓰러졌습니다 — 아군이 싸우는 중 (관전)', L.W / 2, L.H * 0.3, { size: 18, bold: true, align: 'center', color: '#c9cfdb', stroke: true });
     if (this.inter) {
@@ -5124,8 +5133,9 @@ CONFIG.teamAI = {
   chaseDist: 8.0,                   // 아군 중심에서 이보다 먼 적은 쫓지 않음
   regroup: 10, regroupBack: 4.0,    // 혼자 떨어지면 합류 · 후퇴 지점(아군 중심에서 적 반대 4m)
   edgeLimit: 12.0,                  // 원딜이 원형 투기장 중심에서 넘지 않을 반지름
-  engageScore: 3, retreatScore: 1,  // 4항목 체크리스트(체력 합·핵심 쿨·인원·위치)
+  diveScore: 2, retreatScore: 1,    // 4항목 체크리스트(체력 합·핵심 쿨·인원·위치): 팔 짧은 팀은 이 이상이면 진입 · 이 이하면 후퇴
   isolate: 5.0,                     // 적이 자기 팀 중심에서 이만큼 떨어지면 고립
+  huntDist: { ahead: 1.5, even: 4.5 },   // 적이 안 보일 때 추정 위치까지 둘 거리: 수적 우위 → 파고들어 찾음 · 동수 → 시야 닿게 좁힘 · 열세 → 1:1 기본(7m) 유지
   reachMargin: 0.5,                 // 팔 길이(팀 최대 사거리) 비교 여유 — 짧은 팀이 먼저 진입(dive), 긴 팀은 받아침(hold) · 햄찌 「상대가 팔이 긴 교전은 대치를 오래 하면 손해」
 };
 const TeamAI = {
@@ -5251,6 +5261,11 @@ const TeamAI = {
     if (V.dist(ai.pos, c) > T.regroup && (!p || p.dead || d > 9)) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.6), ai.r), 0.5, 'regroups');
     return false;
   },
+  // 안 보이는 적 찾기: 수적 우위면 추정 위치로 파고듦(3:1로 대치만 하다 끝나지 않게)
+  huntDist(ai) {
+    const H = CONFIG.teamAI.huntDist, us = this.heroes(ai.team).length, them = this.heroes(1 - ai.team).length;
+    return us > them ? H.ahead : us === them ? H.even : CONFIG.rangedAI.hunt.safeDist;
+  },
   // 팀 자세: 팔 길이(살아 있는 실험체의 최대 사거리)가 짧은 팀은 먼저 진입(dive), 긴 팀은 받아침(hold)
   reach(t) { return Math.max(0, ...this.heroes(t).map(u => this.isMelee(u) ? 3 : (u.aaRange ? u.aaRange() : u.aaCfg ? u.aaCfg().range : 5))); },
   stance(t) { return this.reach(t) < this.reach(1 - t) - CONFIG.teamAI.reachMargin ? 'dive' : 'hold'; },
@@ -5265,7 +5280,7 @@ const TeamAI = {
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
-    if (this.stance(ai.team) === 'dive' && CL.score >= 2) return true;
+    if (this.stance(ai.team) === 'dive' && CL.score >= CONFIG.teamAI.diveScore) return true;
     if (mates.some(a => now - (a.lastFight || -99) < 2 && V.dist(a.pos, p.pos) < 8)) return true;
     if (CL.us > CL.them || p.hp / p.maxHp < 0.4) return true;
     const pm = this.heroes(p.team).filter(u => u !== p), pc = this.center(pm);
@@ -5285,20 +5300,50 @@ Object.assign(Modes.team, {
   mayEngage(ai, p) { return TeamAI.mayEngage(ai, p); },
   spotPenalty(ai, q) { return TeamAI.spotPenalty(ai, q); },
   holdUlt(ai, p) { return TeamAI.holdUlt(ai, p); },
+  huntDist(ai) { return TeamAI.huntDist(ai); },
 });
 
 // ============================== 크로노 스피어 (시즌 12 임시 안전지대) ==============================
 // 공식 12.0 패치노트 스케줄: 반경 30m로 5초 대기 → 20초에 걸쳐 10m → 10초간 이동 목표 표시 → 이동 → 15초에 걸쳐 5m → 40초 유지 → 5초에 걸쳐 0m
-// 활성화 후에는 차단벽을 넘을 수 없음(이동기도 벽에 부딪혀 종료). 결투에서는 끝까지 승부가 안 나면 남은 체력 비율로 판정
+// 활성화 후에는 차단벽을 넘을 수 없음(이동기도 벽에 부딪혀 종료). 활성화 순간 차단벽 밖의 실험체는 즉사
+// 금지구역 폭발 타이머: 시작 30초(20 + 6일차 밤 +10), 처치 관여 +7초(최대 30), 스피어가 소멸하면 전 지역이 금지구역 → 타이머가 많이 남은 쪽이 이김
+//   같은 순간 양 팀이 모두 폭사하면(처치 없는 결투 등) 남은 체력 비율로 판정
 const Sphere = {
   active: false,
   start() {
     const S = CONFIG.sphere, W = CONFIG.world;
     this.active = true; this.done = false; this.t = 0; this.i = 0;
     this.c = { x: W.w / 2, y: W.h / 2 }; this.r = S.phases[0].r; this.from = { c: V.copy(this.c), r: this.r };
-    this.target = null;
+    this.target = null; this.armed = false; this.tie = null;
+    const B = CONFIG.sphere.boom;
+    for (const u of Game.units) if (isHero(u)) { u.boom = Math.min(B.start, B.max) + B.night; u.boomWarn = false; u.hitBy = null; }
   },
-  stop() { this.active = false; },
+  stop() { this.active = false; for (const u of Game.units) if (isHero(u)) u.boom = null; },
+  heroes() { return Game.units.filter(u => isHero(u) && !u.dead && u.boom != null); },
+  // 지금 금지구역에 있나: 차단벽 밖, 또는 스피어 소멸 후 전 지역
+  inZone(u) { return this.done || V.dist(u.pos, this.c) > this.r + 0.05; },
+  draining(u) { return this.active && u.boom != null && !u.dead && this.inZone(u) && !u.stasis; },
+  // 처치 관여: 처치자 + 최근 피해를 준 적 실험체 → +7초(최대 30초, 이미 넘으면 그대로)
+  onKill(src, tgt) {
+    if (!isHero(tgt)) return;
+    const B = CONFIG.sphere.boom, who = new Set();
+    if (src && isHero(src)) who.add(src);
+    if (tgt.hitBy) for (const [u, t] of tgt.hitBy) if (Game.time - t <= B.assist) who.add(u);
+    for (const u of who) {
+      if (u.dead || u.boom == null || u.team === tgt.team) continue;
+      const nb = Math.max(u.boom, Math.min(B.max, u.boom + B.kill));
+      if (nb > u.boom) { FX.text(u.pos, `폭발 타이머 +${fmt(nb - u.boom, 1)}초`, '#9fe0ff', 12, { bold: true }); u.boom = nb; if (u.boom > B.warn) u.boomWarn = false; }
+    }
+  },
+  // 폭사: 빈사·보호막과 무관하게 즉사
+  explode(u, why) {
+    if (u.dead) return;
+    u.boom = 0; u.infinite = false; u.shield = 0;
+    FX.burst(u.pos, '#ff5d5d', 34, 9, 0.9, 0.14); FX.ring(u.pos, 0.4, 3, '#ffb347', 0.6);
+    FX.text(u.pos, why || '폭사', '#ff5d5d', 16, { bold: true });
+    Combat.kill(null, u);
+  },
+  tieWin() { return this.tie && this.tie[1] > this.tie[0] ? 'e' : 'p'; },
   phase() { return CONFIG.sphere.phases[this.i]; },
   // 이동 목표: 반경 10m 원이 아레나 안쪽에 오도록
   pickTarget() {
@@ -5311,7 +5356,13 @@ const Sphere = {
     return V.copy(this.c);
   },
   update(dt) {
-    if (!this.active || this.done) return;
+    if (!this.active) return;
+    if (!this.armed) {   // 활성화: 차단벽 밖에 있는 실험체는 즉사
+      this.armed = true;
+      for (const u of this.heroes()) if (V.dist(u.pos, this.c) > this.r) this.explode(u, '차단벽 밖 — 즉사');
+    }
+    this.tickBoom(dt);
+    if (this.done) return;
     const P = this.phase(); this.t += dt;
     const k = P.dur > 0 ? clamp(this.t / P.dur, 0, 1) : 1;
     if (P.type === 'shrink') this.r = lerp(this.from.r, P.r, k);
@@ -5320,7 +5371,7 @@ const Sphere = {
     if (this.t >= P.dur) {
       this.i++; this.t = 0; this.from = { c: V.copy(this.c), r: this.r };
       if (P.type === 'move') this.target = null;
-      if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; return; }
+      if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; FX.toastAll('크로노 스피어 소멸 — 전 지역 금지구역! 폭발 타이머 감소', '#ff8a8a'); return; }
       const N = this.phase(); if (N.label) FX.toastAll(`크로노 스피어: ${N.label}`, '#9fe0ff');
     }
     // 차단벽: 모든 유닛을 원 안으로 (이동기·강제 이동 포함)
@@ -5335,11 +5386,34 @@ const Sphere = {
       }
     }
   },
+  // 폭발 타이머: 금지구역에 있으면 감소, 0이면 폭사. 같은 순간 양 팀이 다 터지면 남은 체력 비율 기록(판정용)
+  tickBoom(dt) {
+    const B = CONFIG.sphere.boom, live = this.heroes(), gone = [];
+    for (const u of live) {
+      if (!this.draining(u)) continue;
+      u.boom = Math.max(0, u.boom - dt);
+      if (u.boom <= B.warn && !u.boomWarn) { u.boomWarn = true; if (u === Game.player) FX.toast(`폭발 ${B.warn}초 전!`, '#ff5d5d'); }
+      if (u.boom <= 0) gone.push(u);
+    }
+    if (!gone.length) return;
+    const left = t => live.filter(u => u.team === t && !gone.includes(u)).length;
+    if (!left(0) && !left(1)) { const r = t => { const a = gone.filter(u => u.team === t); return a.reduce((s, u) => s + Math.max(0, u.hp) / u.maxHp, 0) / Math.max(1, a.length); }; this.tie = { 0: r(0), 1: r(1) }; }
+    for (const u of gone) this.explode(u, '폭사');
+  },
+  // 화면 위: 스피어 단계 + 내 폭발 타이머
+  drawHud(ctx, L, oy = 0) {
+    if (!this.active) return;
+    Draw.text(ctx, this.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: this.done ? '#ff8a8a' : '#9fe0ff', stroke: true });
+    const p = Game.player; if (!p || p.boom == null || p.dead) return;
+    const dr = this.draining(p), low = p.boom <= CONFIG.sphere.boom.warn;
+    Draw.text(ctx, `폭발 타이머 ${fmt(p.boom, 1)}초${dr ? (p.stasis ? '' : ' ▼') : ''}${p.stasis && this.inZone(p) ? ' (경직 — 정지)' : ''}`, L.W / 2, 66 + oy,
+      { size: low ? 17 : 14, bold: true, align: 'center', color: low && dr && Math.floor(Game.time * 4) % 2 ? '#ffffff' : dr ? '#ff5d5d' : '#ffd27a', stroke: true });
+  },
   // AI 이동 후보 점수용: 차단벽 근처·밖은 감점
   penalty(q) { if (!this.active) return 0; const d = V.dist(q, this.c), m = this.r - 1.2; return d > m ? (d - m) * 4 : 0; },
   label() {
     if (!this.active) return '';
-    const P = this.phase(); if (!P) return '크로노 스피어 종료';
+    const P = this.phase(); if (!P || this.done) return '크로노 스피어 소멸 · 전 지역 금지구역 — 폭발 타이머가 많이 남은 쪽이 승리';
     return `크로노 스피어 · ${P.label || ''} · 반경 ${fmt(this.r, 1)}m · ${Math.ceil(P.dur - this.t)}초`;
   },
   draw(ctx) {
@@ -5441,7 +5515,6 @@ const Cmd = {
 // 같은 시드 + 같은 명령 = 같은 판(결정성, 6_a_cmd.js) → 파일에는 시드·옵션·설정·명령만 담음 (보통 수십 KB)
 //   저장: 판이 끝날 때 기록을 잡아 두고(Replay.last) 결과 화면 「리플레이 저장」으로 내려받음
 //   보기: 메뉴 「리플레이 열기」 → 저장할 때의 설정을 잠시 적용하고 그 판을 다시 진행 (실제 입력은 막힘, 기록에 안 남음)
-//   온라인 대전은 양쪽 명령을 다 가진 호스트가 저장 (손님 명령은 p: 1)
 const Replay = {
   V: 1, active: null, last: null,
   KEEP: ['character', 'weapon', 'build', 'tactical', 'fog', 'duelTime'],   // 판정에 영향을 주는 설정
@@ -5601,7 +5674,7 @@ const Game = {
     Events.clear(); FX.reset(); Stats.reset();
     Object.assign(this, { units: [], projectiles: [], zones: [], player: null, time: 0, freeze: 0, cdMul: 1, modeId: id, opts, buildId: opts.build || Settings.build, demoLock: false });
     this.mode = Modes[id]; Input.reset();
-    // 시드·틱: 같은 시드 + 같은 명령 기록(Cmd.log) = 같은 판 (리플레이·온라인 대전 준비)
+    // 시드·틱: 같은 시드 + 같은 명령 기록(Cmd.log) = 같은 판 (리플레이·결정성 검사)
     this.seed = opts.seed !== undefined ? opts.seed >>> 0 : (Math.random() * 4294967296) >>> 0; Rng.seed(this.seed); this.tick = 0; this.uid0 = UID; Cmd.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
@@ -5644,7 +5717,7 @@ const Game = {
     if (this.state !== 'play') return;
     if (Replay.active) { Replay.end(); return; }   // 다시 보기 중엔 기록·결과 화면 없이 끝
     this.state = 'result';
-    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
+    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
     if (this.player && this.player.ranged && r.key) { r.key += '|c' + this.player.charKey; r.recTitle = `[${this.player.name}] ` + (r.recTitle || r.title); }   // 원거리 실험체별 최고 기록
@@ -5656,7 +5729,7 @@ const Game = {
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  // 적 목록은 「누구 기준」인지(of)에 따라 — 기본 내 캐릭터. 온라인 대전에선 상대(팀 1) 캐릭터 기준으로도 부름
+  // 적 목록은 「누구 기준」인지(of)에 따라 — 기본 내 캐릭터(AI·팀 대전에선 그 유닛 기준)
   enemies(of = this.player) { const tm = of ? of.team : 0; return this.units.filter(u => u.team !== tm && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
   visibleEnemies(of = this.player) { return this.enemies(of).filter(e => Vision.visible(of, e)); },
   nearestEnemy(pos, range, of = this.player) { let best = null, bd = range; for (const e of this.visibleEnemies(of)) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
@@ -6203,6 +6276,10 @@ const ScreenLayer = {
           ctx.strokeStyle = '#ff9fb2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x + 30, y - 24, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * u.traumaT / CONFIG.passive.traumaDur); ctx.stroke();
         }
       }
+      if (typeof Sphere !== 'undefined' && Sphere.active && u.boom != null && isHero(u)) {   // 금지구역 폭발 타이머
+        const dr = Sphere.draining(u);
+        Draw.text(ctx, `⏱${Math.ceil(u.boom)}`, x + bw + 5, y + 3, { size: dr ? 12 : 10, bold: true, color: dr ? (u.boom <= CONFIG.sphere.boom.warn ? '#ff3b3b' : '#ff8a8a') : '#ffd27a', stroke: true });
+      }
       const st = [];
       if (u.stun > 0) st.push('기절 ' + fmt(u.stun, 1)); if (u.root > 0) st.push('속박 ' + fmt(u.root, 1));
       if (u.slows.length) st.push('둔화'); if (u.fear > 0) st.push('공포 ' + fmt(u.fear, 1)); if (u.unstoppable > 0) st.push('저지 불가');
@@ -6450,7 +6527,7 @@ const Models = {
   ANIM: { idle: 'Idle', idleGun: 'Idle_Gun', idleSword: 'Idle_Sword', run: 'Run', slash: 'Sword_Slash', stabR: 'Punch_Right', stabL: 'Punch_Left', dualAA: 'DualAA', dualX: 'DualX', dualIdle: 'DualIdle', shoot: 'Gun_Shoot', hit: 'HitRecieve', death: 'Death', roll: 'Roll' },
   // 근접 평타 구간(초) — 클립에서 손목 위치를 측정: s = 휘두르기 시작, hit = 손이 가장 앞으로 나온 순간(타격), end = 자세 회수
   MELEE: { slash: { s: 0.08, hit: 0.45, end: 0.95 }, stabR: { s: 0.40, hit: 0.70, end: 1.0 }, stabL: { s: 0.44, hit: 0.72, end: 1.0 },
-           dualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, dualX: { s: 0.04, hit: 0.38, end: 0.70 } },   // dual*: 직접 만든 쌍검 동작(Motions.HITS와 같음)
+           dualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, dualX: { s: 0.04, hit: 0.38, end: 0.70 } },   // dual*: 직접 만든 쌍검 동작(Motions.CLIPS의 DualAA·DualX 타격 시점)
 
   supported() { return /^https?:$/.test(location.protocol) && !!(window.THREE && THREE.GLTFLoader && THREE.SkeletonUtils); },
   load() {
@@ -6842,8 +6919,6 @@ const Motions = {
     DualX:    { dur: 0.70, keys: [[0, ['ready'], 0, 0.04], [0.22, ['windX'], 0, -0.1], [0.38, ['hitX'], 0, 0.28], [0.70, ['ready'], 0, 0.04]] },
     DualIdle: { dur: null, loop: true, keys: [[0, ['ready'], 0, 0.06]] },   // 살짝 숙인 전투 자세
   },
-  // 타격 순간(클립 시간) — Models.MELEE 형식
-  HITS: { DualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, DualX: { s: 0.04, hit: 0.38, end: 0.70 } },
 
   bake(S) {
     const T3 = THREE, base = S.clips.Idle_Sword || S.clips.Idle; if (!base) return;
@@ -7859,14 +7934,14 @@ const UI = {
       ['dummy', '🎯', '허수아비', 'DPS·스킬별 피해 비율 측정. 개수·체력·방어력 설정.'],
       ['combo', '🧩', '콤보 트레이너', '콤보 순서·입력 간격(ms) 판정. 입문 / 숙련 / 마스터.'],
       ['dodge', '💨', '회피 수련', '점점 빨라지는 투사체·장판. 생존 시간과 피격 히트맵.'],
-      ['team', '👥', 'AI 팀 대전', '나 + 아군 AI vs 상대 AI 팀 (2:2 · 3:3). 원형 투기장, 팀 시야 공유, 집중 공격·후퇴하는 팀 AI.'],
+      ['team', '👥', 'AI 팀 대전', '나 + 아군 AI vs 상대 AI 팀 (3:3). 원형 투기장, 팀 시야 공유, 집중 공격·후퇴하는 팀 AI.'],
     ];
   },
   // 각 모드의 「바로 시작」 옵션 (마지막으로 고른 값)
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'team') return { size: Settings.teamSize || 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
+    if (id === 'team') return { size: 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
     if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
@@ -7966,21 +8041,19 @@ const UI = {
     } else if (id === 'dodge') {
       this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·블링크로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
     } else if (id === 'team') {
-      const o = this.quickOpts('team'), n = o.size;
+      const o = this.quickOpts('team'), n = 3;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
-        <div class="row"><label>인원</label>${sb('size', 2, '2 : 2', n)}${sb('size', 3, '3 : 3', n)}</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
         <div class="row"><label>상대 (레드)</label>${Array.from({ length: n }, (_, i) => slot('e', i)).join('')}</div>
         <div class="row"><label>난이도</label>${Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => sb('diff', k, d.label, o.diff)).join('')}<span class="sub" style="margin:0 0 0 8px">아군·상대 AI 모두 같은 난이도</span></div>
         <div class="row"><label>AI 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮'], ['night', '🌙 밤'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => sb('ttime', k, l, o.time)).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => sb('tmap', k, m.name, o.map)).join('')}</div>
-        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 — 끝까지 승부가 안 나면 팀 남은 체력으로 판정)</label></div>
+        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 + 금지구역 폭발 타이머 — 스피어가 사라지면 타이머가 많이 남은 쪽이 승리)</label></div>
         <div class="row" style="margin-top:12px">${back}${go}</div>`, Object.assign(H, {
-        size: d => { Settings.teamSize = +d.v; saveSettings(); this.showModeOptions('team'); },
         diff: d => { Settings.teamDiff = d.v; saveSettings(); this.showModeOptions('team'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('team'); },
         ttime: d => { Settings.teamTime = d.v; saveSettings(); this.showModeOptions('team'); },
@@ -8004,7 +8077,7 @@ const UI = {
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
-        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 끝까지 승부가 안 나면 남은 체력 비율로 판정</label></div>
+        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 스피어가 사라지면 전 지역이 금지구역 — 폭발 타이머(30초, 처치 관여 +7초)가 먼저 0이 되는 쪽이 폭사</label></div>
         ${Settings.character === 'daniel' ? '<div class="sub" style="margin:4px 0;color:#d9a8ff">다니엘은 은신(E)·영감 시야 감소(W)·걸작(R)으로 원딜을 한 번에 무는 암살자라 <b>어려움</b>을 권장합니다.</div>' : ''}
         <div class="row" style="margin-top:12px">${back}${go}</div>
         <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">AI·맵·시야 설명 자세히</summary><div class="sub" style="margin-top:6px">

@@ -7,7 +7,7 @@ const Game = {
     Events.clear(); FX.reset(); Stats.reset();
     Object.assign(this, { units: [], projectiles: [], zones: [], player: null, time: 0, freeze: 0, cdMul: 1, modeId: id, opts, buildId: opts.build || Settings.build, demoLock: false });
     this.mode = Modes[id]; Input.reset();
-    // 시드·틱: 같은 시드 + 같은 명령 기록(Cmd.log) = 같은 판 (리플레이·온라인 대전 준비)
+    // 시드·틱: 같은 시드 + 같은 명령 기록(Cmd.log) = 같은 판 (리플레이·결정성 검사)
     this.seed = opts.seed !== undefined ? opts.seed >>> 0 : (Math.random() * 4294967296) >>> 0; Rng.seed(this.seed); this.tick = 0; this.uid0 = UID; Cmd.reset();
     // 맵 적용 (지형·부쉬). 지정이 없으면 기본 아레나
     this.mapKey = CONFIG.maps[opts.map] ? opts.map : 'basic'; this.map = CONFIG.maps[this.mapKey];
@@ -50,7 +50,7 @@ const Game = {
     if (this.state !== 'play') return;
     if (Replay.active) { Replay.end(); return; }   // 다시 보기 중엔 기록·결과 화면 없이 끝
     this.state = 'result';
-    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용   // 손님에게 경기 종료 전달
+    Replay.last = Replay.capture();   // 결과 화면 「리플레이 저장」용
     const r = this.mode.result(reason) || {}; r.title = r.title || this.mode.title;
     if (this.opts && this.opts.gear && r.key) { r.key += '|g' + Builds.sig(this.opts.gear); r.recTitle = (r.recTitle || r.title) + ' · 장비'; }   // 장비별 최고 기록
     if (this.player && this.player.ranged && r.key) { r.key += '|c' + this.player.charKey; r.recTitle = `[${this.player.name}] ` + (r.recTitle || r.title); }   // 원거리 실험체별 최고 기록
@@ -62,7 +62,7 @@ const Game = {
     this.paused = !this.paused;
     if (this.paused) { Input.unlock(); Input.rDown = false; UI.showPause(); } else UI.hide();
   },
-  // 적 목록은 「누구 기준」인지(of)에 따라 — 기본 내 캐릭터. 온라인 대전에선 상대(팀 1) 캐릭터 기준으로도 부름
+  // 적 목록은 「누구 기준」인지(of)에 따라 — 기본 내 캐릭터(AI·팀 대전에선 그 유닛 기준)
   enemies(of = this.player) { const tm = of ? of.team : 0; return this.units.filter(u => u.team !== tm && !u.dead && !(u.untargetable > 0) && u.kind !== 'ward'); },   // 대상 지정 불가(다니엘 걸작)·카메라 제외
   visibleEnemies(of = this.player) { return this.enemies(of).filter(e => Vision.visible(of, e)); },
   nearestEnemy(pos, range, of = this.player) { let best = null, bd = range; for (const e of this.visibleEnemies(of)) { const d = V.dist(pos, e.pos) - e.r; if (d <= bd) { bd = d; best = e; } } return best; },
@@ -608,6 +608,10 @@ const ScreenLayer = {
           for (let i = 0; i < CONFIG.passive.stacks; i++) { Draw.circle(ctx, s.x - 14 + i * 14, y - 24, 5); ctx.fillStyle = i < u.trauma ? '#ff3b5c' : 'rgba(255,255,255,.15)'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke(); }
           ctx.strokeStyle = '#ff9fb2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x + 30, y - 24, 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * u.traumaT / CONFIG.passive.traumaDur); ctx.stroke();
         }
+      }
+      if (typeof Sphere !== 'undefined' && Sphere.active && u.boom != null && isHero(u)) {   // 금지구역 폭발 타이머
+        const dr = Sphere.draining(u);
+        Draw.text(ctx, `⏱${Math.ceil(u.boom)}`, x + bw + 5, y + 3, { size: dr ? 12 : 10, bold: true, color: dr ? (u.boom <= CONFIG.sphere.boom.warn ? '#ff3b3b' : '#ff8a8a') : '#ffd27a', stroke: true });
       }
       const st = [];
       if (u.stun > 0) st.push('기절 ' + fmt(u.stun, 1)); if (u.root > 0) st.push('속박 ' + fmt(u.root, 1));

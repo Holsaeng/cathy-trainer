@@ -119,7 +119,7 @@
   G('휴식·전술', () => {
     reset(); Game.start('duel', { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'basic', rounds: 3 }); run(240);
     const p = Game.player, e = Modes.duel.enemy; e.stun = 9999; e.pos = { x: 30, y: 16 }; p.cmdStop(); run(130);
-    p.hp = p.maxHp * 0.1; key('x'); const h0 = p.hp; run(Math.round(120 * 2.9)); T.ok('단계 중 회복 없음', p.hp === h0); run(24); T.ok('1단계 15%', Math.abs((p.hp - h0) / p.maxHp - 0.15) < 0.005);
+    p.regen = 0; p.hp = p.maxHp * 0.1; key('x'); const h0 = p.hp; run(Math.round(120 * 2.9)); T.ok('단계 중 회복 없음', p.hp === h0); run(24); T.ok('1단계 15%', Math.abs((p.hp - h0) / p.maxHp - 0.15) < 0.005);
     run(120 * 7); T.ok('누적 80%', Math.abs((p.hp - h0) / p.maxHp - 0.8) < 0.005); T.ok('완료 유지', Rest.done(p) && !!p.rest); key('x'); T.ok('X 취소', !p.rest && p.restCd > 0);
     for (const k of TACTICAL_ORDER) { reset(); Settings.tactical = k; Game.start('dummy', { count: 1, hp: 5000, def: 50 }); run(5); const q = Game.player, d = Game.units.find(u => u.kind === 'dummy'); q.pos = { x: 10, y: 9 }; d.pos = { x: 12, y: 9 }; q.cmdStop(); q.cmdSkill('F', { x: 16, y: 9 }); Input.aiming = null; run(120); T.ok(CONFIG.tactical[k].name, q.skills.F.cd > 0); Renderer.frame(); }
   });
@@ -138,7 +138,24 @@
     T.ok('결투 2선승', Game.state === 'result' && Modes.duel.wins.p === 2); T.ok('라운드 진행', rounds.size >= 2); T.ok('라운드 요약', document.querySelector('#card').innerText.includes('라운드 요약'));
     // 크로노 스피어
     Game.start('duel', { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'basic', rounds: 1, sphere: true }); run(200); const ps = Game.player, es = Modes.duel.enemy; es.stun = 9999; ps.cmdStop(); ps.pos = { x: 3, y: 3 }; es.pos = { x: 29, y: 15 };
-    g = 0; while (Game.state === 'play' && g < 120 * 120) { step(); g++; } T.ok('크로노 스피어 판정 종료', Game.state === 'result' && Modes.duel.history[0] && Modes.duel.history[0].time > 95);
+    T.ok('폭발 타이머 시작 30초(20 + 6일차 밤 10)', ps.boom === 30 && es.boom === 30);
+    g = 0; while (Game.state === 'play' && g < 120 * 160) { step(); g++; if (g === 120 * 110) { T.ok('스피어 소멸 후 전 지역 금지구역 → 타이머 감소', Sphere.done && ps.boom < 30 && es.boom < 30 && Sphere.draining(ps), fmt(ps.boom, 1)); } }
+    T.ok('크로노 스피어: 타이머가 다 되면 폭사로 끝남(동시 폭사 → 체력 판정)', Game.state === 'result' && Modes.duel.history[0] && Modes.duel.history[0].time > 125 && ps.dead && es.dead && Modes.duel.history[0].winner === 'p', Modes.duel.history[0] && fmt(Modes.duel.history[0].time, 1));
+    // 금지구역 폭발 카운트: 처치 관여 +7(최대 30) · 경직 중 정지 · 0이면 빈사·보호막 무관 즉사 · 활성화 순간 차단벽 밖은 즉사
+    { Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 21, sphere: true }); run(200);
+      const M = Game.mode, [a, b] = M.allies, [x, y] = M.enemies;
+      T.ok('팀 대전 3:3 고정', M.size === 3 && M.team(0).length === 3 && M.team(1).length === 3 && Sphere.active);
+      Sphere.done = true; a.boom = 10; b.boom = 28; x.stasis = { t: 5 }; const xb = x.boom; run(120);
+      T.ok('금지구역에선 1초에 1초씩 감소', Math.abs(a.boom - 9) < 0.02 && Math.abs(b.boom - 27) < 0.02, fmt(a.boom, 2));
+      T.ok('아티팩트 경직 중엔 정지', x.boom === xb); x.stasis = null;
+      Combat.damage(b, y, 10, { type: 'true' }); Combat.damage(a, y, 10, { type: 'true' }); Combat.kill(a, y);
+      T.ok('처치 관여 +7초 (처치자·관여자, 최대 30)', Math.abs(a.boom - 16) < 0.02 && Math.abs(b.boom - 30) < 0.02, fmt(a.boom, 2) + '/' + fmt(b.boom, 2));
+      x.boom = 0.004; x.shield = 9999; run(2);
+      T.ok('0이 되면 보호막과 무관하게 폭사', x.dead && x.boom === 0);
+      Sphere.start(); const far = M.enemies[2]; far.pos = { x: Sphere.c.x + Sphere.r + 2, y: Sphere.c.y }; const kept = M.alive(0).length; Sphere.update(1 / 120);
+      T.ok('활성화 순간 차단벽 밖 실험체는 즉사', far.dead && M.alive(0).length === kept);
+      Renderer.frame(); T.ok('폭발 타이머 HUD 표시 오류 없음', true);
+    }
   });
 
   // ---------------- 입력 ----------------
@@ -338,10 +355,10 @@
     const e0 = errs.length; let g = 0; Game.start('team', { size: 3, diff: 'hard', map: 'arena', rounds: 1, seed: 5 });
     while (Game.state === 'play' && g < 120 * 120) { step(); g++; if (g % 12 === 0) bot(); if (g % 240 === 0) Renderer.frame(); }
     T.ok('3:3 한 판이 오류 없이 끝남', Game.state === 'result' && errs.length === e0, `${Game.state} ${(g / 120).toFixed(1)}s ${errs.slice(e0).join('/')}`);
-    // 2:2 + 다니엘(나) · 숲길
-    Settings.character = 'daniel'; g = 0; Game.start('team', { size: 2, diff: 'normal', map: 'jungle', rounds: 1, seed: 8 });
+    // 3:3 + 다니엘(나) · 숲길
+    Settings.character = 'daniel'; g = 0; Game.start('team', { diff: 'normal', map: 'jungle', rounds: 1, seed: 8 });
     while (Game.state === 'play' && g < 120 * 120) { step(); g++; if (g % 12 === 0) bot(); }
-    T.ok('2:2 (다니엘·숲길) 한 판이 끝남', Game.state === 'result' && errs.length === e0 && Game.mode.team(0).length === 2);
+    T.ok('3:3 (다니엘·숲길) 한 판이 끝남', Game.state === 'result' && errs.length === e0 && Game.mode.team(0).length === 3 && Game.mode.team(1).length === 3, `${Game.state} ${(g / 120).toFixed(1)}s ${errs.slice(e0).join('/')}`);
     Settings.character = 'cathy';
     // 영상 학습 규칙: 프리딜 못 견디는 상대 먼저 · 아군이 멀면 궁 아낌 · 팔 길이로 팀 자세
     { reset(); Game.start('team', { size: 3, diff: 'normal', map: 'arena', rounds: 1, seed: 3, allies: ['aya', 'rio'], enemies: ['katja', 'nadine', 'aya'] }); run(5);
@@ -460,6 +477,20 @@
   G('장비', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.build = 'late';
     const P = CONFIG.gearPresets, D1 = P.daggerD1.gear, L = CONFIG.builds.late;
+    // 체력 재생(초당) · 장비 체력 재생% · AI 궁 쿨감(현자의 로브)
+    { const lv = L.level, base = 1.8 + 0.135 * (lv - 1);
+      Game.start('dummy', { count: 1, hp: 3000, def: 50, gear: null }); const c = Game.player;
+      T.ok('캐시 체력 재생 = 기본(레벨 성장)', Math.abs(c.regen - base) < 1e-9, fmt(c.regen, 3));
+      c.hp = c.maxHp - 100; const h0 = c.hp; for (let i = 0; i < 240; i++) c.tickStatus(1 / 120); T.ok('2초에 재생만큼 회복', Math.abs(c.hp - h0 - base * 2) < 0.01, fmt(c.hp - h0, 2));
+      const qh = Object.assign({}, D1, { chest: 202502 }); Game.start('dummy', { count: 1, hp: 3000, def: 50, gear: qh });
+      T.ok('퀸 오브 하트: 체력 재생 +100%', Math.abs(Game.player.regen - base * 2) < 1e-9, fmt(Game.player.regen, 3));
+      const G0 = Builds.resolveAI('nadine', 'late', 0); T.ok('AI 장비: 현자의 로브 궁 쿨감 20', G0.ultCdr === 20);
+      Game.start('duel', { diff: 'normal', motif: 'nadine', enemyBuild: 'late', map: 'basic', rounds: 1, enemyGear: 0 }); const e = Modes.duel.enemy;
+      e.cds.R = 10; e.cds.Q = 10; e.cdTick(1); const rq = 10 - e.cds.Q, rr = 10 - e.cds.R;
+      T.ok('AI 궁 쿨감: R만 20%p 더 빨리 돎', e.ultCdrAi === 20 && Math.abs(rr - rq - 0.2) < 1e-9, fmt(rq, 2) + '/' + fmt(rr, 2));
+      T.ok('AI 체력 재생 = 나딘 기본값', Math.abs(e.regen - Builds.regen('nadine', CONFIG.rangedAI.stages.late.level)) < 1e-9 && e.regen > 0);
+      reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.build = 'late';
+    }
     // 데이터: 부위·무기군·등급이 올바름
     T.ok('아이템 데이터', Object.values(CONFIG.items).length >= 60 && Object.values(CONFIG.items).every(it => Builds.SLOTS.includes(it.slot) && Builds.GRADE_LABEL[it.grade] && (it.slot !== 'weapon' || ['dagger', 'dual'].includes(it.weapon))));
     T.ok('프리셋은 전부 맞는 아이템', Object.values(P).every(p => Builds.SLOTS.every(s => { const it = CONFIG.items[p.gear[s]]; return it && it.slot === s && (s !== 'weapon' || it.weapon === p.weapon); })));
@@ -632,7 +663,7 @@
       const r = rigOf(Game.player); T.ok('캐시 CC0 모델', !!r && !!r.actions.run && !!r.actions.slash && !!r.actions.idle);
       T.ok('무기 손에 부착', !!r && !!r.obj.getObjectByName('WristR').children.find(c => c.type === 'Group'));
       T.ok('캐시 평타 동작(베기·좌우 찌르기·전투 자세)', !!r && r.melee && ['slash', 'stabR', 'stabL', 'idleSword'].every(k => r.actions[k] && r.actions[k].getClip().duration > Models.MELEE.slash.hit) && ['slash', 'stabR'].every(k => r.actions[k].clampWhenFinished));
-      T.ok('쌍검 직접 만든 동작(대각 2연타·X자·대기)', ['dualAA', 'dualX', 'dualIdle'].every(k => r.actions[k] && r.actions[k].getClip().tracks.length > 20) && Math.abs(Models.MELEE.dualAA.hit2 - Models.MELEE.dualAA.hit - 0.12) < 1e-6 && Models.MELEE.dualAA.hit === Motions.HITS.DualAA.hit);
+      T.ok('쌍검 직접 만든 동작(대각 2연타·X자·대기)', ['dualAA', 'dualX', 'dualIdle'].every(k => r.actions[k] && r.actions[k].getClip().tracks.length > 20) && Math.abs(Models.MELEE.dualAA.hit2 - Models.MELEE.dualAA.hit - 0.12) < 1e-6 && Models.MELEE.dualAA.hit === Motions.CLIPS.DualAA.keys.find(k => k[1].includes('hitR'))[0]);
       T.ok('캐시 스킬 동작 표(Q W E R D)', ['Q', 'W', 'E', 'R', 'D', 'Ddual', 'D2'].every(k => { const A = Models.SKILL_ANIM[k]; return A && (A.flurry || r.actions[A.clip]); }) && r.root && r.root.children[0] === r.obj);
       T.ok('역할 소품 부착(가운·후드 등)', !!r && r.obj.getObjectByName('Chest').children.some(c => c.type === 'Group' && c.children.length >= 2));
       const re = rigOf(Modes.duel.enemy); T.ok('아야 모델(원딜 동작)', !!re && re.ranged && !!re.actions.shoot);

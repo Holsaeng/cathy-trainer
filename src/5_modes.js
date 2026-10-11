@@ -298,10 +298,10 @@ Modes.duel = {
     if (frozen || this.ended) return;
     if (this.sphere) {
       Sphere.update(dt);
-      if (Sphere.done && !this.enemy.dead && !Game.player.dead) {   // 끝까지 승부가 안 나면 남은 체력 비율로 판정
-        const pr = Game.player.hp / Game.player.maxHp, er = this.enemy.hp / this.enemy.maxHp;
-        FX.toast(`크로노 스피어 종료 — 판정 (${Math.round(pr * 100)}% vs ${Math.round(er * 100)}%)`, '#9fe0ff');
-        this.roundEnd(pr >= er ? 'p' : 'e'); return;
+      if (this.enemy.dead && Game.player.dead) {   // 같은 순간 둘 다 폭사 → 남은 체력 비율로 판정
+        const T = Sphere.tie || { 0: 1, 1: 1 };
+        FX.toast(`동시 폭사 — 체력 판정 (${Math.round(T[0] * 100)}% vs ${Math.round(T[1] * 100)}%)`, '#9fe0ff');
+        this.roundEnd(Sphere.tieWin()); return;
       }
     }
     if (this.enemy.dead) this.roundEnd('p'); else if (Game.player.dead) this.roundEnd('e');
@@ -314,7 +314,6 @@ Modes.duel = {
     const sum = { round: this.round, winner: w, time: Game.time - this.roundStart, dealt: St.dealtTotal - s0.dealt, taken: St.takenTotal - s0.taken, casts, hits,
       mistakes: Object.entries(mist).sort((a, b) => b[1] - a[1]).slice(0, 3), eDodge: e.stats.dodges, eS1: `${e.stats.s1Hits}/${e.stats.s1Casts}`, pHp: Math.max(0, p.hp / p.maxHp), eHp: Math.max(0, e.hp / e.maxHp) };
     this.history.push(sum);
-    if (this.onRoundSum) this.onRoundSum(sum);   // 온라인 대전: 손님용 요약 추가
     if (w === 'p') Events.emit('roundWin');
     Sfx.playFor(Game.player, w === 'p' ? 'win' : 'fail', null, w === 'p' ? 'fail' : 'win');
     if (this.wins.p >= this.need || this.wins.e >= this.need) { Game.finish('duelEnd'); return; }
@@ -322,7 +321,7 @@ Modes.duel = {
   },
   drawScreen(ctx, L, oy = 0) {
     Draw.text(ctx, `${Game.player ? Game.player.name : '캐시'} ${this.wins.p}  :  ${this.wins.e} ${this.motif.name}  ·  ROUND ${this.round}`, L.W / 2, 24 + oy, { size: 18, bold: true, align: 'center', stroke: true });
-    if (this.sphere && Sphere.active) Draw.text(ctx, Sphere.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: '#9fe0ff', stroke: true });
+    if (this.sphere) Sphere.drawHud(ctx, L, oy);
     if (this.banner) { Draw.text(ctx, this.banner.text, L.W / 2, L.H * 0.4, { size: 46, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true }); if (this.banner.sub) Draw.text(ctx, this.banner.sub, L.W / 2, L.H * 0.4 + 44, { size: 18, bold: true, align: 'center', color: this.motif.color, stroke: true }); }
     if (this.inter) {
       const s = this.inter.sum, w = 420, h = 230, x = L.W / 2 - w / 2, y = L.H * 0.22;

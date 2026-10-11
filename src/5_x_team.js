@@ -1,12 +1,12 @@
 
-// ============================== 5. AI 팀 대전 (2:2 · 3:3) ==============================
+// ============================== 5. AI 팀 대전 (3:3) ==============================
 // 나 + 아군 AI vs 상대 AI 팀. 맵 기본 = 원형 투기장(LoL 아레나풍), 라운드제(3판 2선승) — 한 팀이 모두 쓰러지면 라운드 끝
 // AI는 1:1 결투와 같은 실험체 AI(RangedDuelist + 키트)를 쓰고, 팀 판단만 이 모드가 더함:
 //   팀 판단(역할·대상 점수·후퇴·핑퐁·추격 한계)은 TeamAI (src/5_x_teamai.js, 근거 docs/er_notes_teamfight.md)
 Modes.team = {
   name: 'AI 팀 대전',
   start(o) {
-    this.diff = o.diff || 'normal'; this.size = clamp((o.size | 0) || 3, 2, 3); this.need = o.rounds === 1 ? 1 : 2;
+    this.diff = o.diff || 'normal'; this.size = 3; this.need = o.rounds === 1 ? 1 : 2;
     const keys = Object.keys(CONFIG.rangedMotifs);
     // 팀 구성: 지정한 칸은 그대로, 비운 칸은 무작위(같은 팀 안에서는 겹치지 않게)
     const fill = (want, n) => { const out = [], pool = keys.slice(); for (let i = 0; i < n; i++) { let k = want && want[i] && CONFIG.rangedMotifs[want[i]] ? want[i] : null; if (!k) { const free = pool.filter(x => !out.includes(x)); k = free[Math.floor(rnd() * free.length)] || keys[0]; } out.push(k); } return out; };
@@ -44,10 +44,10 @@ Modes.team = {
     if (frozen || this.ended) return;
     if (this.sphere) {
       Sphere.update(dt);
-      if (Sphere.done && this.alive(0).length && this.alive(1).length) {   // 끝까지 승부가 안 나면 팀 남은 체력 비율로 판정
-        const r = t => { const a = this.team(t); return a.reduce((s, u) => s + Math.max(0, u.hp) / u.maxHp, 0) / Math.max(1, a.length); }, pr = r(0), er = r(1);
-        FX.toast(`크로노 스피어 종료 — 판정 (${Math.round(pr * 100)}% vs ${Math.round(er * 100)}%)`, '#9fe0ff');
-        this.roundEnd(pr >= er ? 'p' : 'e'); return;
+      if (!this.alive(0).length && !this.alive(1).length) {   // 같은 순간 양 팀 모두 폭사 → 남은 체력 비율로 판정
+        const T = Sphere.tie || { 0: 1, 1: 1 };
+        FX.toast(`동시 폭사 — 체력 판정 (${Math.round(T[0] * 100)}% vs ${Math.round(T[1] * 100)}%)`, '#9fe0ff');
+        this.roundEnd(Sphere.tieWin()); return;
       }
     }
     if (!this.alive(1).length) this.roundEnd('p'); else if (!this.alive(0).length) this.roundEnd('e');
@@ -69,7 +69,7 @@ Modes.team = {
   drawScreen(ctx, L, oy = 0) {
     const a = this.alive(0).length, e = this.alive(1).length;
     Draw.text(ctx, `블루 ${this.wins.p}  :  ${this.wins.e} 레드  ·  ROUND ${this.round}  ·  생존 ${a} vs ${e}`, L.W / 2, 24 + oy, { size: 18, bold: true, align: 'center', stroke: true });
-    if (this.sphere && Sphere.active) Draw.text(ctx, Sphere.label(), L.W / 2, 46 + oy, { size: 12, bold: true, align: 'center', color: '#9fe0ff', stroke: true });
+    if (this.sphere) Sphere.drawHud(ctx, L, oy);
     if (this.banner) { Draw.text(ctx, this.banner.text, L.W / 2, L.H * 0.4, { size: 46, bold: true, align: 'center', color: CONFIG.theme.gold, stroke: true }); if (this.banner.sub) Draw.text(ctx, this.banner.sub, L.W / 2, L.H * 0.4 + 44, { size: 18, bold: true, align: 'center', color: '#ff8a8a', stroke: true }); }
     if (Game.player && Game.player.dead && !this.inter && this.alive(0).length) Draw.text(ctx, '쓰러졌습니다 — 아군이 싸우는 중 (관전)', L.W / 2, L.H * 0.3, { size: 18, bold: true, align: 'center', color: '#c9cfdb', stroke: true });
     if (this.inter) {

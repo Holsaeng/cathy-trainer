@@ -109,14 +109,14 @@ const UI = {
       ['dummy', '🎯', '허수아비', 'DPS·스킬별 피해 비율 측정. 개수·체력·방어력 설정.'],
       ['combo', '🧩', '콤보 트레이너', '콤보 순서·입력 간격(ms) 판정. 입문 / 숙련 / 마스터.'],
       ['dodge', '💨', '회피 수련', '점점 빨라지는 투사체·장판. 생존 시간과 피격 히트맵.'],
-      ['team', '👥', 'AI 팀 대전', '나 + 아군 AI vs 상대 AI 팀 (2:2 · 3:3). 원형 투기장, 팀 시야 공유, 집중 공격·후퇴하는 팀 AI.'],
+      ['team', '👥', 'AI 팀 대전', '나 + 아군 AI vs 상대 AI 팀 (3:3). 원형 투기장, 팀 시야 공유, 집중 공격·후퇴하는 팀 AI.'],
     ];
   },
   // 각 모드의 「바로 시작」 옵션 (마지막으로 고른 값)
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'team') return { size: Settings.teamSize || 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
+    if (id === 'team') return { size: 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
     if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
     return {};
   },
@@ -216,21 +216,19 @@ const UI = {
     } else if (id === 'dodge') {
       this.show(`<h2>💨 회피 수련</h2><div class="sub">목숨 ${CONFIG.modes.dodge.lives}개. 직선 투사체·원형 장판·지연 폭발이 갈수록 빨라집니다. 무빙과 이동기·블링크로 버티세요. 결과 화면에 피격 위치 히트맵이 표시됩니다.</div><div class="row">${back}${go}</div>`, Object.assign(H, { go: () => this.start('dodge', {}) }), K);
     } else if (id === 'team') {
-      const o = this.quickOpts('team'), n = o.size;
+      const o = this.quickOpts('team'), n = 3;
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
       this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
-        <div class="row"><label>인원</label>${sb('size', 2, '2 : 2', n)}${sb('size', 3, '3 : 3', n)}</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
         <div class="row"><label>상대 (레드)</label>${Array.from({ length: n }, (_, i) => slot('e', i)).join('')}</div>
         <div class="row"><label>난이도</label>${Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => sb('diff', k, d.label, o.diff)).join('')}<span class="sub" style="margin:0 0 0 8px">아군·상대 AI 모두 같은 난이도</span></div>
         <div class="row"><label>AI 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮'], ['night', '🌙 밤'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => sb('ttime', k, l, o.time)).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => sb('tmap', k, m.name, o.map)).join('')}</div>
-        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 — 끝까지 승부가 안 나면 팀 남은 체력으로 판정)</label></div>
+        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 + 금지구역 폭발 타이머 — 스피어가 사라지면 타이머가 많이 남은 쪽이 승리)</label></div>
         <div class="row" style="margin-top:12px">${back}${go}</div>`, Object.assign(H, {
-        size: d => { Settings.teamSize = +d.v; saveSettings(); this.showModeOptions('team'); },
         diff: d => { Settings.teamDiff = d.v; saveSettings(); this.showModeOptions('team'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('team'); },
         ttime: d => { Settings.teamTime = d.v; saveSettings(); this.showModeOptions('team'); },
@@ -254,7 +252,7 @@ const UI = {
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
-        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 끝까지 승부가 안 나면 남은 체력 비율로 판정</label></div>
+        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 스피어가 사라지면 전 지역이 금지구역 — 폭발 타이머(30초, 처치 관여 +7초)가 먼저 0이 되는 쪽이 폭사</label></div>
         ${Settings.character === 'daniel' ? '<div class="sub" style="margin:4px 0;color:#d9a8ff">다니엘은 은신(E)·영감 시야 감소(W)·걸작(R)으로 원딜을 한 번에 무는 암살자라 <b>어려움</b>을 권장합니다.</div>' : ''}
         <div class="row" style="margin-top:12px">${back}${go}</div>
         <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">AI·맵·시야 설명 자세히</summary><div class="sub" style="margin-top:6px">

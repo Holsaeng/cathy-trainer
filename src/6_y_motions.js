@@ -25,8 +25,6 @@ const Motions = {
     DualX:    { dur: 0.70, keys: [[0, ['ready'], 0, 0.04], [0.22, ['windX'], 0, -0.1], [0.38, ['hitX'], 0, 0.28], [0.70, ['ready'], 0, 0.04]] },
     DualIdle: { dur: null, loop: true, keys: [[0, ['ready'], 0, 0.06]] },   // 살짝 숙인 전투 자세
   },
-  // 타격 순간(클립 시간) — Models.MELEE 형식
-  HITS: { DualAA: { s: 0.02, hit: 0.32, hit2: 0.44, end: 0.75 }, DualX: { s: 0.04, hit: 0.38, end: 0.70 } },
 
   bake(S) {
     const T3 = THREE, base = S.clips.Idle_Sword || S.clips.Idle; if (!base) return;

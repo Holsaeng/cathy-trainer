@@ -18,7 +18,7 @@ let html = parts.map(f => fs.readFileSync(path.join(SRC, f), 'utf8')).join('');
 const m = html.match(/<script>([\s\S]*)<\/script>/);
 if (!m) { console.error('✗ <script> 블록을 찾지 못했습니다'); process.exit(1); }
 check(m[1], 'cathy_trainer.html');
-// 게임 버전: 내용 해시 8자리 (온라인 대전 버전 확인용)
+// 게임 버전: 내용 해시 8자리 (리플레이 파일 버전 확인용)
 html = html.replace("const BUILD_ID = '__BUILD__';", `const BUILD_ID = '${require('crypto').createHash('sha1').update(html).digest('hex').slice(0, 8)}';`);
 fs.writeFileSync(OUT, html);
 console.log(`✓ ${parts.length}개 조각 → cathy_trainer.html (${(html.length / 1024).toFixed(0)} KB)`);

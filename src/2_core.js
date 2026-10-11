@@ -2,7 +2,7 @@
 // ============================== 유틸 ==============================
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
-// 판정용 난수(시드): 같은 시드 + 같은 입력 = 같은 결과 → 리플레이·온라인 대전 준비. Game.start마다 새 시드(opts.seed로 지정 가능)
+// 판정용 난수(시드): 같은 시드 + 같은 입력 = 같은 결과 → 리플레이·결정성 검사. Game.start마다 새 시드(opts.seed로 지정 가능)
 //   치명타·AI 판단·소음 위치·회피 패턴처럼 결과에 영향을 주는 곳만 rnd()/rand(). 화면 효과·소리는 Math.random 그대로
 const Rng = {
   s: 1, seed0: 1,
@@ -10,8 +10,8 @@ const Rng = {
   next() { let t = (this.s = (this.s + 0x6D2B79F5) >>> 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; },   // mulberry32
 };
 const rnd = () => Rng.next();
-// 내 편 = 내 캐릭터와 같은 팀 (온라인 대전 손님은 팀 1). 화면 표시(색·시야)에만 사용
-// 게임 버전(빌드 때 내용 해시로 채움). 온라인 대전은 버전이 같아야 연결됨
+// 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
+// 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
 const BUILD_ID = '__BUILD__';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
@@ -339,7 +339,7 @@ const Sfx = {
     if (/활|석궁|bow|crossbow/i.test(w)) return 'hitArrow';
     return src.melee ? 'hitBlade' : 'hit';
   },
-  // u의 주인(그 캐릭터를 조종하는 사람)에게는 n, 다른 사람에게는 other(없으면 무음). 온라인 대전에선 손님에게도 시점에 맞게 전달
+  // u가 내 캐릭터면 n, 아니면 other(없으면 무음)
   playFor(u, n, pos, other) {
     const name = u === Game.player ? n : other;
     if (name) this.play(name, pos);
@@ -530,6 +530,7 @@ const Combat = {
     if (tgt.S) { tgt.S.takenTotal += dmg; tgt.S.playerHits++; }
     if (tgt === Game.player) Events.emit('playerHit', { dmg });
     if (isHero(tgt)) tgt.revealT = Math.max(tgt.revealT || 0, CONFIG.vision.hitReveal);   // 피격 시 위치 노출 (실험체)
+    if (src && isHero(src) && isHero(tgt) && src.team !== tgt.team) (tgt.hitBy || (tgt.hitBy = new Map())).set(src, Game.time);   // 처치 관여(폭발 타이머 +7초)
     if (!o.tick) { Sfx.playFor(tgt, 'hurt'); Sfx.play(Sfx.hitKind(src, type, o) || 'hit', tgt.pos); }   // 맞은 사람에겐 아픈 소리 추가
     Rest.onDamage(src, tgt, o);   // 직접 피해: 전투 상태 + 휴식 취소
     if (!o.noShake) FX.addShake(o.crit ? 6 : type === 'true' ? 0 : 2.5);
@@ -543,7 +544,7 @@ const Combat = {
     }
     if (src && src.onDealt && dmg > 0) src.onDealt(tgt, dmg, o);
     if (typeof Game !== 'undefined' && Game.mode && Game.mode.onDamage) Game.mode.onDamage(src, tgt, dmg, o);   // 팀 대전: 압박·집중 대상 기록   // 다니엘: 영감 축적·최근 피해
-    if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준(온라인 대전 상대 캐시도)
+    if (o.trauma && src instanceof Cathy && src.usesTrauma !== false && !tgt.dead) Passive.applyTrauma(tgt, o.source, src);   // 외상: 공격한 캐시 기준
     return dmg;
   },
   kill(src, tgt) {
@@ -553,7 +554,8 @@ const Combat = {
     FX.burst(tgt.pos, tgt.color, 26, 7, 0.8, 0.12); FX.ring(tgt.pos, 0.3, 2, '#ffffff', 0.5);
     if (src && src.S) src.S.kills++;
     Sfx.playFor(tgt, 'death', tgt.pos, 'kill');   // 쓰러진 사람에겐 쓰러지는 소리, 나머지는 처치음
-    Events.emit('kill', { unit: tgt });
+    Events.emit('kill', { unit: tgt, src });
+    if (typeof Sphere !== 'undefined' && Sphere.active) Sphere.onKill(src, tgt);   // 크로노 스피어: 처치 관여 시 폭발 타이머 +7초
     if (Game.time - (tgt.rMaxMark ?? -99) < 0.3) { Events.emit('rKillMax'); FX.toastFor(src, '응급 OP 최대 피해 처치!', CONFIG.theme.gold); }
   },
 };
