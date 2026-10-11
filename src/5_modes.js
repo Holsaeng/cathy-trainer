@@ -267,6 +267,7 @@ Modes.dodge = {
 };
 
 // ---------- 4. 1:1 결투 ----------
+const SPHERE_KIND = s => s === 'final' ? 'final' : s ? 'temp' : null;   // 크로노 스피어 옵션: 'final' 최종 안전지대 · 'temp'(true) 임시 안전지대
 Modes.duel = {
   name: '1:1 결투',
   start(o) {
@@ -278,8 +279,8 @@ Modes.duel = {
     this.enemyStage = CONFIG.rangedAI.stages[eb] ? eb : 'mid';
     this.stageInfo = CONFIG.rangedAI.stages[this.enemyStage];
     this.title = `1:1 결투 vs ${this.motif.name} ${this.stageInfo.label} (${CONFIG.enemy.difficulty[this.diff].label})` + (Game.mapKey !== 'basic' ? ` · ${Game.map.name}` : '');
-    this.animals = !!o.animals; this.sphere = !!o.sphere;
-    if (this.sphere) this.title += ' · 크로노 스피어';
+    this.animals = !!o.animals; this.sphere = SPHERE_KIND(o.sphere);
+    if (this.sphere) this.title += this.sphere === 'final' ? ' · 최종 안전지대' : ' · 크로노 스피어';
     this.wins = { p: 0, e: 0 }; this.round = 0; this.history = []; this.newRound();
   },
   newRound() {
@@ -288,7 +289,7 @@ Modes.duel = {
     Scene.player(sp.p.x, sp.p.y); VisionItems.give(Game.player); Game.drones = []; Vision.reveals = []; Vision.noises = [];
     this.enemy = new RangedDuelist(sp.e.x, sp.e.y, this.diff, this.motifKey, this.enemyStage); Game.units.push(this.enemy);
     if (this.animals) for (const a of Game.map.animals) Scene.animal(a.x, a.y, this.enemyStage);   // 야생동물(2인 수쳐 응용)
-    if (this.sphere) Sphere.start(); else Sphere.stop();   // 크로노 스피어: 줄어드는 차단벽 안에서 결투
+    if (this.sphere) Sphere.start(this.sphere); else Sphere.stop();   // 크로노 스피어: 줄어드는 안전지대 안에서 결투
     this.snap = Stats.snapshot(); this.roundStart = Game.time; this.inter = null; this.ended = false;
     Game.freeze = 1.6; this.banner = { t: 1.6, text: `ROUND ${this.round}`, sub: `VS ${this.motif.name} ${this.stageInfo.label} · ${this.motif.weapon}` };
   },

@@ -598,7 +598,7 @@ class Projectile {
       this.dir = V.fromAng(cur + clamp(d, -mx, mx));
     }
     const prev = V.copy(this.pos), move = Math.min(this.speed * dt, this.range - this.traveled);
-    const tw = this.homeTarget && this.owner && !(this.owner instanceof Cathy) ? Infinity : Geo.rayHit(prev, this.dir, move, this.width / 2 + (this.wallPad || 0)), segEnd = tw < Infinity ? tw : move;
+    const tw = this.homeTarget && this.ignoreWalls ? Infinity : Geo.rayHit(prev, this.dir, move, this.width / 2 + (this.wallPad || 0), true), segEnd = tw < Infinity ? tw : move;
     // 이번 스텝 경로 위의 유닛을 진행 순서대로 판정
     const cands = [];
     for (const u of Game.units) {

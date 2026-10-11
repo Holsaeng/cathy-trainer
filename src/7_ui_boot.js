@@ -116,8 +116,8 @@ const UI = {
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
     if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
-    if (id === 'team') return { size: 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: !!Settings.teamSphere };
-    if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: !!Settings.duelSphere };
+    if (id === 'team') return { size: 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: Settings.teamSphere ? (Settings.teamSphereKind || 'final') : false };
+    if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: Settings.duelSphere ? (Settings.duelSphereKind || 'final') : false };
     return {};
   },
   quickLabel(id) {
@@ -125,7 +125,7 @@ const UI = {
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
     if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${(Settings.character || 'cathy') !== 'cathy' ? ' · 캐시로 진행' : ''}`;
     if (id === 'team') { const nm = (a, n) => Array.from({ length: n }, (_, i) => a[i] && CONFIG.rangedMotifs[a[i]] ? CONFIG.rangedMotifs[a[i]].name : '랜덤').join('·'); return `${o.size}:${o.size} · 아군 ${nm(o.allies, o.size - 1)} vs ${nm(o.enemies, o.size)} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.arena).name}`; }
-    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? ' · 크로노 스피어' : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
+    if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? (o.sphere === 'final' ? ' · 최종 안전지대' : ' · 크로노 스피어') : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
   },
   lastLabel() {
@@ -227,13 +227,14 @@ const UI = {
         <div class="row"><label>AI 레벨</label>${this.enemyBuildBtns()}</div>
         <div class="row"><label>시간대</label>${[['day', '☀ 낮'], ['night', '🌙 밤'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => sb('ttime', k, l, o.time)).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => sb('tmap', k, m.name, o.map)).join('')}</div>
-        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어 (줄어드는 차단벽 + 금지구역 폭발 타이머 — 스피어가 사라지면 타이머가 많이 남은 쪽이 승리)</label></div>
+        <div class="row"><label><input type="checkbox" data-in="tsphere" ${o.sphere ? 'checked' : ''}> 크로노 스피어</label> <select data-in="tsphereKind">${[['final', '최종 안전지대 — 벽 없음, 밖에 나가면 폭발 타이머 감소'], ['temp', '임시 안전지대 — 차단벽(못 나감), 활성화 순간 밖은 즉사']].map(([v, l]) => `<option value="${v}" ${(Settings.teamSphereKind || 'final') === v ? 'selected' : ''}>${l}</option>`).join('')}</select> <span class="sub" style="margin:0 0 0 6px">폭발 타이머 30초(처치 관여 +7초) · 스피어가 사라지면 전 지역 금지구역</span></div>
         <div class="row" style="margin-top:12px">${back}${go}</div>`, Object.assign(H, {
         diff: d => { Settings.teamDiff = d.v; saveSettings(); this.showModeOptions('team'); },
         ebuild: d => { Settings.enemyBuild = d.v; saveSettings(); this.showModeOptions('team'); },
         ttime: d => { Settings.teamTime = d.v; saveSettings(); this.showModeOptions('team'); },
         tmap: d => { Settings.teamMap = d.v; saveSettings(); this.showModeOptions('team'); },
         'in:tsphere': el => { Settings.teamSphere = el.checked; saveSettings(); },
+        'in:tsphereKind': el => { Settings.teamSphereKind = el.value; saveSettings(); },
         'in:slot': el => { const k = el.dataset.side === 'a' ? 'teamAllies' : 'teamEnemies', a = (Settings[k] || []).slice(); a[+el.dataset.i] = el.value || null; Settings[k] = a; saveSettings(); },
         go: () => this.start('team', this.quickOpts('team')),
       }), K);
@@ -252,7 +253,7 @@ const UI = {
         <div class="row"><label>시간대</label>${[['day', '☀ 낮 (시야 8.5m)'], ['night', '🌙 밤 (3.4→6.4m)'], ['cycle', '🔄 낮밤 교대']].map(([k, l]) => `<button class="btn ${(Settings.duelTime || 'day') === k ? 'sel' : ''}" data-a="dtime" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><label>맵</label>${Object.entries(CONFIG.maps).map(([k, m]) => `<button class="btn ${(Settings.duelMap || 'basic') === k ? 'sel' : ''}" data-a="map" data-v="${k}">${m.name}</button>`).join('')}
           <label style="margin-left:10px"><input type="checkbox" data-in="animals" ${Settings.duelAnimals ? 'checked' : ''}> 야생동물(늑대)</label></div>
-        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b> (시즌 12 임시 안전지대) — 반경 30m → 10m → 이동 → 5m → 0m로 줄어드는 차단벽 안에서 결투, 이동기로도 못 넘음. 스피어가 사라지면 전 지역이 금지구역 — 폭발 타이머(30초, 처치 관여 +7초)가 먼저 0이 되는 쪽이 폭사</label></div>
+        <div class="row"><label><input type="checkbox" data-in="sphere" ${Settings.duelSphere ? 'checked' : ''}> <b>크로노 스피어</b></label> <select data-in="sphereKind">${[['final', '최종 안전지대 — 벽 없음, 밖에 나가면 폭발 타이머 감소'], ['temp', '임시 안전지대 — 차단벽(못 나감), 활성화 순간 밖은 즉사']].map(([v, l]) => `<option value="${v}" ${(Settings.duelSphereKind || 'final') === v ? 'selected' : ''}>${l}</option>`).join('')}</select> <span class="sub" style="margin:0 0 0 6px">반경 30m에서 줄어드는 안전지대 · 폭발 타이머 30초(처치 관여 +7초) · 스피어가 사라지면 전 지역 금지구역</span></div>
         ${Settings.character === 'daniel' ? '<div class="sub" style="margin:4px 0;color:#d9a8ff">다니엘은 은신(E)·영감 시야 감소(W)·걸작(R)으로 원딜을 한 번에 무는 암살자라 <b>어려움</b>을 권장합니다.</div>' : ''}
         <div class="row" style="margin-top:12px">${back}${go}</div>
         <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">AI·맵·시야 설명 자세히</summary><div class="sub" style="margin-top:6px">
@@ -268,6 +269,7 @@ const UI = {
         map: d => { Settings.duelMap = d.v; saveSettings(); this.showModeOptions('duel'); },
         'in:animals': el => { Settings.duelAnimals = el.checked; saveSettings(); },
         'in:sphere': el => { Settings.duelSphere = el.checked; saveSettings(); },
+        'in:sphereKind': el => { Settings.duelSphereKind = el.value; saveSettings(); },
         dtime: d => { Settings.duelTime = d.v; saveSettings(); this.showModeOptions('duel'); },
         go: () => this.start('duel', this.quickOpts('duel')),
       }), K);

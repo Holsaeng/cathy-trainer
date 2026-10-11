@@ -72,10 +72,10 @@ const Geo = {
   wallsFor(o, dist, pad) { const rd = Geo.round(); return rd && V.dist(o, rd.c) + dist + pad < rd.r - 0.01 ? Geo.inner() : CONFIG.walls; },
   // 광선이 원 밖으로 나가는 거리(안에서 출발할 때)
   circleExit(o, d, rd) { const fx = o.x - rd.c.x, fy = o.y - rd.c.y, b = fx * d.x + fy * d.y, c = fx * fx + fy * fy - rd.r * rd.r; return -b + Math.sqrt(Math.max(0, b * b - c)); },
-  // 광선이 벽/경계에 처음 닿는 거리 (dist 이내가 아니면 Infinity)
-  rayHit(o, d, dist, pad) {
+  // 광선이 벽/경계에 처음 닿는 거리 (dist 이내가 아니면 Infinity). shot = 투사체: 낮은 턱(화단)은 위로 넘어감 — 이동만 막는 지형
+  rayHit(o, d, dist, pad, shot) {
     let best = Infinity;
-    for (const w of Geo.wallsFor(o, dist, pad)) { const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
+    for (const w of Geo.wallsFor(o, dist, pad)) { if (shot && w.kind === 'low') continue; const t = Geo._slab(o, d, w.x - pad, w.y - pad, w.x + w.w + pad, w.y + w.h + pad); if (t < best) best = t; }
     const W = CONFIG.world.w, H = CONFIG.world.h;
     if (d.x > 1e-9) best = Math.min(best, (W - pad - o.x) / d.x); else if (d.x < -1e-9) best = Math.min(best, (pad - o.x) / d.x);
     if (d.y > 1e-9) best = Math.min(best, (H - pad - o.y) / d.y); else if (d.y < -1e-9) best = Math.min(best, (pad - o.y) / d.y);

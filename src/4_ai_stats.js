@@ -188,7 +188,7 @@ class RangedDuelist extends Duelist {
   shoot(o) {
     const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
       speed: o.speed, range: o.range, width: o.width, onUnit: (pr, u) => { o.onHit(u, pr); return o.pierce ? 'continue' : 'stop'; } });
-    if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = 999; }   // 대상 지정(회피 불가)
+    if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.ignoreWalls = true; pr.range = 999; }   // 대상 지정(회피 불가 · 벽에 막히지 않음)
     Game.projectiles.push(pr); return pr;
   }
   startCast(dur, onFire, tele) { this.act = { type: 'cast', t: 0, dur, onFire, tele }; this.moveTarget = null; Vision.act(this, 'skill'); }

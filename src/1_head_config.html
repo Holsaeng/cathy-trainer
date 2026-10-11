@@ -151,6 +151,17 @@ const CONFIG = {
       { type: 'wait', dur: 40, r: 5, label: '반경 5m 유지' },
       { type: 'shrink', dur: 5, r: 0, label: '3차 축소 → 0m' },
     ],
+    // 최종 안전지대(나무위키): 반경 30m → 20초에 14m → 10초 대기 → 이동 → 15초에 5m → 40초 유지 → 소멸. 차단벽 없음 — 밖은 금지구역(폭발 타이머 감소)
+    //   첫 대기 5초·이동 6초는 임시 안전지대와 같게 둠(추정). 마지막 소멸은 5초에 걸쳐 0m(임시와 같게, 추정)
+    finalPhases: [
+      { type: 'wait', dur: 5, r: 30, label: '최종 안전지대 (반경 30m)' },
+      { type: 'shrink', dur: 20, r: 14, label: '1차 축소 → 14m' },
+      { type: 'show', dur: 10, r: 14, label: '이동 지점 표시' },
+      { type: 'move', dur: 6, r: 14, label: '안전지대 이동' },
+      { type: 'shrink', dur: 15, r: 5, label: '2차 축소 → 5m' },
+      { type: 'wait', dur: 40, r: 5, label: '반경 5m 유지' },
+      { type: 'shrink', dur: 5, r: 0, label: '소멸 → 0m' },
+    ],
     // 금지구역 폭발 타이머 (docs/er_notes_systems.md 1.7): 시작 20초 + 6일차 밤 +10초(상한 무시) · 처치 관여 +7초(최대 30초) · 0이 되면 빈사와 무관하게 즉사
     //  금지구역(차단벽 밖, 스피어 소멸 후엔 전 지역)에 있을 때만 줄고, 아티팩트 경직 중엔 멈춤. assist = 처치 관여로 치는 최근 피해 시간(추정)
     boom: { start: 20, night: 10, kill: 7, max: 30, assist: 10, warn: 5 },

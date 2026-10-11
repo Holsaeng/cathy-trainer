@@ -68,7 +68,7 @@ const Env3D = {
     this.wall.visible = !!on; this.next.visible = !!(on && S.target);
     if (on) {
       this.wall.position.set(S.c.x, 0, S.c.y); this.wall.scale.set(S.r, 1, S.r);
-      const u = this.wall.material.uniforms; u.t.value = Game.time; u.op.value = 0.85 + 0.15 * Math.sin(Game.time * 5);
+      const u = this.wall.material.uniforms; u.t.value = Game.time; u.op.value = (S.wall ? 0.85 : 0.4) + 0.15 * Math.sin(Game.time * 5);
       if (S.target) { this.next.position.set(S.target.x, 0, S.target.y); this.next.scale.set(S.r, 0.55, S.r); this.next.material.uniforms.t.value = Game.time; this.next.material.uniforms.op.value = 0.35; }
     }
   },

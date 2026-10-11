@@ -52,7 +52,7 @@ class RangedPlayer extends Cathy {
     const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.color, len: o.len || 0.6, pos: V.copy(o.from || this.pos), dir: o.dir, speed: o.speed, range: o.range, width: o.width || 0.3, wallPad: o.wallPad,
       onUnit: (pr, u) => { if (o.only && u !== o.only) return 'continue'; if (o.heroOnly && !isHero(u) && u.kind !== 'dummy') return 'continue'; const r = o.onHit(u, pr); return r === 'continue' || o.pierce ? 'continue' : 'stop'; } });
     if (o.onWall) pr.onWall = o.onWall;
-    if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.range = o.range || V.dist(this.pos, o.home.pos) + 8; }
+    if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.ignoreWalls = true; pr.range = o.range || V.dist(this.pos, o.home.pos) + 8; }   // 대상 지정: 벽에 막히지 않음(AI와 같음)
     Game.projectiles.push(pr); return pr;
   }
   after(t, fn) { this.pend.push({ t, fn }); }

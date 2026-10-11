@@ -1,15 +1,17 @@
 
 // ============================== 크로노 스피어 (시즌 12 임시 안전지대) ==============================
-// 공식 12.0 패치노트 스케줄: 반경 30m로 5초 대기 → 20초에 걸쳐 10m → 10초간 이동 목표 표시 → 이동 → 15초에 걸쳐 5m → 40초 유지 → 5초에 걸쳐 0m
+// 두 가지 규칙: temp = 임시 안전지대(차단벽 — 못 나감, 활성화 순간 밖은 즉사) · final = 최종 안전지대(벽 없음 — 밖에 나가면 폭발 타이머가 줄어듦)
+// 공식 12.0 패치노트 스케줄(임시): 반경 30m로 5초 대기 → 20초에 걸쳐 10m → 10초간 이동 목표 표시 → 이동 → 15초에 걸쳐 5m → 40초 유지 → 5초에 걸쳐 0m
 // 활성화 후에는 차단벽을 넘을 수 없음(이동기도 벽에 부딪혀 종료). 활성화 순간 차단벽 밖의 실험체는 즉사
 // 금지구역 폭발 타이머: 시작 30초(20 + 6일차 밤 +10), 처치 관여 +7초(최대 30), 스피어가 소멸하면 전 지역이 금지구역 → 타이머가 많이 남은 쪽이 이김
 //   같은 순간 양 팀이 모두 폭사하면(처치 없는 결투 등) 남은 체력 비율로 판정
 const Sphere = {
   active: false,
-  start() {
+  start(kind) {
     const S = CONFIG.sphere, W = CONFIG.world;
+    this.kind = kind === 'final' ? 'final' : 'temp'; this.wall = this.kind === 'temp';
     this.active = true; this.done = false; this.t = 0; this.i = 0;
-    this.c = { x: W.w / 2, y: W.h / 2 }; this.r = S.phases[0].r; this.from = { c: V.copy(this.c), r: this.r };
+    this.c = { x: W.w / 2, y: W.h / 2 }; this.r = this.phases()[0].r; this.from = { c: V.copy(this.c), r: this.r };
     this.target = null; this.armed = false; this.tie = null;
     const B = CONFIG.sphere.boom;
     for (const u of Game.units) if (isHero(u)) { u.boom = Math.min(B.start, B.max) + B.night; u.boomWarn = false; u.hitBy = null; }
@@ -40,7 +42,8 @@ const Sphere = {
     Combat.kill(null, u);
   },
   tieWin() { return this.tie && this.tie[1] > this.tie[0] ? 'e' : 'p'; },
-  phase() { return CONFIG.sphere.phases[this.i]; },
+  phases() { return this.kind === 'final' ? CONFIG.sphere.finalPhases : CONFIG.sphere.phases; },
+  phase() { return this.phases()[this.i]; },
   // 이동 목표: 반경 10m 원이 아레나 안쪽에 오도록
   pickTarget() {
     const W = CONFIG.world, m = CONFIG.sphere.targetMargin, rd = Geo.round();
@@ -53,9 +56,9 @@ const Sphere = {
   },
   update(dt) {
     if (!this.active) return;
-    if (!this.armed) {   // 활성화: 차단벽 밖에 있는 실험체는 즉사
+    if (!this.armed) {   // 활성화: 차단벽 밖에 있는 실험체는 즉사 (임시 안전지대만)
       this.armed = true;
-      for (const u of this.heroes()) if (V.dist(u.pos, this.c) > this.r) this.explode(u, '차단벽 밖 — 즉사');
+      if (this.wall) for (const u of this.heroes()) if (V.dist(u.pos, this.c) > this.r) this.explode(u, '차단벽 밖 — 즉사');
     }
     this.tickBoom(dt);
     if (this.done) return;
@@ -67,11 +70,11 @@ const Sphere = {
     if (this.t >= P.dur) {
       this.i++; this.t = 0; this.from = { c: V.copy(this.c), r: this.r };
       if (P.type === 'move') this.target = null;
-      if (this.i >= CONFIG.sphere.phases.length) { this.done = true; this.r = 0; FX.toastAll('크로노 스피어 소멸 — 전 지역 금지구역! 폭발 타이머 감소', '#ff8a8a'); return; }
-      const N = this.phase(); if (N.label) FX.toastAll(`크로노 스피어: ${N.label}`, '#9fe0ff');
+      if (this.i >= this.phases().length) { this.done = true; this.r = 0; FX.toastAll('크로노 스피어 소멸 — 전 지역 금지구역! 폭발 타이머 감소', '#ff8a8a'); return; }
+      const N = this.phase(); if (N.label) FX.toastAll(`${this.name()}: ${N.label}`, '#9fe0ff');
     }
-    // 차단벽: 모든 유닛을 원 안으로 (이동기·강제 이동 포함)
-    for (const u of Game.units) {
+    // 차단벽: 모든 유닛을 원 안으로 (이동기·강제 이동 포함) — 임시 안전지대만. 최종 안전지대는 밖으로 나갈 수 있음(폭발 타이머 감소)
+    if (this.wall) for (const u of Game.units) {
       if (u.dead || u.kind === 'ward') continue;
       const d = V.dist(u.pos, this.c), lim = Math.max(0, this.r - u.r);
       if (d > lim) {
@@ -105,12 +108,13 @@ const Sphere = {
     Draw.text(ctx, `폭발 타이머 ${fmt(p.boom, 1)}초${dr ? (p.stasis ? '' : ' ▼') : ''}${p.stasis && this.inZone(p) ? ' (경직 — 정지)' : ''}`, L.W / 2, 66 + oy,
       { size: low ? 17 : 14, bold: true, align: 'center', color: low && dr && Math.floor(Game.time * 4) % 2 ? '#ffffff' : dr ? '#ff5d5d' : '#ffd27a', stroke: true });
   },
+  name() { return this.kind === 'final' ? '최종 안전지대' : '크로노 스피어'; },
   // AI 이동 후보 점수용: 차단벽 근처·밖은 감점
   penalty(q) { if (!this.active) return 0; const d = V.dist(q, this.c), m = this.r - 1.2; return d > m ? (d - m) * 4 : 0; },
   label() {
     if (!this.active) return '';
-    const P = this.phase(); if (!P || this.done) return '크로노 스피어 소멸 · 전 지역 금지구역 — 폭발 타이머가 많이 남은 쪽이 승리';
-    return `크로노 스피어 · ${P.label || ''} · 반경 ${fmt(this.r, 1)}m · ${Math.ceil(P.dur - this.t)}초`;
+    const P = this.phase(); if (!P || this.done) return `${this.name()} 소멸 · 전 지역 금지구역 — 폭발 타이머가 많이 남은 쪽이 승리`;
+    return `${this.name()}${this.wall ? '' : ' (밖 = 금지구역)'} · ${P.label || ''} · 반경 ${fmt(this.r, 1)}m · ${Math.ceil(P.dur - this.t)}초`;
   },
   draw(ctx) {
     if (!this.active) return;
@@ -120,7 +124,7 @@ const Sphere = {
     ctx.save(); if (rd) { ctx.beginPath(); ctx.arc(rd.c.x, rd.c.y, rd.r, 0, Math.PI * 2); ctx.clip(); }
     ctx.beginPath(); ctx.rect(0, 0, W.w, W.h); ctx.arc(this.c.x, this.c.y, Math.max(0.01, this.r), 0, Math.PI * 2, true);
     ctx.fillStyle = 'rgba(160,30,50,.22)'; ctx.fill('evenodd');
-    ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 0.1; ctx.setLineDash([0.5, 0.25]); ctx.lineDashOffset = -Game.time * 2;
+    ctx.strokeStyle = this.wall ? '#9fe0ff' : '#ff8a8a'; ctx.lineWidth = 0.1; ctx.setLineDash(this.wall ? [0.5, 0.25] : [0.25, 0.25]); ctx.lineDashOffset = -Game.time * 2;
     ctx.beginPath(); ctx.arc(this.c.x, this.c.y, Math.max(0.01, this.r), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
     // 다음 이동 지점
     if (this.target) { ctx.globalAlpha = 0.6; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.arc(this.target.x, this.target.y, this.r, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(this.c.x, this.c.y); ctx.lineTo(this.target.x, this.target.y); ctx.stroke(); }

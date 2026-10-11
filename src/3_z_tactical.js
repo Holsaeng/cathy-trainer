@@ -32,7 +32,7 @@ const Tactical = {
           for (let i = 0; i < n; i++) {
             const pr = new Projectile({ team: p.team, owner: p, kind: 'shot', color: '#9fd8ff', len: 0.35, pos: V.copy(p.pos), dir: V.fromAng(V.ang(V.sub(t.pos, p.pos)) + (i - (n - 1) / 2) * 0.22), speed: D.mSpeed, range: 99, width: 0.2,
               onUnit: (pr2, u) => { if (u !== t) return 'continue'; Combat.damage(p, u, D.mBase + L * D.mLv + u.maxHp * D.mHp, { type: 'true', source: 'F', noShake: true }); return 'stop'; } });
-            pr.homeTarget = t; pr.homeTurn = 14; Game.projectiles.push(pr);
+            pr.homeTarget = t; pr.homeTurn = 14; pr.ignoreWalls = !(p instanceof Cathy); Game.projectiles.push(pr);   // 플라즈마 유도탄: 기존 규칙 유지(내 캐릭터는 벽에 막힘)
           }
         });
         break;

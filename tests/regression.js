@@ -141,6 +141,33 @@
     T.ok('폭발 타이머 시작 30초(20 + 6일차 밤 10)', ps.boom === 30 && es.boom === 30);
     g = 0; while (Game.state === 'play' && g < 120 * 160) { step(); g++; if (g === 120 * 110) { T.ok('스피어 소멸 후 전 지역 금지구역 → 타이머 감소', Sphere.done && ps.boom < 30 && es.boom < 30 && Sphere.draining(ps), fmt(ps.boom, 1)); } }
     T.ok('크로노 스피어: 타이머가 다 되면 폭사로 끝남(동시 폭사 → 체력 판정)', Game.state === 'result' && Modes.duel.history[0] && Modes.duel.history[0].time > 125 && ps.dead && es.dead && Modes.duel.history[0].winner === 'p', Modes.duel.history[0] && fmt(Modes.duel.history[0].time, 1));
+    // 최종 안전지대: 차단벽 없음 — 밖으로 나갈 수 있고, 밖에 있으면 폭발 타이머 감소 · 활성화 순간 즉사 없음
+    { Game.start('duel', { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'arena', rounds: 1, sphere: 'final' }); run(200);
+      const pf = Game.player, ef = Modes.duel.enemy; ef.stun = 9999; pf.cmdStop();
+      T.ok('최종 안전지대 시작', Sphere.active && Sphere.kind === 'final' && !Sphere.wall && Modes.duel.title.includes('최종 안전지대'));
+      Sphere.r = 3; const out = V.add(Sphere.c, { x: 6, y: 0 }); pf.pos = V.copy(out); const b0 = pf.boom; run(120);
+      T.ok('최종 안전지대: 밖에 서 있어도 밀려 들어오지 않음', V.dist(pf.pos, out) < 0.05 && !pf.dead);
+      T.ok('최종 안전지대: 밖에 있으면 폭발 타이머 감소', Math.abs(b0 - pf.boom - 1) < 0.02, fmt(pf.boom, 2));
+      pf.pos = V.copy(Sphere.c); const b1 = pf.boom; run(120); T.ok('안으로 돌아오면 멈춤', pf.boom === b1);
+      Sphere.start('final'); pf.pos = V.add(Sphere.c, { x: 40, y: 0 }); Sphere.update(1 / 120); T.ok('최종 안전지대: 활성화 순간 밖이어도 즉사 없음', !pf.dead);
+      Sphere.start('temp'); T.ok('임시 안전지대(기존): 차단벽', Sphere.wall && Sphere.kind === 'temp');
+    }
+    // 투사체 지형 규칙: 낮은 턱(화단)은 투사체가 넘어감 · 대상 지정 평타(원거리 실험체 플레이어)는 벽에 막히지 않음
+    { reset(); Game.start('dummy', { count: 1, hp: 99999, def: 50, infinite: true, map: 'arena' }); Game.freeze = 0; const pc = Game.player, dm = Game.units.find(u => u.kind === 'dummy'), low = CONFIG.walls.find(w => w.kind === 'low');
+      pc.pos = { x: low.x - 1.5, y: low.y + low.h / 2 }; dm.pos = { x: low.x + low.w + 1.2, y: low.y + low.h / 2 }; pc.cmdStop(); pc.skills.E.cd = 0; let pr = null;
+      pc.cmdSkill('E', dm.pos); for (let i = 0; i < 240; i++) { Game.step(1 / 120); pr = pr || Game.projectiles.find(q => q.kind === 'needle'); }
+      T.ok('캐시 E: 낮은 턱 너머 적중', !!pr && pr.first === dm, pr && fmt(pr.traveled, 2));
+      const hi = CONFIG.walls.find(w => !w.edge && !w.kind && w.w > 1); pc.pos = { x: hi.x - 1.2, y: hi.y + hi.h / 2 }; dm.pos = { x: hi.x + hi.w + 1.2, y: hi.y + hi.h / 2 }; pc.skills.E.cd = 0; Game.projectiles = []; pr = null;
+      pc.cmdSkill('E', dm.pos); for (let i = 0; i < 240; i++) { Game.step(1 / 120); pr = pr || Game.projectiles.find(q => q.kind === 'needle'); }
+      T.ok('캐시 E: 높은 벽에는 막힘(원작)', !!pr && !pr.first);
+      reset(); Settings.character = 'katja'; Game.start('dummy', { count: 1, hp: 99999, def: 50, infinite: true, map: 'arena' }); Game.freeze = 0; const pk = Game.player, dk = Game.units.find(u => u.kind === 'dummy');
+      pk.pos = { x: hi.x - 1.2, y: hi.y + hi.h / 2 }; dk.pos = { x: hi.x + hi.w + 1.2, y: hi.y + hi.h / 2 }; let hitK = false;
+      const sh = pk.shot({ dir: V.norm(V.sub(dk.pos, pk.pos)), speed: 30, home: dk, onHit: u => { hitK = u === dk; } }); for (let i = 0; i < 240 && !sh.dead; i++) sh.update(1 / 120);
+      T.ok('카티야(플레이어) 대상 지정 평타: 벽에 막히지 않음(AI와 같음)', hitK && sh.ignoreWalls);
+      const sh2 = pk.shot({ dir: V.norm(V.sub(dk.pos, pk.pos)), speed: 30, range: 6, onHit: () => {} }); for (let i = 0; i < 240 && !sh2.dead; i++) sh2.update(1 / 120);
+      T.ok('논타깃 스킬샷은 높은 벽에 막힘', sh2.traveled < V.dist(pk.pos, dk.pos) - 1);
+      Settings.character = 'cathy';
+    }
     // 금지구역 폭발 카운트: 처치 관여 +7(최대 30) · 경직 중 정지 · 0이면 빈사·보호막 무관 즉사 · 활성화 순간 차단벽 밖은 즉사
     { Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 21, sphere: true }); run(200);
       const M = Game.mode, [a, b] = M.allies, [x, y] = M.enemies;
