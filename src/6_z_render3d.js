@@ -26,7 +26,7 @@ const Render3D = {
     // 바닥 데칼(2D 그리기 재사용)
     this.decalCv = document.createElement('canvas'); this.decalCtx = this.decalCv.getContext('2d');
     this.mapGroup = new T3.Group(); this.scene.add(this.mapGroup);
-    this.unitMeshes = new Map(); this.projMeshes = new Map();
+    this.unitMeshes = new Map(); this.projMeshes = new Map(); this.unitPool = new Map();
     this.mats = {};
     // 카툰 렌더링 외곽선: 뒷면을 살짝 부풀려 그리는 방식(스키닝도 따라감). 화면 기준 두께라 줌과 무관하게 일정
     this.outline = T3.OutlineEffect ? new T3.OutlineEffect(this.gl, { defaultThickness: 0.0042, defaultColor: [0.07, 0.05, 0.06], defaultAlpha: 0.95, defaultKeepAlive: true }) : null;
@@ -70,7 +70,14 @@ const Render3D = {
   noLine(m) { if (m) m.userData.outlineParameters = { visible: false }; return m; },   // 외곽선 제외(바닥·데칼·팀 링·유리·부쉬)
   std(color, o = {}) { const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.85, metalness: 0.02 }, o)); m.color.set(color).convertSRGBToLinear(); return m; },   // 색은 sRGB → 선형
   // ---------- 맵 ----------
+  mapSig() { return JSON.stringify([CONFIG.world.w, CONFIG.world.h, CONFIG.walls, CONFIG.bushes || null]); },
+  // 바닥 그림은 맵·크기별로 한 번만 그려 보관(1152×1152 캔버스를 판마다 다시 그리고 올리던 것 방지)
   groundTexture(key) {
+    const ck = key + ':' + CONFIG.world.w + 'x' + CONFIG.world.h; this.groundCache = this.groundCache || {};
+    if (this.groundCache[ck]) return this.groundCache[ck];
+    return (this.groundCache[ck] = this.drawGround(key));
+  },
+  drawGround(key) {
     const c = document.createElement('canvas'), W = CONFIG.world.w, H = CONFIG.world.h, P = 32; c.width = W * P; c.height = H * P;
     const g = c.getContext('2d'), jungle = key === 'jungle';
     g.fillStyle = jungle ? '#4d6b3c' : '#4a4f57'; g.fillRect(0, 0, c.width, c.height);
@@ -100,7 +107,7 @@ const Render3D = {
   },
   buildMap() {
     const T3 = THREE, G = this.mapGroup, W = CONFIG.world.w, H = CONFIG.world.h;
-    while (G.children.length) { const o = G.children.pop(); o.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) { if (m.material.map) m.material.map.dispose(); m.material.dispose(); } }); }
+    while (G.children.length) { const o = G.children.pop(); o.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) { if (m.material.map && !Object.values(this.groundCache || {}).includes(m.material.map)) m.material.map.dispose(); m.material.dispose(); } }); }   // 보관한 바닥 그림은 남김
     this.bushMeshes = [];
     // 바닥
     const ground = new T3.Mesh(new T3.PlaneGeometry(W, H), this.noLine(this.std('#ffffff', { map: this.groundTexture(Game.mapKey) })));
@@ -149,7 +156,7 @@ const Render3D = {
       }
       grp.userData = { mats, base: grp.children.map(c => c.rotation.y) }; G.add(grp); this.bushMeshes.push(grp);
     });
-    this.mapKey = Game.mapKey; this.wallRef = CONFIG.walls;
+    this.mapKey = Game.mapKey; this.wallRef = CONFIG.walls; this.wallSig = this.mapSig();
   },
   // ---------- 유닛 (로우폴리 인형) ----------
   weaponMesh(u) {
@@ -165,7 +172,20 @@ const Render3D = {
     else if (wpn === '활') { const arc = new T3.Mesh(new T3.TorusGeometry(0.4, 0.03, 4, 12, Math.PI), this.toonify(this.std('#8a5a33', { transparent: true }))); arc.rotation.set(Math.PI / 2, 0, -Math.PI / 2); arc.position.set(0.35, 0, 0); g.add(arc); }
     return g;
   },
+  // 인물 모델 재사용(풀): 판이 끝나도 같은 조건(모델·팀 색·무기·모델 버전·카툰)이면 버리지 않고 다음 판에 다시 씀
+  //   → 판 시작 첫 프레임에 재질 약 170개를 새로 준비하던 멈칫(약 0.1초) 제거
+  poolKey(u) { const k = Models.keyFor(u); return k ? [k, Models.ver, this.toonOn() ? 't' : 'n', u.team === myTeam() ? 'a' : u.team === 2 ? 'n' : 'e', u.kind, u.weapon || '', u.color || ''].join('|') : null; },
   makeUnit(u) {
+    if (this.poolVer !== Models.ver) { this.clearPool(); this.poolVer = Models.ver; }   // 모델이 바뀌면 보관분 정리
+    const pk = this.poolKey(u), pool = pk && this.unitPool.get(pk);
+    if (pool && pool.length) {
+      const r = pool.pop(), D = r.userData; D.last = V.copy(u.pos); D.yaw = undefined; D.stars.visible = false; r.visible = true;
+      for (const mt of D.mats) { if (mt.userData.baseOp) mt.opacity = mt.userData.baseOp; if (mt.emissive) mt.emissive.setRGB(0, 0, 0); }
+      this.scene.add(r); return r;
+    }
+    const root = this.buildUnit(u); root.userData.poolKey = pk; return root;
+  },
+  buildUnit(u) {
     const T3 = THREE, root = new T3.Group(), body = new T3.Group(); root.add(body);
     const col = new T3.Color(u.color || '#888'), mats = [];
     const M = (c, o) => { const m = this.toonify(this.std(c, Object.assign({ transparent: true }, o))); mats.push(m); return m; };
@@ -239,13 +259,19 @@ const Render3D = {
     for (const [id, m] of this.unitMeshes) if (!seen.has(id)) this.dropUnit(id, m);
   },
   dropUnit(id, m) {
-    this.scene.remove(m);
-    m.traverse(o => { if (o.geometry && !o.userData.sharedGeo) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(x => x.dispose()); });
+    this.scene.remove(m); this.unitMeshes.delete(id);
     const rig = m.userData.body && m.userData.body.userData.rig; if (rig) rig.mixer.stopAllAction();
-    this.unitMeshes.delete(id);
+    const pk = m.userData.poolKey;
+    if (pk && m.userData.modelVer === Models.ver) { const pool = this.unitPool.get(pk) || []; if (pool.length < 3) { pool.push(m); this.unitPool.set(pk, pool); return; } }
+    this.disposeUnit(m);
   },
+  disposeUnit(m) {
+    const sks = new Set(); m.traverse(o => { if (o.geometry && !o.userData.sharedGeo) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(x => x.dispose()); if (o.isSkinnedMesh && o.skeleton) sks.add(o.skeleton); });
+    for (const s of sks) s.dispose();   // 뼈 텍스처(GPU) 정리
+  },
+  clearPool() { for (const pool of this.unitPool.values()) pool.forEach(m => this.disposeUnit(m)); this.unitPool.clear(); },
   // 설정에서 모델 켜고 끄기
-  rebuildUnits() { for (const [id, m] of this.unitMeshes) this.dropUnit(id, m); this.mapKey = null; },   // mapKey 초기화 → 다음 프레임에 맵도 새 재질로   // 재질 방식이 바뀌면(카툰 켜기/끄기) 유닛을 모두 다시 만듦
+  rebuildUnits() { for (const [id, m] of this.unitMeshes) this.dropUnit(id, m); this.clearPool(); this.mapKey = null; },   // mapKey 초기화 → 다음 프레임에 맵도 새 재질로   // 재질 방식이 바뀌면(카툰 켜기/끄기) 유닛을 모두 다시 만듦
   refreshModels() { if (Settings.models3d === false) { Models.state = 'failed'; Models.ver++; } else if (Models.state === 'failed' && Models.supported()) { Models.state = 'idle'; Models.load(); } },
   // ---------- 투사체 ----------
   syncProjectiles() {
@@ -308,7 +334,7 @@ const Render3D = {
   },
   frame() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.lastT || now)) / 1000); this.lastT = now;
-    if (this.mapKey !== Game.mapKey || this.wallRef !== CONFIG.walls) this.buildMap();
+    if (this.mapKey !== Game.mapKey || (this.wallRef !== CONFIG.walls && this.wallSig !== this.mapSig())) this.buildMap();   // 판마다 벽 배열이 새로 만들어져도 내용이 같으면 그대로
     this.updateCamera(dt); Env3D.frame(dt);
     this.syncUnits(dt); this.syncProjectiles(); this.syncBushes();
     VFX3D.frame(Game.state === 'play' && !Game.paused ? dt * (Settings.gameSpeed || 1) : 0);

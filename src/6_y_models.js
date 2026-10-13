@@ -45,6 +45,16 @@ const Models = {
   CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
+  // 복제(SkeletonUtils.clone)는 부위(메시)마다 뼈대를 따로 복제함 → 같은 뼈·같은 바인드 자세면 하나로 묶음
+  //   (한 사람 약 21개 → 1개: 뼈 계산 21배 → 1배, 판마다 GPU 뼈 텍스처 약 80개가 새로 생기고 안 지워지던 것 방지)
+  shareSkeletons(obj) {
+    const first = new Map();
+    obj.traverse(o => {
+      if (!o.isSkinnedMesh) return; const sk = o.skeleton, s0 = first.get(sk.bones[0]);
+      if (!s0) { first.set(sk.bones[0], sk); return; }
+      if (s0 !== sk && s0.bones.length === sk.bones.length && s0.bones.every((b, i) => b === sk.bones[i]) && s0.boneInverses.every((m, i) => m.equals(sk.boneInverses[i]))) o.skeleton = s0;
+    });
+  },
   // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
   //   공개 사이트엔 local/이 없으므로 이 PC(localhost)에서만 찾음 — 접속마다 404 18개가 나던 것 방지
   async find(name) {
@@ -101,7 +111,7 @@ const Models = {
       if (ch === 'ref' && this.src[key + 'Ref']) S = this.src[key + 'Ref'];   // 로컬 전용
     }
     if (!S) return null;
-    const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map();
+    const T3 = THREE, obj = THREE.SkeletonUtils.clone(S.scene), cache = new Map(); this.shareSkeletons(obj);
     obj.scale.setScalar(S.scale * ((S.design && S.design.scale) || look.h || 1)); obj.rotation.y = Math.PI / 2;   // 모델 정면(+Z) → 게임 정면(+X) · 니나는 작게
     obj.traverse(o => {
       if (!o.isMesh) return;

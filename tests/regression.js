@@ -1112,6 +1112,14 @@
       UI.showSettings(); T.ok('환경: 설정에 날씨 버튼', document.querySelectorAll('[data-a="weather"]').length === 3);
       click('[data-a="weather"][data-v="rain"]'); T.ok('환경: 날씨 버튼 동작', Settings.weather === 'rain');
       Settings.weather = w0 || 'clear'; UI.showMenu();
+      // 판 시작 멈칫 제거: 같은 맵이면 맵을 다시 만들지 않음 · 인물 모델은 보관했다 재사용 · 뼈대는 사람당 하나 · 판을 반복해도 GPU 텍스처가 늘지 않음
+      const go = () => { Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 5, sphere: 'final' }); Renderer.frame(); };
+      go(); go(); const ground = Render3D.mapGroup.children[0], tex0 = Render3D.gl.info.memory.textures; go(); go();
+      T.ok('3D: 같은 맵 다시 시작 → 맵 재사용', Render3D.mapGroup.children[0] === ground);
+      T.ok('3D: 판을 반복해도 텍스처가 늘지 않음', Render3D.gl.info.memory.textures <= tex0 + 2, `${tex0} → ${Render3D.gl.info.memory.textures}`);
+      let bad = 0; for (const [, m] of Render3D.unitMeshes) { const sk = new Set(); m.traverse(o => { if (o.isSkinnedMesh) sk.add(o.skeleton); }); if (sk.size > 1) bad++; }
+      T.ok('3D: 인물 뼈대는 사람당 하나', bad === 0, bad);
+      UI.showMenu();
     }
     T.ok('2D 복귀', Renderer.setMode('2d', true) && Renderer.mode === '2d' && Render3D.cv.style.display === 'none');
     Renderer.frame(); Settings.gfx = '2d';
