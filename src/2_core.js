@@ -273,7 +273,7 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y', T: 't', B: 'b' };   // C 망원 카메라 · V 정찰 드론 · T 핑(집중·여기로) · B 후퇴 핑(팀 대전)
 const DEFAULT_SETTINGS = { gfx: '2d', gfxQ: 'auto', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});

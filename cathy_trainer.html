@@ -947,7 +947,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'e8ced15a';
+const BUILD_ID = 'd29a38eb';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -1208,7 +1208,7 @@ const Store = {
   get(k, def) { try { const v = localStorage.getItem('cathySim.' + k); return v ? JSON.parse(v) : def; } catch (e) { return def; } },
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
-const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
+const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y', T: 't', B: 'b' };   // C 망원 카메라 · V 정찰 드론 · T 핑(집중·여기로) · B 후퇴 핑(팀 대전)
 const DEFAULT_SETTINGS = { gfx: '2d', gfxQ: 'auto', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
@@ -4320,6 +4320,7 @@ class RangedDuelist extends Duelist {
     this.watchThreats(dt);
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
+    if (Game.mode && Game.mode.pingMove) { const q = Game.mode.pingMove(this); if (q) { if (this.rest) Rest.stop(this, null, true); this.moveTarget = q; this.moveStep(dt); return; } }   // 플레이어 핑(후퇴·여기로)은 다른 판단보다 먼저
     const p0 = this.foe; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
     if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남
@@ -6022,7 +6023,26 @@ CONFIG.teamAI = {
 };
 const TeamAI = {
   focus: {},   // 팀별 집중 대상 {u, t} — 콜러가 마지막으로 친 적
-  reset() { this.focus = {}; },
+  orders: {},  // 팀별 플레이어 핑 지시 {kind: focus 집중 · go 여기로 · back 후퇴, u, pos, until}
+  reset() { this.focus = {}; this.orders = {}; },
+  // ---------- 플레이어 핑 (T: 커서 위 적 집중 / 땅이면 여기로 · B: 내 쪽으로 후퇴) ----------
+  PING: { focus: { dur: 6, label: '집중 공격', color: '#ff6b6b' }, go: { dur: 5, label: '여기로', color: '#ffd166' }, back: { dur: 4, label: '후퇴', color: '#7fd7ff' } },
+  ping(from, kind, pt, u) {
+    const P = this.PING[kind]; if (!P || !from) return;
+    if (kind === 'focus' && (!u || u.dead)) return;
+    this.orders[from.team] = { kind, u: u || null, pos: kind === 'back' ? null : V.copy(pt), from, until: Game.time + P.dur };
+    const at = kind === 'focus' ? u.pos : kind === 'back' ? from.pos : pt;
+    FX.ring(at, 0.3, 1.6, P.color, 0.5, 0.12); FX.text(at, (kind === 'focus' ? '⚔ ' : kind === 'back' ? '↩ ' : '📍 ') + P.label + (u ? ' — ' + (u.motif ? u.motif.name : u.name || '') : ''), P.color, 13, { bold: true });
+    Sfx.play('click'); Events.emit('ping', { kind, team: from.team });
+  },
+  // 후퇴·여기로 핑: 이동할 지점(도착했으면 null) — RangedDuelist.update가 다른 판단보다 먼저 확인
+  pingMove(ai) {
+    const O = this.order(ai.team); if (!O || ai === O.from) return null;
+    if (O.kind === 'back') { if (V.dist(ai.pos, O.from.pos) <= 2.5) return null; ai.stats.pingBack = (ai.stats.pingBack || 0) + 1; return Geo.pushOut(V.add(O.from.pos, V.mul(V.norm(V.sub(ai.pos, O.from.pos)), 1.5)), ai.r); }
+    if (O.kind === 'go') { if (V.dist(ai.pos, O.pos) <= 1.8) return null; ai.stats.pingGo = (ai.stats.pingGo || 0) + 1; return Geo.pushOut(O.pos, ai.r); }
+    return null;
+  },
+  order(t) { const O = this.orders[t]; if (!O) return null; if (Game.time > O.until || (O.kind === 'focus' && O.u.dead) || (O.kind === 'back' && O.from.dead)) { delete this.orders[t]; return null; } return O; },
   isMelee(u) { return !!u && (u.melee || (u.kind === 'player' && !u.ranged)); },
   isCarry(u) { return u && (u.role === 'carry' || u.role === 'poke'); },
   heroes(t) { return Game.units.filter(u => isHero(u) && u.team === t && !u.dead); },
@@ -6074,6 +6094,7 @@ const TeamAI = {
   pickFoe(ai, es, cur) {
     const T = CONFIG.teamAI, W = T.w, easy = ai.diffKey === 'easy', now = Game.time;
     const alive = es.filter(u => !u.dead); if (!alive.length) return null;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && alive.includes(O.u)) return O.u;   // 플레이어 핑: 집중 공격 대상
     const vis = alive.filter(u => Vision.visible(ai, u)); if (!vis.length) return cur && !cur.dead ? cur : null;
     const mates = this.mates(ai), carries = mates.filter(a => !this.isMelee(a)).concat(this.isMelee(ai) ? [] : [ai]);
     const F = this.focus[ai.team], lead = Game.player && Game.player.team === ai.team && !Game.player.dead ? Game.player : null;
@@ -6123,6 +6144,8 @@ const TeamAI = {
     const fc = foes.length ? this.center(foes) : null;
     const back = () => { const away = fc ? V.norm(V.sub(c, fc)) : V.norm(V.sub(c, ai.pos)); return Geo.pushOut(V.add(c, V.mul(away, T.regroupBack)), ai.r); };
     const go = (q, t, why) => { ai.moveTarget = q; ai.kiteT = t; ai.teamMove = why; ai.stats[why] = (ai.stats[why] || 0) + 1; return true; };
+    // 플레이어 핑: 집중 = 끝까지 붙음(빈사만 예외) — 후퇴·여기로는 pingMove(행동 맨 앞)에서
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && hpR > 0.2) return false;
     // ① 개인 후퇴: 체력이 낮고 적이 사거리 안 → 아군 쪽(뒤)으로
     if (Sphere.stance(ai) === 'push' && hpR > 0.15) return false;   // 타이머가 적은 팀: 물러나면 먼저 터짐 → 끝까지 교전
     const stall = Sphere.stance(ai) === 'stall', low = (melee ? T.lowHp.melee : T.lowHp.ranged) + (stall ? 0.15 : 0);   // 버팀: 일찍 빠짐
@@ -6156,6 +6179,7 @@ const TeamAI = {
   // 궁 아끼기: 아군이 대상 근처에 없으면(마무리·위기 아니면) R을 쓰지 않음
   holdUlt(ai, p) {
     if (ai.diffKey === 'easy' || !p || p.dead || Sphere.stance(ai) === 'push') return false;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && O.u === p) return false;   // 핑 집중 대상엔 궁 아끼지 않음
     const mates = this.mates(ai); if (!mates.length) return false;
     if (p.hp / p.maxHp < 0.35 || ai.hp / ai.maxHp < 0.4) return false;
     return !mates.some(a => V.dist(a.pos, p.pos) < CONFIG.teamAI.ultHoldDist);
@@ -6163,6 +6187,7 @@ const TeamAI = {
   // 측면(다니엘) 진입 허락: 아군이 먼저 교전 중 · 수적 우위 · 대상 고립 · 대상 빈사 · 팔이 짧은 팀(dive) (쉬움은 항상)
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && O.u === p) return true; if (O && O.kind === 'back') return false;   // 플레이어 핑
     const ss = Sphere.stance(ai); if (ss === 'push') return true; if (ss === 'stall' && p.hp / p.maxHp > 0.3) return false;   // 폭발 타이머 운영
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
     if (this.stance(ai.team) === 'dive' && CL.score >= CONFIG.teamAI.diveScore) return true;
@@ -6181,6 +6206,7 @@ const TeamAI = {
 Object.assign(Modes.team, {
   pickFoe(ai, es, cur) { return TeamAI.pickFoe(ai, es, cur); },
   teamThink(ai, p, d) { return TeamAI.think(ai, p, d); },
+  pingMove(ai) { return TeamAI.pingMove(ai); },
   onDamage(src, tgt, dmg) { TeamAI.onDamage(src, tgt, dmg); },
   mayEngage(ai, p) { return TeamAI.mayEngage(ai, p); },
   spotPenalty(ai, q) { return TeamAI.spotPenalty(ai, q); },
@@ -6369,6 +6395,7 @@ const Cmd = {
   camera(pt) { this.send({ t: 'cam', x: pt.x, y: pt.y }); },
   drone(pt) { this.send({ t: 'drone', x: pt.x, y: pt.y }); },
   cursor(pt) { this.send({ t: 'cur', x: pt.x, y: pt.y }); },
+  ping(kind, pt, t) { this.send({ t: 'ping', s: kind, x: pt.x, y: pt.y, id: t ? this.rel(t) : null }); },   // 팀 대전: 아군 AI에 지시(focus 집중 · go 여기로 · back 후퇴)
   pet(pt, t) { this.send({ t: 'pet', x: pt.x, y: pt.y, id: t ? this.rel(t) : null }); },   // 클로에: 니나 조종(Alt + 우클릭)   // 커서 위치가 결과에 영향을 줄 때만(다니엘 걸작 탈출 방향)
   apply(u, c) {
     const pt = c.x !== undefined ? { x: c.x, y: c.y } : null;
@@ -6384,16 +6411,18 @@ const Cmd = {
       case 'drone': VisionItems.drone(u, pt); break;
       case 'cur': break;
       case 'pet': if (u.petCmd) u.petCmd(pt, this.unit(c.id)); break;
+      case 'ping': TeamAI.ping(u, c.s, pt, this.unit(c.id)); break;
     }
   },
   // 명령 형식 검사 (리플레이 파일 읽기)
-  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur', 'pet'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
+  CMD_T: ['move', 'atk', 'amove', 'stop', 'sk', 'rest', 'cam', 'drone', 'cur', 'pet', 'ping'], SKILL_K: ['Q', 'W', 'E', 'R', 'D', 'F'],
   valid(c) {
     if (!c || !this.CMD_T.includes(c.t)) return false;
     if (c.x !== undefined && !(Number.isFinite(c.x) && Number.isFinite(c.y) && Math.abs(c.x) < 1e4 && Math.abs(c.y) < 1e4)) return false;
     if (c.t === 'sk' && !this.SKILL_K.includes(c.s)) return false;
     if (c.t === 'atk' && !Number.isInteger(c.id)) return false;
-    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur', 'pet'].includes(c.t) && c.x === undefined) return false;
+    if (c.t === 'ping' && !['focus', 'go', 'back'].includes(c.s)) return false;
+    if (['move', 'amove', 'sk', 'cam', 'drone', 'cur', 'pet', 'ping'].includes(c.t) && c.x === undefined) return false;
     return true;
   },
   // ---------- 재생 ----------
@@ -6781,6 +6810,11 @@ const Input = {
     if (act === 'C') { Cmd.camera(w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { Cmd.drone(w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
+    if (act === 'T' || act === 'B') {   // 팀 대전 핑: T = 커서 위 적 집중 / 땅이면 여기로 · B = 내 쪽으로 후퇴
+      if (Game.modeId !== 'team') { FX.toast('핑은 AI 팀 대전에서 아군 AI에게 지시합니다', '#9fd8ff'); return; }
+      if (act === 'B') { Cmd.ping('back', p.pos); return; }
+      const t = Game.pickEnemyAt(w, CONFIG.input.pickRadius * 1.6, p); Cmd.ping(t && isHero(t) ? 'focus' : 'go', w, t && isHero(t) ? t : null); return;
+    }
     if (act === 'Y') { Settings.camLock = Settings.camLock === false; saveSettings(); FX.toast(Settings.camLock ? '카메라 잠금' : '카메라 잠금 해제 — 화면 가장자리로 이동, 스페이스로 내 캐릭터', '#9fd8ff'); return; }   // 이터널 리턴과 같은 카메라 잠금 전환
     if (act === 'R' && p.shadow) { Cmd.skill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
@@ -6826,9 +6860,10 @@ const Gfx = {
   autoLow: false, slowT: 0,
   low() { const q = Settings.gfxQ || 'auto'; return q === 'low' || (q === 'auto' && this.autoLow); },
   dpr() { return this.low() ? 1 : Math.min(2, window.devicePixelRatio || 1); },
+  hidden() { return document.hidden; },   // 탭이 가려지면 FPS가 떨어지므로 판단하지 않음
   apply() { Renderer.resize(); },
   watch(dt, fps) {
-    if ((Settings.gfxQ || 'auto') !== 'auto' || this.autoLow || Renderer.mode !== '3d' || Game.state !== 'play' || document.hidden) { this.slowT = 0; return; }
+    if ((Settings.gfxQ || 'auto') !== 'auto' || this.autoLow || Renderer.mode !== '3d' || Game.state !== 'play' || this.hidden()) { this.slowT = 0; return; }
     this.slowT = fps < 40 ? this.slowT + dt : 0;
     if (this.slowT > 4) { this.autoLow = true; this.apply(); FX.toast('프레임이 낮아 그래픽 품질을 「낮음」으로 바꿨습니다 (설정 → 그래픽)', '#9fd8ff'); }
   },
@@ -9616,7 +9651,7 @@ const UI = {
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
-      this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
+      this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.<br>📣 핑: <kbd>${(Settings.keys.T || 't').toUpperCase()}</kbd> 커서 위 적 = 집중 공격(6초, 진입·궁 허락) · 땅 = 여기로 모이기(5초) · <kbd>${(Settings.keys.B || 'b').toUpperCase()}</kbd> = 내 쪽으로 후퇴(4초)</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
         <div class="row"><label>상대 (레드)</label>${Array.from({ length: n }, (_, i) => slot('e', i)).join('')}</div>
         <div class="row"><label>난이도</label>${Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => sb('diff', k, d.label, o.diff)).join('')}<span class="sub" style="margin:0 0 0 8px">아군·상대 AI 모두 같은 난이도</span></div>
@@ -9767,7 +9802,7 @@ const UI = {
     this.settingsBack = back;
     const ch = Settings.character || 'cathy', K = CONFIG.rangedKits[ch], CN = { cathy: '캐시' }[ch] || (CONFIG.rangedMotifs[ch] || {}).name || ch;
     const sn = k => k === 'F' ? (CONFIG.tactical[Settings.tactical] || CONFIG.tactical.blink).name : ch !== 'cathy' && K && K[k] ? K[k].name : CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '');   // 지금 실험체의 스킬 이름
-    const names = { Q: 'Q ' + sn('Q'), W: 'W ' + sn('W'), E: 'E ' + sn('E'), R: 'R ' + sn('R'), D: 'D ' + sn('D') + ' (무기 스킬)', F: 'F ' + sn('F') + ' (전술 스킬)', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)' };
+    const names = { Q: 'Q ' + sn('Q'), W: 'W ' + sn('W'), E: 'E ' + sn('E'), R: 'R ' + sn('R'), D: 'D ' + sn('D') + ' (무기 스킬)', F: 'F ' + sn('F') + ' (전술 스킬)', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)', T: 'T 핑: 집중 공격·여기로 (팀 대전)', B: 'B 핑: 후퇴 (팀 대전)' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식 <span class="sub" style="font-weight:normal">(스킬 이름: ${esc(CN)} — 메뉴에서 고른 실험체)</span></h3>

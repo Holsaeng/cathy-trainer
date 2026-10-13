@@ -235,6 +235,7 @@ class RangedDuelist extends Duelist {
     this.watchThreats(dt);
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
+    if (Game.mode && Game.mode.pingMove) { const q = Game.mode.pingMove(this); if (q) { if (this.rest) Rest.stop(this, null, true); this.moveTarget = q; this.moveStep(dt); return; } }   // 플레이어 핑(후퇴·여기로)은 다른 판단보다 먼저
     const p0 = this.foe; this.seesP = !p0 || Vision.visible(this, p0);
     if (p0 && this.seesP) { this.lastSeen = V.copy(p0.pos); this.lastSeenVel = V.copy(p0.vel); this.belief = null; this.unseenT = 0; }
     if (this.rest) {   // 휴식 중: 캐시가 보이거나 소리가 들리면 일어남

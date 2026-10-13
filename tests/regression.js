@@ -338,6 +338,23 @@
     UI.showMenu();
   });
 
+  // 팀 대전 핑: T 집중 공격 · T(땅) 여기로 · B 후퇴 — 명령으로 기록(리플레이 재현)
+  G('팀 핑', () => {
+    reset(); Settings.character = 'cathy'; Game.start('team', { diff: 'hard', map: 'arena', rounds: 1, seed: 4, sphere: false }); Game.freeze = 0; Game.mode.banner = null;
+    const p = Game.player; p.invuln = 1e9; const allies = Game.units.filter(u => isHero(u) && u.team === p.team && u !== p), foes = Game.units.filter(u => isHero(u) && u.team !== p.team), ctr = Game.map.round.c;
+    run(240); const tgt = foes.find(f => !allies.some(a => a.foe === f)) || foes[0];
+    Cmd.ping('focus', tgt.pos, tgt); run(60);
+    T.ok('핑 집중: 아군이 지시한 적을 노림 · 진입·궁 허락', allies.every(a => a.dead || a.foe === tgt) && TeamAI.mayEngage(allies[0], tgt) && !TeamAI.holdUlt(allies[0], tgt));
+    const hold = () => { for (const f of foes) { f.stun = 99; f.pos = V.add(ctr, { x: 0, y: 9 }); } p.pos = V.add(ctr, { x: -8, y: 0 }); };
+    hold(); for (const a of allies) a.pos = V.add(ctr, { x: 6, y: 0 }); Cmd.ping('back', p.pos); for (let i = 0; i < 120 * 3.5; i++) { hold(); step(); }
+    T.ok('핑 후퇴: 아군이 내 쪽으로(14m를 3.5초 안에)', allies.every(a => V.dist(a.pos, p.pos) <= 3), allies.map(a => fmt(V.dist(a.pos, p.pos), 1)).join(','));
+    const spot = V.add(ctr, { x: 0, y: -6 }); Cmd.ping('go', spot); for (let i = 0; i < 120 * 3; i++) { hold(); step(); }
+    T.ok('핑 여기로: 아군이 그 지점에 모임', allies.every(a => V.dist(a.pos, spot) <= 2.3), allies.map(a => fmt(V.dist(a.pos, spot), 1)).join(','));
+    const pings = Cmd.log.filter(c => c.t === 'ping'); T.ok('핑은 명령으로 기록(리플레이 형식 검사 통과)', pings.length === 3 && pings.every(c => Cmd.valid(c)) && !Cmd.valid({ t: 'ping', s: 'x', x: 1, y: 1 }));
+    run(120 * 6); T.ok('핑은 시간이 지나면 끝남', !TeamAI.order(p.team));
+    Game.start('duel', { diff: 'easy', motif: 'aya', enemyBuild: 'mid', map: 'basic', rounds: 1 }); const n0 = Cmd.log.length; key('t'); T.ok('팀 대전이 아니면 핑 명령 없음(안내만)', Cmd.log.length === n0);
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });
@@ -957,15 +974,15 @@
   // ---------------- 3D 렌더러 ----------------
   // 그래픽 품질: 낮음 = 해상도 배율 1 · 그림자 끔 / 자동 = 3D에서 4초 넘게 40fps 아래면 낮음으로
   G('그래픽 품질', () => {
-    reset(); Settings.gfxQ = 'low'; Gfx.autoLow = false;
+    reset(); Settings.gfxQ = 'low'; Gfx.autoLow = false; Gfx.slowT = 0;
     T.ok('품질 낮음: 해상도 배율 1', Gfx.low() && Gfx.dpr() === 1);
     Settings.gfxQ = 'high'; T.ok('품질 높음', !Gfx.low() && Gfx.dpr() === Math.min(2, devicePixelRatio || 1));
-    Settings.gfxQ = 'auto'; Game.start('dummy', { count: 1, hp: 3000, def: 0 }); const m0 = Renderer.mode; Renderer.mode = '3d';
+    Settings.gfxQ = 'auto'; Gfx.autoLow = false; Gfx.slowT = 0; Game.start('dummy', { count: 1, hp: 3000, def: 0 }); Game.freeze = 0; const m0 = Renderer.mode, h0 = Gfx.hidden; Renderer.mode = '3d'; Gfx.hidden = () => false;   // 테스트 창이 가려져 있어도
     for (let i = 0; i < 100; i++) Gfx.watch(0.03, 55); const keep = Gfx.low();
     for (let i = 0; i < 100; i++) Gfx.watch(0.03, 30); const early = Gfx.autoLow; for (let i = 0; i < 50; i++) Gfx.watch(0.03, 30); const cut = Gfx.autoLow;
     Renderer.mode = m0; Gfx.autoLow = false;
     T.ok('품질 자동: 프레임이 괜찮으면 유지, 3초는 버티고 4초 넘게 낮으면 낮춤', !keep && !early && cut);
-    Settings.gfxQ = 'high'; Renderer.mode = '3d'; for (let i = 0; i < 200; i++) Gfx.watch(0.03, 20); Renderer.mode = m0;
+    Settings.gfxQ = 'high'; Renderer.mode = '3d'; for (let i = 0; i < 200; i++) Gfx.watch(0.03, 20); Renderer.mode = m0; Gfx.hidden = h0;
     T.ok('품질 높음 고정이면 자동으로 안 바뀜', !Gfx.autoLow && !Gfx.low());
     Settings.gfxQ = 'auto';
   });

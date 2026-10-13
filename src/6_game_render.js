@@ -200,6 +200,11 @@ const Input = {
     if (act === 'C') { Cmd.camera(w); return; }   // 망원 카메라: 커서 방향(최대 4m)에 즉시 설치
     if (act === 'V') { Cmd.drone(w); return; }    // 정찰 드론: 커서 지점(최대 24m)으로 발사
     if (act === 'A') { this.amove = true; this.aiming = null; return; }
+    if (act === 'T' || act === 'B') {   // 팀 대전 핑: T = 커서 위 적 집중 / 땅이면 여기로 · B = 내 쪽으로 후퇴
+      if (Game.modeId !== 'team') { FX.toast('핑은 AI 팀 대전에서 아군 AI에게 지시합니다', '#9fd8ff'); return; }
+      if (act === 'B') { Cmd.ping('back', p.pos); return; }
+      const t = Game.pickEnemyAt(w, CONFIG.input.pickRadius * 1.6, p); Cmd.ping(t && isHero(t) ? 'focus' : 'go', w, t && isHero(t) ? t : null); return;
+    }
     if (act === 'Y') { Settings.camLock = Settings.camLock === false; saveSettings(); FX.toast(Settings.camLock ? '카메라 잠금' : '카메라 잠금 해제 — 화면 가장자리로 이동, 스페이스로 내 캐릭터', '#9fd8ff'); return; }   // 이터널 리턴과 같은 카메라 잠금 전환
     if (act === 'R' && p.shadow) { Cmd.skill('R', w); this.aiming = null; return; }   // 다니엘 걸작 중 R = 즉시 탈출
     // 즉시 발동형: 단검 1차(유틸)
@@ -245,9 +250,10 @@ const Gfx = {
   autoLow: false, slowT: 0,
   low() { const q = Settings.gfxQ || 'auto'; return q === 'low' || (q === 'auto' && this.autoLow); },
   dpr() { return this.low() ? 1 : Math.min(2, window.devicePixelRatio || 1); },
+  hidden() { return document.hidden; },   // 탭이 가려지면 FPS가 떨어지므로 판단하지 않음
   apply() { Renderer.resize(); },
   watch(dt, fps) {
-    if ((Settings.gfxQ || 'auto') !== 'auto' || this.autoLow || Renderer.mode !== '3d' || Game.state !== 'play' || document.hidden) { this.slowT = 0; return; }
+    if ((Settings.gfxQ || 'auto') !== 'auto' || this.autoLow || Renderer.mode !== '3d' || Game.state !== 'play' || this.hidden()) { this.slowT = 0; return; }
     this.slowT = fps < 40 ? this.slowT + dt : 0;
     if (this.slowT > 4) { this.autoLow = true; this.apply(); FX.toast('프레임이 낮아 그래픽 품질을 「낮음」으로 바꿨습니다 (설정 → 그래픽)', '#9fd8ff'); }
   },

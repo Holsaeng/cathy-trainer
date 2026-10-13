@@ -28,7 +28,26 @@ CONFIG.teamAI = {
 };
 const TeamAI = {
   focus: {},   // 팀별 집중 대상 {u, t} — 콜러가 마지막으로 친 적
-  reset() { this.focus = {}; },
+  orders: {},  // 팀별 플레이어 핑 지시 {kind: focus 집중 · go 여기로 · back 후퇴, u, pos, until}
+  reset() { this.focus = {}; this.orders = {}; },
+  // ---------- 플레이어 핑 (T: 커서 위 적 집중 / 땅이면 여기로 · B: 내 쪽으로 후퇴) ----------
+  PING: { focus: { dur: 6, label: '집중 공격', color: '#ff6b6b' }, go: { dur: 5, label: '여기로', color: '#ffd166' }, back: { dur: 4, label: '후퇴', color: '#7fd7ff' } },
+  ping(from, kind, pt, u) {
+    const P = this.PING[kind]; if (!P || !from) return;
+    if (kind === 'focus' && (!u || u.dead)) return;
+    this.orders[from.team] = { kind, u: u || null, pos: kind === 'back' ? null : V.copy(pt), from, until: Game.time + P.dur };
+    const at = kind === 'focus' ? u.pos : kind === 'back' ? from.pos : pt;
+    FX.ring(at, 0.3, 1.6, P.color, 0.5, 0.12); FX.text(at, (kind === 'focus' ? '⚔ ' : kind === 'back' ? '↩ ' : '📍 ') + P.label + (u ? ' — ' + (u.motif ? u.motif.name : u.name || '') : ''), P.color, 13, { bold: true });
+    Sfx.play('click'); Events.emit('ping', { kind, team: from.team });
+  },
+  // 후퇴·여기로 핑: 이동할 지점(도착했으면 null) — RangedDuelist.update가 다른 판단보다 먼저 확인
+  pingMove(ai) {
+    const O = this.order(ai.team); if (!O || ai === O.from) return null;
+    if (O.kind === 'back') { if (V.dist(ai.pos, O.from.pos) <= 2.5) return null; ai.stats.pingBack = (ai.stats.pingBack || 0) + 1; return Geo.pushOut(V.add(O.from.pos, V.mul(V.norm(V.sub(ai.pos, O.from.pos)), 1.5)), ai.r); }
+    if (O.kind === 'go') { if (V.dist(ai.pos, O.pos) <= 1.8) return null; ai.stats.pingGo = (ai.stats.pingGo || 0) + 1; return Geo.pushOut(O.pos, ai.r); }
+    return null;
+  },
+  order(t) { const O = this.orders[t]; if (!O) return null; if (Game.time > O.until || (O.kind === 'focus' && O.u.dead) || (O.kind === 'back' && O.from.dead)) { delete this.orders[t]; return null; } return O; },
   isMelee(u) { return !!u && (u.melee || (u.kind === 'player' && !u.ranged)); },
   isCarry(u) { return u && (u.role === 'carry' || u.role === 'poke'); },
   heroes(t) { return Game.units.filter(u => isHero(u) && u.team === t && !u.dead); },
@@ -80,6 +99,7 @@ const TeamAI = {
   pickFoe(ai, es, cur) {
     const T = CONFIG.teamAI, W = T.w, easy = ai.diffKey === 'easy', now = Game.time;
     const alive = es.filter(u => !u.dead); if (!alive.length) return null;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && alive.includes(O.u)) return O.u;   // 플레이어 핑: 집중 공격 대상
     const vis = alive.filter(u => Vision.visible(ai, u)); if (!vis.length) return cur && !cur.dead ? cur : null;
     const mates = this.mates(ai), carries = mates.filter(a => !this.isMelee(a)).concat(this.isMelee(ai) ? [] : [ai]);
     const F = this.focus[ai.team], lead = Game.player && Game.player.team === ai.team && !Game.player.dead ? Game.player : null;
@@ -129,6 +149,8 @@ const TeamAI = {
     const fc = foes.length ? this.center(foes) : null;
     const back = () => { const away = fc ? V.norm(V.sub(c, fc)) : V.norm(V.sub(c, ai.pos)); return Geo.pushOut(V.add(c, V.mul(away, T.regroupBack)), ai.r); };
     const go = (q, t, why) => { ai.moveTarget = q; ai.kiteT = t; ai.teamMove = why; ai.stats[why] = (ai.stats[why] || 0) + 1; return true; };
+    // 플레이어 핑: 집중 = 끝까지 붙음(빈사만 예외) — 후퇴·여기로는 pingMove(행동 맨 앞)에서
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && hpR > 0.2) return false;
     // ① 개인 후퇴: 체력이 낮고 적이 사거리 안 → 아군 쪽(뒤)으로
     if (Sphere.stance(ai) === 'push' && hpR > 0.15) return false;   // 타이머가 적은 팀: 물러나면 먼저 터짐 → 끝까지 교전
     const stall = Sphere.stance(ai) === 'stall', low = (melee ? T.lowHp.melee : T.lowHp.ranged) + (stall ? 0.15 : 0);   // 버팀: 일찍 빠짐
@@ -162,6 +184,7 @@ const TeamAI = {
   // 궁 아끼기: 아군이 대상 근처에 없으면(마무리·위기 아니면) R을 쓰지 않음
   holdUlt(ai, p) {
     if (ai.diffKey === 'easy' || !p || p.dead || Sphere.stance(ai) === 'push') return false;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && O.u === p) return false;   // 핑 집중 대상엔 궁 아끼지 않음
     const mates = this.mates(ai); if (!mates.length) return false;
     if (p.hp / p.maxHp < 0.35 || ai.hp / ai.maxHp < 0.4) return false;
     return !mates.some(a => V.dist(a.pos, p.pos) < CONFIG.teamAI.ultHoldDist);
@@ -169,6 +192,7 @@ const TeamAI = {
   // 측면(다니엘) 진입 허락: 아군이 먼저 교전 중 · 수적 우위 · 대상 고립 · 대상 빈사 · 팔이 짧은 팀(dive) (쉬움은 항상)
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
+    const O = this.order(ai.team); if (O && O.kind === 'focus' && O.u === p) return true; if (O && O.kind === 'back') return false;   // 플레이어 핑
     const ss = Sphere.stance(ai); if (ss === 'push') return true; if (ss === 'stall' && p.hp / p.maxHp > 0.3) return false;   // 폭발 타이머 운영
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
     if (this.stance(ai.team) === 'dive' && CL.score >= CONFIG.teamAI.diveScore) return true;
@@ -187,6 +211,7 @@ const TeamAI = {
 Object.assign(Modes.team, {
   pickFoe(ai, es, cur) { return TeamAI.pickFoe(ai, es, cur); },
   teamThink(ai, p, d) { return TeamAI.think(ai, p, d); },
+  pingMove(ai) { return TeamAI.pingMove(ai); },
   onDamage(src, tgt, dmg) { TeamAI.onDamage(src, tgt, dmg); },
   mayEngage(ai, p) { return TeamAI.mayEngage(ai, p); },
   spotPenalty(ai, q) { return TeamAI.spotPenalty(ai, q); },

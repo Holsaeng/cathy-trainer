@@ -224,7 +224,7 @@ const UI = {
       const sb = (k, v, l, cur) => `<button class="btn ${cur === v ? 'sel' : ''}" data-a="${k}" data-v="${v}">${l}</button>`;
       const slot = (side, i) => { const cur = (side === 'a' ? o.allies : o.enemies)[i] || ''; return `<select data-in="slot" data-side="${side}" data-i="${i}"><option value="">🎲 랜덤</option>${Object.entries(CONFIG.rangedMotifs).filter(([, m]) => !m.playerOnly).map(([k, m]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${m.name} (${m.weapon})</option>`).join('')}</select>`; };
       const me = Settings.character === 'daniel' ? '다니엘' : CONFIG.rangedMotifs[Settings.character] && PKits[Settings.character] ? CONFIG.rangedMotifs[Settings.character].name : '캐시';
-      this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.</div>
+      this.show(`<h2>👥 AI 팀 대전</h2><div class="sub">나(${me}) + 아군 AI vs 상대 AI 팀. 한 팀이 모두 쓰러지면 라운드 끝 — 3판 2선승. 시야는 팀이 공유하고, 아군 AI는 내가 평타로 찍은 대상을 함께 칩니다.<br>📣 핑: <kbd>${(Settings.keys.T || 't').toUpperCase()}</kbd> 커서 위 적 = 집중 공격(6초, 진입·궁 허락) · 땅 = 여기로 모이기(5초) · <kbd>${(Settings.keys.B || 'b').toUpperCase()}</kbd> = 내 쪽으로 후퇴(4초)</div>
         <div class="row"><label>아군 (블루)</label><button class="btn sel">${me} (나)</button>${Array.from({ length: n - 1 }, (_, i) => slot('a', i)).join('')}</div>
         <div class="row"><label>상대 (레드)</label>${Array.from({ length: n }, (_, i) => slot('e', i)).join('')}</div>
         <div class="row"><label>난이도</label>${Object.entries(CONFIG.enemy.difficulty).map(([k, d]) => sb('diff', k, d.label, o.diff)).join('')}<span class="sub" style="margin:0 0 0 8px">아군·상대 AI 모두 같은 난이도</span></div>
@@ -375,7 +375,7 @@ const UI = {
     this.settingsBack = back;
     const ch = Settings.character || 'cathy', K = CONFIG.rangedKits[ch], CN = { cathy: '캐시' }[ch] || (CONFIG.rangedMotifs[ch] || {}).name || ch;
     const sn = k => k === 'F' ? (CONFIG.tactical[Settings.tactical] || CONFIG.tactical.blink).name : ch !== 'cathy' && K && K[k] ? K[k].name : CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '');   // 지금 실험체의 스킬 이름
-    const names = { Q: 'Q ' + sn('Q'), W: 'W ' + sn('W'), E: 'E ' + sn('E'), R: 'R ' + sn('R'), D: 'D ' + sn('D') + ' (무기 스킬)', F: 'F ' + sn('F') + ' (전술 스킬)', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)' };
+    const names = { Q: 'Q ' + sn('Q'), W: 'W ' + sn('W'), E: 'E ' + sn('E'), R: 'R ' + sn('R'), D: 'D ' + sn('D') + ' (무기 스킬)', F: 'F ' + sn('F') + ' (전술 스킬)', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)', T: 'T 핑: 집중 공격·여기로 (팀 대전)', B: 'B 핑: 후퇴 (팀 대전)' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
       <h3>시전 방식 <span class="sub" style="font-weight:normal">(스킬 이름: ${esc(CN)} — 메뉴에서 고른 실험체)</span></h3>
