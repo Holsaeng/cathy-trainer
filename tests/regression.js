@@ -226,15 +226,15 @@
     T.ok('R 75% 못 넘음', !tryDash('cathy', 'R', 0.75, 6)); T.ok('R 85% 넘음', tryDash('cathy', 'R', 0.85, 6));
     T.ok('다니엘 E 40% 못 넘음', !tryDash('daniel', 'E', 0.4, 3)); T.ok('다니엘 E 60% 넘음', tryDash('daniel', 'E', 0.6, 3));
     const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && Math.random() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && Math.random() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
-    let done = 0, n = 0, outC = 0;
+    let done = 0, n = 0, outC = 0, outWho = '';
     for (const ch of ['cathy', 'daniel']) for (const m of ['katja', 'rio', 'aya', 'nadine', 'daniel']) {
       n++; reset(); Settings.character = ch; Settings.build = ['early', 'mid', 'late'][n % 3]; Settings.tactical = TACTICAL_ORDER[n % 10];
       Game.start('duel', { diff: ['easy', 'normal', 'hard'][n % 3], motif: m, enemyBuild: Settings.build, map: ['basic', 'jungle', 'arena'][n % 3 === 2 ? 2 : n % 2], animals: n % 3 === 0, rounds: 1, time: ['day', 'night', 'cycle'][n % 3], sphere: n % 4 === 0 });
-      let g = 0; while (Game.state === 'play' && g < 120 * 110) { step(); g++; if (Game.map.round) for (const u of Game.units) if (!u.dead && u.kind !== 'ward' && V.dist(u.pos, Game.map.round.c) > Game.map.round.r + 0.3) outC++; if (Game.freeze <= 0 && g % 6 === 0) bot(Game.player, Modes.duel.enemy); if (g % 240 === 0) Renderer.frame(); if (g % 600 === 0) Side.update(); }
+      let g = 0; while (Game.state === 'play' && g < 120 * 110) { step(); g++; if (Game.map.round) for (const u of Game.units) if (!u.dead && u.kind !== 'ward' && V.dist(u.pos, Game.map.round.c) > Game.map.round.r + 0.3) { outC++; if (!outWho) outWho = `${ch} vs ${m}: ${u === Game.player ? '플레이어' : (u.motifKey || u.kind || '?')} ${fmt(V.dist(u.pos, Game.map.round.c) - Game.map.round.r, 2)}m 밖 · ${fmt(g / 120, 1)}초 · ${Settings.tactical}${u.cast ? ' · 시전 ' + u.cast.k : ''}`; } if (Game.freeze <= 0 && g % 6 === 0) bot(Game.player, Modes.duel.enemy); if (g % 240 === 0) Renderer.frame(); if (g % 600 === 0) Side.update(); }
       if (Game.state === 'result') done++; else T.fail.push(`[벽·AI] 미종료 ${ch} vs ${m}`);
     }
     T.ok('AI 매치업 정상 종료', done === n, done + '/' + n);
-    T.ok('원형 투기장: 대전 중 원 밖으로 안 나감', outC === 0, outC);
+    T.ok('원형 투기장: 대전 중 원 밖으로 안 나감', outC === 0, outC + ' ' + outWho);
     { const M = CONFIG.maps.arena, rd = M.round, ed = M.walls.filter(w => w.edge);   // 원형 투기장 경계
       let inC = 0; for (let a = 0; a < 360; a += 1) for (let r = 0; r < rd.r - 0.02; r += 0.1) { const p = { x: rd.c.x + r * Math.cos(a / 57.3), y: rd.c.y + r * Math.sin(a / 57.3) }; if (ed.some(w => p.x > w.x && p.x < w.x + w.w && p.y > w.y && p.y < w.y + w.h)) inC++; }
       T.ok('원형 투기장: 경계 벽이 원 안으로 안 들어옴', inC === 0, inC);
@@ -260,6 +260,17 @@
       for (let i = 0; i < 40; i++) { for (const k of ['D', 'W', 'Q', 'E', 'R']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && !p.cast) { p.cmdSkill(k, d.pos); Input.aiming = null; break; } run(30); d.pos = V.add(p.pos, { x: 2, y: 0 }); }
       const { c, h } = Stats.totalCasts(), over = SKILL_KEYS.filter(k => (Stats.hits[k] || 0) > (Stats.casts[k] || 0));
       T.ok(`${ch}: 적중 ≤ 시전 (스킬별)`, c > 3 && h > 0 && !over.length, `${h}/${c} ${over.join('')}`);
+    }
+    Settings.character = 'cathy';
+  });
+
+  // 단계별 능력치: 랭크 영상 HUD 실측값이 플레이어·AI에 그대로 들어감 (docs/er_notes_playables.md 12장)
+  G('HUD 실측 능력치', () => {
+    for (const [ch, hp, def, as] of [['chloe', 2161, 118, 1.89], ['nadine', 2171, 125, 2.16], ['alonso', 4104, 196, 1.03]]) {
+      reset(); Settings.character = ch; Settings.build = 'late'; Game.start('dummy', { count: 1, hp: 3000, def: 0, infinite: true }); const p = Game.player;
+      T.ok(`${ch} 플레이어 Lv18: 체력·방어 실측값`, Math.abs(p.maxHp - (ch === 'alonso' ? 4100 : hp)) < 1 && p.def === def, `${p.maxHp}/${p.def}`);
+      Game.start('duel', { diff: 'normal', motif: ch, enemyBuild: 'late', map: 'basic', rounds: 1, seed: 2 }); const e = Game.mode.enemy;
+      T.ok(`${ch} AI Lv18: 체력·방어 실측값`, Math.abs(e.maxHp - (ch === 'alonso' ? 4100 : hp)) < 1 && e.def === def && Math.abs(CONFIG.rangedMotifs[ch].as[2] - as) < 1e-9, `${e.maxHp}/${e.def}`);
     }
     Settings.character = 'cathy';
   });
