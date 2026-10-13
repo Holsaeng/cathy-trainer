@@ -762,7 +762,7 @@
     UI.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
     T.ok('시작 시 장비가 판 옵션에', Game.opts.gear && Builds.sig(Game.opts.gear) === Builds.sig(P.daggerD3.gear) && Game.player.gear);
     Game.finish('test'); T.ok('기록은 장비별로', Object.keys(Records.all()).some(k => k.includes('|g' + Builds.sig(P.daggerD3.gear))) && /장비:/.test(document.querySelector('#card').innerText));
-    Settings.character = 'daniel'; T.ok('다니엘은 장비 없음', Builds.current() === null); Settings.character = 'cathy';
+    Settings.character = 'daniel'; Settings.gearOnBy = {}; T.ok('다니엘: 장비를 켜지 않으면 장비 없음(캐시 장비와 별개)', Builds.current() === null); Settings.character = 'cathy';
     const est = Builds.estimate('late', P.daggerD1.gear, 'dagger'), est0 = Builds.estimate('late', null, 'dagger');
     T.ok('예상 DPS: 같은 값·화면 상태 복구', est > 0 && est0 > 0 && est === Builds.estimate('late', P.daggerD1.gear, 'dagger') && Game.state === 'menu' && Settings.weapon === 'dagger', `${est0} → ${est}`);
     Settings.gearOn = false; Settings.gearSets = null;
@@ -790,6 +790,34 @@
   });
 
   // ---------------- 온라인 대전 제거 확인 ----------------
+  G('실험체 장비', () => {
+    const chars = ['aya', 'rio', 'nadine', 'katja', 'daniel', 'chloe', 'alonso'], e0 = errs.length;
+    T.ok('인기 빌드 데이터: 7명 모두 완성 1·2위 + 시작 (dak.gg 12.5)', chars.every(ch => Builds.charHasGear(ch) && CONFIG.aiGear.characters[ch].builds.length === 3 && CONFIG.aiGear.characters[ch].builds.every(b => Builds.SLOTS.every(sl => Builds.aiItem(b.gear[sl])))));
+    T.ok('클로에·알론소 빌드(12.5 다이아+)', CONFIG.aiGear.characters.chloe.builds[0].gear.weapon === 113501 && CONFIG.aiGear.characters.alonso.builds[0].gear.weapon === 110502 && CONFIG.aiGear.items[202522].stats.hpLv === 24);
+    // 장비 켜기 → 판 옵션(실험체 표시) → 그 능력치로 시작 · 끄면 실측
+    const bad = [];
+    for (const ch of chars) {
+      reset(); Settings.character = ch; Settings.build = 'late'; Settings.gearOnBy = { [ch]: false }; UI.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true }); const a = Game.player;
+      if (a.gear || Game.opts.gear) bad.push(ch + ':끔인데 장비');
+      Settings.gearOnBy = { [ch]: true }; Settings.charGear = { [ch]: CONFIG.aiGear.characters[ch].builds[0].gear }; UI.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true }); const p = Game.player, G = Builds.resolveGear(ch, 'late', Game.opts.gear);
+      if (!(Game.opts.gear && Game.opts.gear.char === ch && p.gear && p.maxHp === G.hp && Math.abs(p.ad - G.ad) < 1e-6 && Math.abs(p.as - G.as) < 1e-6 && Math.abs(p.cdr - G.cdr / 100) < 1e-6)) bad.push(ch + ':적용');
+    }
+    T.ok('장비 켜면 인기 빌드 능력치로 시작 · 끄면 실측 (7명)', !bad.length, bad.join(','));
+    // 탱커 장비: 레벨당 최대 체력 · 기록은 장비별로 따로
+    reset(); Settings.character = 'alonso'; Settings.build = 'late'; Settings.gearOnBy = { alonso: true }; Settings.charGear = { alonso: CONFIG.aiGear.characters.alonso.builds[0].gear };
+    UI.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true }); const al = Game.player, base = 1000 + 94 * 17;
+    T.ok('알론소 장비: 레벨당 체력(드레스 24·투구 16·팔 16) + EOD 100', al.maxHp === base + 100 + (24 + 16 + 16) * 18, al.maxHp);
+    // 궁 쿨감(현자의 로브): 플레이어 R 쿨에도
+    reset(); Settings.character = 'nadine'; Settings.build = 'late'; Settings.gearOnBy = { nadine: true }; Settings.charGear = { nadine: CONFIG.aiGear.characters.nadine.builds[0].gear }; UI.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true });
+    const nd = Game.player; nd.startCd('R'); const rcd = nd.skills.R.cd, base2 = lv(CONFIG.rangedKits.nadine.R.cd, nd.skills.R.lv);
+    T.ok('플레이어 R: 궁 쿨감 20 반영', nd.ultCdr === 20 && Math.abs(rcd - base2 * 100 / (100 + nd.cdr * 100 + 20)) < 1e-6, fmt(rcd, 2));
+    // 장비 화면: 인기 빌드 버튼 → 켜짐 + 그 조합
+    reset(); Settings.character = 'chloe'; Settings.gearOnBy = {}; Settings.charGear = {}; UI.showGear(); click('[data-a="cpre"][data-v="2"]');
+    T.ok('장비 화면: 시작(영웅) 버튼 → 장비 켜짐 + 조합', Settings.gearOnBy.chloe === true && Builds.sig(Builds.charGearOf('chloe')) === Builds.sig(CONFIG.aiGear.characters.chloe.builds[2].gear) && !!document.querySelector('[data-in="cgs"]'));
+    T.ok('오류 없음', errs.length === e0, errs.slice(e0).join('/'));
+    Settings.gearOnBy = {}; Settings.charGear = {}; Settings.character = 'cathy'; UI.showMenu();
+  });
+
   G('온라인 대전 제거', () => {
     reset();
     T.ok('게임 버전이 빌드 때 채워짐', /^[0-9a-f]{8}$/.test(BUILD_ID), BUILD_ID);

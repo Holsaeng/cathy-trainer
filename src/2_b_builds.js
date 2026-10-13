@@ -37,7 +37,7 @@ const Builds = {
     const r = key === 'cathy' ? this.BASE.regen : CONFIG.aiGear && CONFIG.aiGear.characters[key] && CONFIG.aiGear.characters[key].base.regen;
     return r ? (r[0] + r[1] * ((lv || 1) - 1)) * (1 + pct) : 0;
   },
-  short(gear) { return this.SLOTS.map(s => { const it = this.item(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
+  short(gear) { return this.SLOTS.map(s => { const it = this.aiItem(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
   // 단계 + 장비 → 캐시 빌드 (CONFIG.builds와 같은 모양 + 새 능력치)
   resolve(stage, gear, weapon) {
     const B0 = CONFIG.builds[stage] || CONFIG.builds.mid, Lv = B0.level, w = weapon === 'dual' ? 'dual' : 'dagger';
@@ -85,13 +85,15 @@ const Builds = {
   },
   // 지금 설정의 장비 (장비 사용 + 캐시일 때만, 아니면 null)
   current() {
-    if (!Settings.gearOn || (Settings.character || 'cathy') !== 'cathy') return null;
+    const ch = Settings.character || 'cathy';
+    if (ch !== 'cathy') return this.charHasGear(ch) && (Settings.gearOnBy || {})[ch] ? Object.assign({ char: ch }, this.charGearOf(ch)) : null;   // 다른 실험체: 판 옵션에 실험체 표시
+    if (!Settings.gearOn) return null;
     const w = Settings.weapon === 'dual' ? 'dual' : 'dagger', g = this.clean((Settings.gearSets || {})[w] || this.defaultGear(w), w);
     return this.any(g) ? g : null;
   },
   defaultGear(w) { return Object.assign({}, CONFIG.gearPresets[w === 'dual' ? 'dualS1' : 'daggerD1'].gear); },
   // 아이템 능력치 짧은 글
-  LABEL: { ad: '공', sp: '스증', spLv: '레벨당 스증', spPct: '스증%', spPctU: '(고유) 스증%', hp: '체력', def: '방어', as: '공속%', ms: '이속', msPct: '이속%', cdr: '쿨감', pen: '방관', penPct: '방관%', omni: '모든 피해 흡혈%', regen: '체력 재생%', tacCdr: '전술 쿨감', tenacity: '(고유) 방해 저항%' },
+  LABEL: { ad: '공', sp: '스증', spLv: '레벨당 스증', spPct: '스증%', spPctU: '(고유) 스증%', hp: '체력', def: '방어', as: '공속%', ms: '이속', msPct: '이속%', cdr: '쿨감', pen: '방관', penPct: '방관%', omni: '모든 피해 흡혈%', regen: '체력 재생%', tacCdr: '전술 쿨감', tenacity: '(고유) 방해 저항%', adLv: '레벨당 공', hpLv: '레벨당 체력', crit: '치명%', critDmg: '치명 피해%', ultCdr: '궁 쿨감', adaptAd: '맞춤 공', adaptSp: '맞춤 스증', ls: '흡혈%', vision: '시야' },
   statText(it) {
     const s = it.stats, out = [];
     for (const [k, v] of Object.entries(s)) { if (k === 'adaptAd') out.push(`맞춤형 공 ${v}/스증 ${s.adaptSp}`); else if (k !== 'adaptSp') out.push(`${this.LABEL[k] || k} ${v}`); }
@@ -123,8 +125,32 @@ const Builds = {
   // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
   //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
   aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
+  // 실험체 장비(캐시 외): 인기 빌드(CONFIG.aiGear) — 부위별로 그 실험체 인기 빌드에 나온 아이템 중 고름
+  charHasGear(ch) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[ch]; return !!(C && C.builds.length); },
+  charOptions(ch, slot) { const C = CONFIG.aiGear.characters[ch], ids = [...new Set(C.builds.map(b => b.gear[slot]).filter(Boolean))]; return ids.map(id => [id, this.aiItem(id)]).filter(([, it]) => it); },
+  cleanChar(ch, gear) { const C = CONFIG.aiGear.characters[ch], g = {}; for (const s of this.SLOTS) { const id = gear && gear[s], it = this.aiItem(id); g[s] = it && it.slot === s && (s !== 'weapon' || it.weapon === C.weapon) ? +id : null; } return g; },
+  charGearOf(ch) { const C = CONFIG.aiGear.characters[ch]; return this.cleanChar(ch, (Settings.charGear || {})[ch] || C.builds[0].gear); },
+  // 실측(장비 없음) 능력치 — 비교 표용 (RangedPlayer·DanielPlayer와 같은 값)
+  measured(ch, stage) {
+    const M = CONFIG.rangedMotifs[ch], st = CONFIG.rangedAI.stages[stage] ? stage : 'mid', si = ['early', 'mid', 'late'].indexOf(st), S0 = CONFIG.rangedAI.stages[st];
+    return { hp: M.hp ? M.hp[si] : S0.hp, ad: M.ad[si], sp: M.sp[si], def: M.def ? M.def[si] : S0.def, as: M.as[si], ms: (M.ms ? M.ms[si] : S0.ms), crit: M.crit[si], pen: M.pen[si], cdr: ch === 'daniel' ? [0.15, 0.25, 0.25][si] : 0 };
+  },
+  // 플레이어 실험체(키트·다니엘)에 장비 능력치 적용
+  applyToPlayer(p, key, G) {
+    const C = CONFIG.aiGear.characters[key];
+    Object.assign(p, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, critDmg: G.critDmg,
+      penPct: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, cdr: G.cdr / 100, ultCdr: G.ultCdr, pasK: G.passiveK, gear: G.gear, gearInfo: G });
+    if (p.baseAs !== undefined) p.baseAs = G.as;
+    if (p.pen !== undefined) p.pen = G.pen;
+    if (G.aaAmp) p.aaAmp = G.aaAmp;
+    p.regen = this.regen(key, G.level, G.regenPct); p.baseHpAtLv = C.base.hp[0] + C.base.hp[1] * (G.level - 1);
+  },
   resolveAI(motif, stage, idx) {
     const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
+    return this.resolveGear(motif, stage, B.gear, { idx, label: B.label });
+  },
+  resolveGear(motif, stage, gear, extra = {}) {
+    const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; if (!C || !gear) return null; const B = { gear };
     const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
     const sum = {}, uniq = {}, items = [];
     for (const s of this.SLOTS) { const it = this.aiItem(B.gear[s]); if (!it) continue; items.push(it); for (const [k, v] of Object.entries(it.stats)) { if (k === 'spPctU') uniq[k] = Math.max(uniq[k] || 0, v); else sum[k] = (sum[k] || 0) + v; } }
@@ -133,8 +159,8 @@ const Builds = {
     const bonusAd = bonusAd0 + (toSp ? 0 : S('adaptAd')), spFlat = spFlat0 + (toSp ? S('adaptSp') : 0);
     const spMul = 1 + (M.sp || 0) * mLv + (uniq.spPctU || 0) / 100 + S('spPct') / 100;
     return {
-      motif, idx, label: B.label, gear: B.gear, level: Lv, masteryLv: mLv,
-      hp: Math.round(at(C.base.hp) + S('hp')), def: Math.round(at(C.base.def) + S('def')),
+      motif, idx: extra.idx, label: extra.label || this.short(gear), gear: B.gear, level: Lv, masteryLv: mLv,
+      hp: Math.round(at(C.base.hp) + S('hp') + S('hpLv') * Lv), def: Math.round(at(C.base.def) + S('def')),   // hpLv: 레벨당 최대 체력(탱커 장비)
       ad: Math.round((at(C.base.ad) + bonusAd) * 10) / 10, baseAd: Math.round(at(C.base.ad) * 10) / 10, bonusAd,
       sp: Math.round(spFlat * spMul),
       as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),

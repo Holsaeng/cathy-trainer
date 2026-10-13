@@ -492,8 +492,6 @@ CONFIG.aiGear = {
         { label: '완성 2위: 템페스트 / 현자의 로브 / 레가투스 / 월왕구천 / 알렉산드로스', gear: {weapon: 115503, chest: 202525, head: 201525, arm: 205305, leg: 204504} },
         { label: '시작(영웅): 대황 / 창파오 / 수정 티아라 / 미닛맨의 표식 / 부케팔로스', gear: {weapon: 115402, chest: 202420, head: 201404, arm: 203415, leg: 204408} },
       ] },
-    alonso: { name: '알론소', weapon: 'glove', base: {hp: [1000,94], ad: [36,4.2], def: [55,3.4], asBonus: 0.1, ms: 3.6, regen: [1.67,0.12]}, weaponAs: 0.63, mastery: {as: 0.023, sp: 0.04}, builds: [] },   // 12.5 닥지지 · 인기 빌드 미수집
-    chloe: { name: '클로에', weapon: 'directfire', base: {hp: [920,73], ad: [32,4.3], def: [51,2.7], asBonus: 0.09, ms: 3.45, regen: [1.205,0.075]}, weaponAs: 0.55, mastery: {as: 0.031, baAmp: 0.016}, builds: [] },   // 12.5 닥지지 · 인기 빌드 미수집
     katja: { name: '카티야', weapon: 'sniper', base: {hp: [890,80], ad: [36,4.7], def: [52,2.7], asBonus: 0.13, ms: 3.5, regen: [1.2,0.09]}, weaponAs: 0.43, mastery: {as: 0.036, sp: 0, baAmp: 0.02},
       builds: [
         { label: '완성 1위: 현자총통 / 고스트 / 쿼드 아이 / 운명의 주사위 / 갤럭시 스텝', gear: {weapon: 118502, chest: 202510, head: 201518, arm: 205501, leg: 204507} },
@@ -506,11 +504,29 @@ CONFIG.aiGear = {
         { label: '완성 2위: 소울 리퍼 / 택티컬 아머 / 트와일라잇 / 미스릴 완장 / 알렉산드로스', gear: {weapon: 101502, chest: 202515, head: 201509, arm: 203514, leg: 204504} },
         { label: '시작(영웅): 마하라자 / 광학미채 슈트 / 플라즈마 투구 / 스마트 밴드 / 부케팔로스', gear: {weapon: 101407, chest: 202405, head: 201418, arm: 203414, leg: 204408} },
       ] },
+    chloe: { name: '클로에', weapon: 'directfire', base: {hp: [920,73], ad: [32,4.3], def: [51,2.7], asBonus: 0.09, ms: 3.45, regen: [1.2,0.075]}, weaponAs: 0.55, mastery: {as: 0.031, sp: 0, baAmp: 0.016},
+      builds: [
+        { label: '완성 1위: 수다르사나 / 길리 슈트 / 블래스터 헬멧 / 월왕구천 / 알렉산드로스', gear: {weapon: 113501, chest: 202523, head: 201521, arm: 205305, leg: 204504} },
+        { label: '완성 2위: 흑련비표-진홍 / 길리 슈트 / 블래스터 헬멧 / 월왕구천 / 알렉산드로스', gear: {weapon: 113701, chest: 202523, head: 201521, arm: 205305, leg: 204504} },
+        { label: '시작(영웅): 플레솃 / 광학미채 슈트 / 카우보이 모자 / 미닛맨의 표식 / 글레디에이터', gear: {weapon: 113410, chest: 202405, head: 201417, arm: 203415, leg: 204418} },
+      ] },
+    alonso: { name: '알론소', weapon: 'glove', base: {hp: [1000,94], ad: [36,4.2], def: [55,3.4], asBonus: 0.1, ms: 3.6, regen: [1.67,0.12]}, weaponAs: 0.63, mastery: {as: 0.023, sp: 0.04},
+      builds: [
+        { label: '완성 1위: 프로스트팽 / 유령 신부의 드레스 / 드워프의 투구 / 하트 온 파이어 / EOD 부츠', gear: {weapon: 110502, chest: 202522, head: 201508, arm: 705603, leg: 204409} },
+        { label: '완성 2위: 아이언 피스트 / 유령 신부의 드레스 / 드워프의 투구 / 하트 온 파이어 / EOD 부츠', gear: {weapon: 110504, chest: 202522, head: 201508, arm: 705603, leg: 204409} },
+        { label: '시작(영웅): 디바인 피스트 / EOD 슈트 / 비질란테 / 소드 스토퍼 / 강철 무릎 보호대', gear: {weapon: 110406, chest: 202417, head: 201413, arm: 203402, leg: 204401} },
+      ] },
   },
   items: {
     101407: {name: '마하라자', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: {ad: 60, as: 15}, pas: '신속 - 루드라의 단검'},
     101502: {name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: {ad: 66, as: 20, cdr: 10}, pas: '신속 - 루드라의 단검'},
     101503: {name: '비색 단검', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: {ad: 20, adaptAd: 57, adaptSp: 114, as: 30, msPct: 3, cdr: 15, penPct: 10}},
+    110406: {name: '디바인 피스트', slot: 'weapon', grade: 'epic', weapon: 'glove', stats: {ad: 41, sp: 72, hp: 100}},
+    110502: {name: '프로스트팽', slot: 'weapon', grade: 'legend', weapon: 'glove', stats: {ad: 38, sp: 87, cdr: 15}, pas: '한파'},
+    110504: {name: '아이언 피스트', slot: 'weapon', grade: 'legend', weapon: 'glove', stats: {ad: 40, sp: 90, hp: 120}, pas: '충전 - 섬광'},
+    113410: {name: '플레솃', slot: 'weapon', grade: 'epic', weapon: 'directfire', stats: {ad: 56, as: 25, msPct: 2}, pas: '열정'},
+    113501: {name: '수다르사나', slot: 'weapon', grade: 'legend', weapon: 'directfire', stats: {ad: 66, as: 25}, pas: '열정'},
+    113701: {name: '흑련비표-진홍', slot: 'weapon', grade: 'mythic', weapon: 'directfire', stats: {ad: 77, as: 25, penPct: 7}, pas: '열정'},
     114401: {name: '편전', slot: 'weapon', grade: 'epic', weapon: 'bow', stats: {ad: 57, as: 20}, pas: '열정'},
     114701: {name: '페일노트-진홍', slot: 'weapon', grade: 'mythic', weapon: 'bow', stats: {ad: 76, as: 30, penPct: 7}, pas: '열정'},
     115402: {name: '대황', slot: 'weapon', grade: 'epic', weapon: 'crossbow', stats: {ad: 67, as: 30}},
@@ -522,15 +538,20 @@ CONFIG.aiGear = {
     118502: {name: '현자총통', slot: 'weapon', grade: 'legend', weapon: 'sniper', stats: {ad: 99}, pas: '충전 - 철환'},
     201404: {name: '수정 티아라', slot: 'head', grade: 'epic', stats: {ad: 17, as: 20, crit: 28}, pas: '치유 감소'},
     201405: {name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: {sp: 55, as: 30, cdr: 10}, pas: '포톤 런처'},
+    201413: {name: '비질란테', slot: 'head', grade: 'epic', stats: {sp: 50, hp: 150, cdr: 10}, pas: '부패'},
+    201417: {name: '카우보이 모자', slot: 'head', grade: 'epic', stats: {ad: 28, as: 35}, pas: '치유 감소'},
     201418: {name: '플라즈마 투구', slot: 'head', grade: 'epic', stats: {ad: 35, msPct: 2, pen: 8}},
     201421: {name: '여우 가면', slot: 'head', grade: 'epic', stats: {ad: 10, as: 32, crit: 28}},
     201503: {name: '페르소나', slot: 'head', grade: 'legend', stats: {sp: 80, msPct: 3.5, spPctU: 25}},
+    201508: {name: '드워프의 투구', slot: 'head', grade: 'legend', stats: {def: 13, hpLv: 16, cdr: 15}, pas: '리플렉션'},
     201509: {name: '트와일라잇', slot: 'head', grade: 'legend', stats: {ad: 38, msPct: 3, pen: 10}, pas: '테이저 건 - 도약'},
     201518: {name: '쿼드 아이', slot: 'head', grade: 'legend', stats: {ad: 25, as: 22, crit: 35}, pas: '연장 총열'},
+    201521: {name: '블래스터 헬멧', slot: 'head', grade: 'legend', stats: {ad: 30, as: 35}, pas: '블래스터 탄환'},
     201525: {name: '레가투스', slot: 'head', grade: 'legend', stats: {ad: 30, as: 33, crit: 35}, pas: '개시'},
     201534: {name: '붉은 별빛', slot: 'chest', grade: 'mythic', stats: {ad: 18, adLv: 3, def: 20, as: 15, crit: 35}, pas: '예열 / 치유 감소'},
     202307: {name: '고위 사제복', slot: 'chest', grade: 'epic', stats: {def: 24, sp: 24, spLv: 5}, pas: '치유 감소'},
     202405: {name: '광학미채 슈트', slot: 'chest', grade: 'epic', stats: {ad: 9, adLv: 3, def: 13, crit: 24}},
+    202417: {name: 'EOD 슈트', slot: 'chest', grade: 'epic', stats: {def: 25, hpLv: 20, regen: 60, cdr: 15}},
     202418: {name: '턱시도', slot: 'chest', grade: 'epic', stats: {adLv: 3, def: 13, as: 15, crit: 24}},
     202420: {name: '창파오', slot: 'chest', grade: 'epic', stats: {ad: 3, adLv: 3, def: 15, as: 38}},
     202501: {name: '카바나', slot: 'chest', grade: 'legend', stats: {def: 28, sp: 40, spLv: 5, cdr: 10}, pas: '치유 감소'},
@@ -538,17 +559,22 @@ CONFIG.aiGear = {
     202509: {name: '선녀강림', slot: 'chest', grade: 'legend', stats: {ad: 10, adLv: 3, def: 20, as: 40}, pas: '예열 - 강화'},
     202510: {name: '고스트', slot: 'chest', grade: 'legend', stats: {ad: 14, adLv: 3, def: 18, crit: 34}, pas: '치유 감소'},
     202515: {name: '택티컬 아머', slot: 'chest', grade: 'legend', stats: {ad: 18, adLv: 3, def: 23, pen: 12}, pas: '선고'},
+    202522: {name: '유령 신부의 드레스', slot: 'chest', grade: 'legend', stats: {def: 45, hpLv: 24}, pas: '쇠약의 안개'},
     202523: {name: '길리 슈트', slot: 'chest', grade: 'legend', stats: {adLv: 3, def: 18, as: 20, crit: 34}, pas: '예열'},
     202525: {name: '현자의 로브', slot: 'chest', grade: 'legend', stats: {ad: 15, adLv: 3, def: 20, as: 30, ultCdr: 20}, pas: '각성'},
     203306: {name: '포이즌드', slot: 'arm', grade: 'epic', stats: {sp: 62, cdr: 10}, pas: '치유 감소'},
+    203402: {name: '소드 스토퍼', slot: 'arm', grade: 'epic', stats: {def: 13, hp: 120, cdr: 10}, pas: '리플렉션'},
     203405: {name: '바이탈 센서', slot: 'arm', grade: 'epic', stats: {as: 33, crit: 26}, pas: '포톤 런처'},
     203414: {name: '스마트 밴드', slot: 'arm', grade: 'epic', stats: {ad: 28, cdr: 15, pen: 7}},
     203415: {name: '미닛맨의 표식', slot: 'arm', grade: 'epic', stats: {ad: 25, as: 18, crit: 24}},
     203501: {name: '스카디의 팔찌', slot: 'arm', grade: 'legend', stats: {sp: 82, cdr: 10}, pas: '한파'},
     203514: {name: '미스릴 완장', slot: 'arm', grade: 'legend', stats: {ad: 33, def: 10, crit: 34}, pas: '가벼운 발걸음'},
+    204401: {name: '강철 무릎 보호대', slot: 'leg', grade: 'epic', stats: {def: 8, ms: 0.22, tenacity: 20}},
     204408: {name: '부케팔로스', slot: 'leg', grade: 'epic', stats: {ad: 8, ms: 0.22, crit: 25}},
+    204409: {name: 'EOD 부츠', slot: 'leg', grade: 'legend', stats: {def: 10, hp: 100, regen: 50, ms: 0.25}, pas: '격동'},
     204410: {name: '글레이셜 슈즈', slot: 'leg', grade: 'legend', stats: {sp: 33, ms: 0.25, cdr: 15}},
     204416: {name: '스텔라 스텝', slot: 'leg', grade: 'epic', stats: {ad: 15, as: 10, ms: 0.22, ls: 8}},
+    204418: {name: '글레디에이터', slot: 'leg', grade: 'epic', stats: {as: 16, ms: 0.22, crit: 25}},
     204419: {name: '델타 레드', slot: 'leg', grade: 'epic', stats: {sp: 18, ms: 0.22, cdr: 10}},
     204504: {name: '알렉산드로스', slot: 'leg', grade: 'legend', stats: {ad: 14, ms: 0.25, crit: 33}},
     204505: {name: '칼날 다리', slot: 'leg', grade: 'legend', stats: {sp: 42, ms: 0.25, cdr: 10}, pas: '치유 감소'},
@@ -556,6 +582,7 @@ CONFIG.aiGear = {
     205305: {name: '월왕구천', slot: 'arm', grade: 'legend', stats: {ad: 27, as: 30, crit: 35}, pas: '치유 감소'},
     205501: {name: '운명의 주사위', slot: 'arm', grade: 'legend', stats: {ad: 25, as: 35, crit: 35, critDmg: 10}},
     205503: {name: '쿤달라', slot: 'head', grade: 'legend', stats: {sp: 82, msPct: 3, cdr: 20}},
+    705603: {name: '하트 온 파이어', slot: 'arm', grade: 'legend', stats: {def: 15, hpLv: 16, cdr: 10}, pas: '불꽃 결계'},
   },
 };
 
@@ -757,7 +784,7 @@ const Builds = {
     const r = key === 'cathy' ? this.BASE.regen : CONFIG.aiGear && CONFIG.aiGear.characters[key] && CONFIG.aiGear.characters[key].base.regen;
     return r ? (r[0] + r[1] * ((lv || 1) - 1)) * (1 + pct) : 0;
   },
-  short(gear) { return this.SLOTS.map(s => { const it = this.item(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
+  short(gear) { return this.SLOTS.map(s => { const it = this.aiItem(gear && gear[s]); return it ? it.name : '–'; }).join(' / '); },
   // 단계 + 장비 → 캐시 빌드 (CONFIG.builds와 같은 모양 + 새 능력치)
   resolve(stage, gear, weapon) {
     const B0 = CONFIG.builds[stage] || CONFIG.builds.mid, Lv = B0.level, w = weapon === 'dual' ? 'dual' : 'dagger';
@@ -805,13 +832,15 @@ const Builds = {
   },
   // 지금 설정의 장비 (장비 사용 + 캐시일 때만, 아니면 null)
   current() {
-    if (!Settings.gearOn || (Settings.character || 'cathy') !== 'cathy') return null;
+    const ch = Settings.character || 'cathy';
+    if (ch !== 'cathy') return this.charHasGear(ch) && (Settings.gearOnBy || {})[ch] ? Object.assign({ char: ch }, this.charGearOf(ch)) : null;   // 다른 실험체: 판 옵션에 실험체 표시
+    if (!Settings.gearOn) return null;
     const w = Settings.weapon === 'dual' ? 'dual' : 'dagger', g = this.clean((Settings.gearSets || {})[w] || this.defaultGear(w), w);
     return this.any(g) ? g : null;
   },
   defaultGear(w) { return Object.assign({}, CONFIG.gearPresets[w === 'dual' ? 'dualS1' : 'daggerD1'].gear); },
   // 아이템 능력치 짧은 글
-  LABEL: { ad: '공', sp: '스증', spLv: '레벨당 스증', spPct: '스증%', spPctU: '(고유) 스증%', hp: '체력', def: '방어', as: '공속%', ms: '이속', msPct: '이속%', cdr: '쿨감', pen: '방관', penPct: '방관%', omni: '모든 피해 흡혈%', regen: '체력 재생%', tacCdr: '전술 쿨감', tenacity: '(고유) 방해 저항%' },
+  LABEL: { ad: '공', sp: '스증', spLv: '레벨당 스증', spPct: '스증%', spPctU: '(고유) 스증%', hp: '체력', def: '방어', as: '공속%', ms: '이속', msPct: '이속%', cdr: '쿨감', pen: '방관', penPct: '방관%', omni: '모든 피해 흡혈%', regen: '체력 재생%', tacCdr: '전술 쿨감', tenacity: '(고유) 방해 저항%', adLv: '레벨당 공', hpLv: '레벨당 체력', crit: '치명%', critDmg: '치명 피해%', ultCdr: '궁 쿨감', adaptAd: '맞춤 공', adaptSp: '맞춤 스증', ls: '흡혈%', vision: '시야' },
   statText(it) {
     const s = it.stats, out = [];
     for (const [k, v] of Object.entries(s)) { if (k === 'adaptAd') out.push(`맞춤형 공 ${v}/스증 ${s.adaptSp}`); else if (k !== 'adaptSp') out.push(`${this.LABEL[k] || k} ${v}`); }
@@ -843,8 +872,32 @@ const Builds = {
   // ---------- AI 상대 장비 (CONFIG.aiGear, docs/er_notes_ai_builds.md) ----------
   //   같은 공식 + 캐릭터별 숙련도(공속·스증 또는 기본 공격 증폭). 단계별 레벨은 AI 단계(CONFIG.rangedAI.stages), 숙련도 레벨은 MASTERY_LV
   aiItem(id) { return (CONFIG.aiGear && CONFIG.aiGear.items[id]) || CONFIG.items[id] || null; },
+  // 실험체 장비(캐시 외): 인기 빌드(CONFIG.aiGear) — 부위별로 그 실험체 인기 빌드에 나온 아이템 중 고름
+  charHasGear(ch) { const C = CONFIG.aiGear && CONFIG.aiGear.characters[ch]; return !!(C && C.builds.length); },
+  charOptions(ch, slot) { const C = CONFIG.aiGear.characters[ch], ids = [...new Set(C.builds.map(b => b.gear[slot]).filter(Boolean))]; return ids.map(id => [id, this.aiItem(id)]).filter(([, it]) => it); },
+  cleanChar(ch, gear) { const C = CONFIG.aiGear.characters[ch], g = {}; for (const s of this.SLOTS) { const id = gear && gear[s], it = this.aiItem(id); g[s] = it && it.slot === s && (s !== 'weapon' || it.weapon === C.weapon) ? +id : null; } return g; },
+  charGearOf(ch) { const C = CONFIG.aiGear.characters[ch]; return this.cleanChar(ch, (Settings.charGear || {})[ch] || C.builds[0].gear); },
+  // 실측(장비 없음) 능력치 — 비교 표용 (RangedPlayer·DanielPlayer와 같은 값)
+  measured(ch, stage) {
+    const M = CONFIG.rangedMotifs[ch], st = CONFIG.rangedAI.stages[stage] ? stage : 'mid', si = ['early', 'mid', 'late'].indexOf(st), S0 = CONFIG.rangedAI.stages[st];
+    return { hp: M.hp ? M.hp[si] : S0.hp, ad: M.ad[si], sp: M.sp[si], def: M.def ? M.def[si] : S0.def, as: M.as[si], ms: (M.ms ? M.ms[si] : S0.ms), crit: M.crit[si], pen: M.pen[si], cdr: ch === 'daniel' ? [0.15, 0.25, 0.25][si] : 0 };
+  },
+  // 플레이어 실험체(키트·다니엘)에 장비 능력치 적용
+  applyToPlayer(p, key, G) {
+    const C = CONFIG.aiGear.characters[key];
+    Object.assign(p, { maxHp: G.hp, hp: G.hp, def: G.def, baseMs: G.ms, ad: G.ad, bonusAd: G.bonusAd, sp: G.sp, as: G.as, critChance: G.crit, critDmg: G.critDmg,
+      penPct: G.pen, penFlat: G.penFlat, ls: G.ls, omni: G.omni, cdr: G.cdr / 100, ultCdr: G.ultCdr, pasK: G.passiveK, gear: G.gear, gearInfo: G });
+    if (p.baseAs !== undefined) p.baseAs = G.as;
+    if (p.pen !== undefined) p.pen = G.pen;
+    if (G.aaAmp) p.aaAmp = G.aaAmp;
+    p.regen = this.regen(key, G.level, G.regenPct); p.baseHpAtLv = C.base.hp[0] + C.base.hp[1] * (G.level - 1);
+  },
   resolveAI(motif, stage, idx) {
     const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif], B = C && C.builds[idx]; if (!B) return null;
+    return this.resolveGear(motif, stage, B.gear, { idx, label: B.label });
+  },
+  resolveGear(motif, stage, gear, extra = {}) {
+    const C = CONFIG.aiGear && CONFIG.aiGear.characters[motif]; if (!C || !gear) return null; const B = { gear };
     const S0 = CONFIG.rangedAI.stages[stage] || CONFIG.rangedAI.stages.mid, Lv = S0.level, mLv = this.MASTERY_LV[stage] ?? 8, M = C.mastery;
     const sum = {}, uniq = {}, items = [];
     for (const s of this.SLOTS) { const it = this.aiItem(B.gear[s]); if (!it) continue; items.push(it); for (const [k, v] of Object.entries(it.stats)) { if (k === 'spPctU') uniq[k] = Math.max(uniq[k] || 0, v); else sum[k] = (sum[k] || 0) + v; } }
@@ -853,8 +906,8 @@ const Builds = {
     const bonusAd = bonusAd0 + (toSp ? 0 : S('adaptAd')), spFlat = spFlat0 + (toSp ? S('adaptSp') : 0);
     const spMul = 1 + (M.sp || 0) * mLv + (uniq.spPctU || 0) / 100 + S('spPct') / 100;
     return {
-      motif, idx, label: B.label, gear: B.gear, level: Lv, masteryLv: mLv,
-      hp: Math.round(at(C.base.hp) + S('hp')), def: Math.round(at(C.base.def) + S('def')),
+      motif, idx: extra.idx, label: extra.label || this.short(gear), gear: B.gear, level: Lv, masteryLv: mLv,
+      hp: Math.round(at(C.base.hp) + S('hp') + S('hpLv') * Lv), def: Math.round(at(C.base.def) + S('def')),   // hpLv: 레벨당 최대 체력(탱커 장비)
       ad: Math.round((at(C.base.ad) + bonusAd) * 10) / 10, baseAd: Math.round(at(C.base.ad) * 10) / 10, bonusAd,
       sp: Math.round(spFlat * spMul),
       as: +Math.min(this.RULES.asCap, (C.weaponAs + C.base.asBonus) * (1 + (M.as || 0) * mLv + S('as') / 100)).toFixed(3),
@@ -887,7 +940,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '25cb231b';
+const BUILD_ID = '3895c614';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -1585,7 +1638,7 @@ class Unit {
 class Cathy extends Unit {
   // gear: 부위별 아이템 코드 (생략하면 판 옵션 opts.gear, null이면 장비 없음 = 랭크 영상 실측 능력치)
   constructor(x, y, gear) {
-    const gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear);
+    let gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear); if (gr && gr.char && gr.char !== 'cathy') gr = null;   // 다른 실험체 장비는 그 실험체가 씀
     const b = Builds.any(gr) ? Builds.resolve(Game.buildId, gr, Settings.weapon) : CONFIG.builds[Game.buildId];
     super({ team: 0, x, y, r: 0.5, hp: b.hp, def: b.def, ms: b.ms, color: CONFIG.theme.accent, name: '캐시', kind: 'player', facing: 0 });
     this.build = b; this.weapon = Settings.weapon;
@@ -1607,7 +1660,7 @@ class Cathy extends Unit {
   startCd(k) {
     const def = this.skillDef(k), s = this.skills[k];
     // 쿨감 공식(8.0 패치~, 상한 없음): 최종 쿨 = 기본 쿨 × 100 / (100 + 쿨감) — 쿨감 30이면 약 23% 감소. 무기·전술 스킬은 쿨 고정
-    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 100 / (100 + this.cdr * 100)) * Game.cdMul; s.reduced = false;
+    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 100 / (100 + this.cdr * 100 + (k === 'R' ? this.ultCdr || 0 : 0))) * Game.cdMul; s.reduced = false;   // R: 궁극기 쿨감 장비
   }
   baseAaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가
@@ -2340,6 +2393,7 @@ class DanielPlayer extends Cathy {
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k];
     this.K = CONFIG.rangedKits.daniel;
     Object.assign(this, { qShots: 0, qT: 0, shadowT: 0, mark: null, lastHitOn: {}, pendingQ: [], shadow: null, qSeq: 0 });
+    const g = Game.opts && Game.opts.gear; if (g && g.char === 'daniel') Builds.applyToPlayer(this, 'daniel', Builds.resolveGear('daniel', st, g));   // 장비(인기 빌드 아이템)
   }
   // ---------- 수치 ----------
   L(k) { return k === 'P' ? this.plv : this.skills[k].lv; }
@@ -2573,6 +2627,7 @@ class RangedPlayer extends Cathy {
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
     this.K = CONFIG.rangedKits[key]; this.kit = PKits[key];
     Object.assign(this, { asBuffs: [], noAA: 0, chans: [], pend: [], chase: null, zones: [] });
+    const g = Game.opts && Game.opts.gear; if (g && g.char === key) Builds.applyToPlayer(this, key, Builds.resolveGear(key, st, g));   // 장비(인기 빌드 아이템)
     if (this.kit.init) this.kit.init(this);
   }
   // ---------- 수치 ----------
@@ -9334,7 +9389,37 @@ const UI = {
   },
 
   // ---------- 장비 맞추기 ----------
+  // 캐시 외 실험체 장비: 그 실험체 인기 빌드(dak.gg 랭크·다이아+·12.5) — 완성 1·2위·시작 + 부위별로 인기 빌드에 나온 아이템
+  showCharGear(ch) {
+    const C = CONFIG.aiGear.characters[ch], M = CONFIG.rangedMotifs[ch], stage = CONFIG.rangedAI.stages[Settings.build] ? Settings.build : 'mid', S0 = CONFIG.rangedAI.stages[stage];
+    const on = !!(Settings.gearOnBy || {})[ch], g = Builds.charGearOf(ch), G = Builds.resolveGear(ch, stage, g), A = Builds.measured(ch, stage);
+    const setG = ng => { Settings.charGear = Object.assign({}, Settings.charGear, { [ch]: Builds.cleanChar(ch, ng) }); saveSettings(); };
+    const pre = C.builds.map((b, i) => `<button class="btn ${Builds.sig(b.gear) === Builds.sig(g) ? 'sel' : ''}" data-a="cpre" data-v="${i}">${esc(b.label.split(':')[0])}</button>`).join('');
+    const slot = sl => { const opts = Builds.charOptions(ch, sl);
+      return `<div class="row"><label style="min-width:64px">${Builds.SLOT_LABEL[sl]}</label><select data-in="cgs" data-slot="${sl}" style="max-width:100%;flex:1"><option value="">— 없음 —</option>${opts.map(([id, it]) => `<option value="${id}" ${+id === g[sl] ? 'selected' : ''}>${esc(it.name)} (${Builds.GRADE_LABEL[it.grade]}) — ${esc(Object.entries(it.stats).map(([k, v]) => (Builds.LABEL[k] || k) + ' ' + v).join(', '))}</option>`).join('')}</select></div>`; };
+    const row = (n, a, b, f = v => v) => { const d = b - a; return `<tr><td>${n}</td><td>${f(a)}</td><td><b style="color:${d > 0.001 ? '#5dff9a' : d < -0.001 ? '#ff8a8a' : '#e6e9ef'}">${f(b)}</b></td></tr>`; };
+    const pc = v => Math.round(v * 100) + '%';
+    const cmp = [row('체력', A.hp, G.hp), row('공격력', A.ad, G.ad), row('스킬 증폭', A.sp, G.sp), row('방어력', A.def, G.def), row('공격 속도', A.as, G.as), row('이동 속도', A.ms, G.ms),
+      row('치명타', A.crit, G.crit, pc), row('방어 관통', A.pen, G.pen, pc), row('쿨다운 감소', A.cdr, G.cdr / 100, pc)].join('');
+    const pas = G.passives.length ? G.passives.map(n => { const P = CONFIG.itemPassives[n] || {}; return `<li><b>${esc(n)}</b> ${P.text ? '— ' + esc(P.text) : ''} ${P.impl ? '<span style="color:#5dff9a">✔ 적용</span>' : '<span style="color:#8a93a6">· 효과 미구현(능력치만)</span>'}</li>`; }).join('') : '<li class="sub">고유 효과 없음</li>';
+    this.show(`<h2>🛠 장비 — ${M.name} (${M.weapon}) · ${S0.label}</h2>
+      <div class="row"><label><input type="checkbox" data-in="cgearOn" ${on ? 'checked' : ''}> 장비 사용</label><span class="sub" style="margin:0 0 0 8px">끄면 지금처럼 랭크 영상·추정 능력치(실측). 단계는 메뉴의 빌드(Lv6/12/18)</span></div>
+      <div class="row"><label>인기 빌드</label>${pre}</div>
+      <div class="sub" style="margin:2px 0 8px">dak.gg 랭크 스쿼드·다이아+·최근 7일·12.5 — 「완성」 = 5부위 모두 전설 이상인 조합 중 게임 수 1·2위, 「시작」 = 모두 영웅인 조합 1위. 지금: ${esc(Builds.short(g))}</div>
+      ${Builds.SLOTS.map(slot).join('')}
+      <h3>능력치 (${S0.label}, 숙련도 ${G.masteryLv}레벨 ⚠ 추정)</h3>
+      <table><tr><th>능력치</th><th>실측(장비 끔)</th><th>장비</th></tr>${cmp}</table>
+      <h3>고유 효과</h3><ul class="mist">${pas}</ul>
+      <div class="sub" style="margin-top:8px">수치: 시즌 12 · 12.5 툴팁(dak.gg). 계산은 AI 상대 장비와 같은 공식 — 근거: docs/er_notes_ai_builds.md</div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>`, {
+      'in:cgearOn': el => { Settings.gearOnBy = Object.assign({}, Settings.gearOnBy, { [ch]: el.checked }); saveSettings(); this.showCharGear(ch); },
+      'in:cgs': el => { setG(Object.assign({}, g, { [el.dataset.slot]: el.value ? +el.value : null })); this.showCharGear(ch); },
+      cpre: d => { setG(C.builds[+d.v].gear); Settings.gearOnBy = Object.assign({}, Settings.gearOnBy, { [ch]: true }); saveSettings(); this.showCharGear(ch); },
+      back: () => this.showMenu(),
+    }, { Escape: 'back' });
+  },
   showGear(msg) {
+    if ((Settings.character || 'cathy') !== 'cathy' && Builds.charHasGear(Settings.character)) return this.showCharGear(Settings.character);
     const dan = (Settings.character || 'cathy') !== 'cathy', w = Settings.weapon === 'dual' ? 'dual' : 'dagger', stage = Settings.build;
     const sets = Settings.gearSets = Settings.gearSets || {}; const g = sets[w] = Builds.clean(sets[w] || Builds.defaultGear(w), w);
     const b = Builds.resolve(stage, g, w), grades = { mythic: 0, legend: 1, epic: 2 };

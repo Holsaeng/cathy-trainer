@@ -280,7 +280,37 @@ const UI = {
   },
 
   // ---------- 장비 맞추기 ----------
+  // 캐시 외 실험체 장비: 그 실험체 인기 빌드(dak.gg 랭크·다이아+·12.5) — 완성 1·2위·시작 + 부위별로 인기 빌드에 나온 아이템
+  showCharGear(ch) {
+    const C = CONFIG.aiGear.characters[ch], M = CONFIG.rangedMotifs[ch], stage = CONFIG.rangedAI.stages[Settings.build] ? Settings.build : 'mid', S0 = CONFIG.rangedAI.stages[stage];
+    const on = !!(Settings.gearOnBy || {})[ch], g = Builds.charGearOf(ch), G = Builds.resolveGear(ch, stage, g), A = Builds.measured(ch, stage);
+    const setG = ng => { Settings.charGear = Object.assign({}, Settings.charGear, { [ch]: Builds.cleanChar(ch, ng) }); saveSettings(); };
+    const pre = C.builds.map((b, i) => `<button class="btn ${Builds.sig(b.gear) === Builds.sig(g) ? 'sel' : ''}" data-a="cpre" data-v="${i}">${esc(b.label.split(':')[0])}</button>`).join('');
+    const slot = sl => { const opts = Builds.charOptions(ch, sl);
+      return `<div class="row"><label style="min-width:64px">${Builds.SLOT_LABEL[sl]}</label><select data-in="cgs" data-slot="${sl}" style="max-width:100%;flex:1"><option value="">— 없음 —</option>${opts.map(([id, it]) => `<option value="${id}" ${+id === g[sl] ? 'selected' : ''}>${esc(it.name)} (${Builds.GRADE_LABEL[it.grade]}) — ${esc(Object.entries(it.stats).map(([k, v]) => (Builds.LABEL[k] || k) + ' ' + v).join(', '))}</option>`).join('')}</select></div>`; };
+    const row = (n, a, b, f = v => v) => { const d = b - a; return `<tr><td>${n}</td><td>${f(a)}</td><td><b style="color:${d > 0.001 ? '#5dff9a' : d < -0.001 ? '#ff8a8a' : '#e6e9ef'}">${f(b)}</b></td></tr>`; };
+    const pc = v => Math.round(v * 100) + '%';
+    const cmp = [row('체력', A.hp, G.hp), row('공격력', A.ad, G.ad), row('스킬 증폭', A.sp, G.sp), row('방어력', A.def, G.def), row('공격 속도', A.as, G.as), row('이동 속도', A.ms, G.ms),
+      row('치명타', A.crit, G.crit, pc), row('방어 관통', A.pen, G.pen, pc), row('쿨다운 감소', A.cdr, G.cdr / 100, pc)].join('');
+    const pas = G.passives.length ? G.passives.map(n => { const P = CONFIG.itemPassives[n] || {}; return `<li><b>${esc(n)}</b> ${P.text ? '— ' + esc(P.text) : ''} ${P.impl ? '<span style="color:#5dff9a">✔ 적용</span>' : '<span style="color:#8a93a6">· 효과 미구현(능력치만)</span>'}</li>`; }).join('') : '<li class="sub">고유 효과 없음</li>';
+    this.show(`<h2>🛠 장비 — ${M.name} (${M.weapon}) · ${S0.label}</h2>
+      <div class="row"><label><input type="checkbox" data-in="cgearOn" ${on ? 'checked' : ''}> 장비 사용</label><span class="sub" style="margin:0 0 0 8px">끄면 지금처럼 랭크 영상·추정 능력치(실측). 단계는 메뉴의 빌드(Lv6/12/18)</span></div>
+      <div class="row"><label>인기 빌드</label>${pre}</div>
+      <div class="sub" style="margin:2px 0 8px">dak.gg 랭크 스쿼드·다이아+·최근 7일·12.5 — 「완성」 = 5부위 모두 전설 이상인 조합 중 게임 수 1·2위, 「시작」 = 모두 영웅인 조합 1위. 지금: ${esc(Builds.short(g))}</div>
+      ${Builds.SLOTS.map(slot).join('')}
+      <h3>능력치 (${S0.label}, 숙련도 ${G.masteryLv}레벨 ⚠ 추정)</h3>
+      <table><tr><th>능력치</th><th>실측(장비 끔)</th><th>장비</th></tr>${cmp}</table>
+      <h3>고유 효과</h3><ul class="mist">${pas}</ul>
+      <div class="sub" style="margin-top:8px">수치: 시즌 12 · 12.5 툴팁(dak.gg). 계산은 AI 상대 장비와 같은 공식 — 근거: docs/er_notes_ai_builds.md</div>
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 메뉴 <kbd>Esc</kbd></button></div>`, {
+      'in:cgearOn': el => { Settings.gearOnBy = Object.assign({}, Settings.gearOnBy, { [ch]: el.checked }); saveSettings(); this.showCharGear(ch); },
+      'in:cgs': el => { setG(Object.assign({}, g, { [el.dataset.slot]: el.value ? +el.value : null })); this.showCharGear(ch); },
+      cpre: d => { setG(C.builds[+d.v].gear); Settings.gearOnBy = Object.assign({}, Settings.gearOnBy, { [ch]: true }); saveSettings(); this.showCharGear(ch); },
+      back: () => this.showMenu(),
+    }, { Escape: 'back' });
+  },
   showGear(msg) {
+    if ((Settings.character || 'cathy') !== 'cathy' && Builds.charHasGear(Settings.character)) return this.showCharGear(Settings.character);
     const dan = (Settings.character || 'cathy') !== 'cathy', w = Settings.weapon === 'dual' ? 'dual' : 'dagger', stage = Settings.build;
     const sets = Settings.gearSets = Settings.gearSets || {}; const g = sets[w] = Builds.clean(sets[w] || Builds.defaultGear(w), w);
     const b = Builds.resolve(stage, g, w), grades = { mythic: 0, legend: 1, epic: 2 };

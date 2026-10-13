@@ -87,7 +87,7 @@ class Unit {
 class Cathy extends Unit {
   // gear: 부위별 아이템 코드 (생략하면 판 옵션 opts.gear, null이면 장비 없음 = 랭크 영상 실측 능력치)
   constructor(x, y, gear) {
-    const gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear);
+    let gr = gear !== undefined ? gear : (Game.opts && Game.opts.gear); if (gr && gr.char && gr.char !== 'cathy') gr = null;   // 다른 실험체 장비는 그 실험체가 씀
     const b = Builds.any(gr) ? Builds.resolve(Game.buildId, gr, Settings.weapon) : CONFIG.builds[Game.buildId];
     super({ team: 0, x, y, r: 0.5, hp: b.hp, def: b.def, ms: b.ms, color: CONFIG.theme.accent, name: '캐시', kind: 'player', facing: 0 });
     this.build = b; this.weapon = Settings.weapon;
@@ -109,7 +109,7 @@ class Cathy extends Unit {
   startCd(k) {
     const def = this.skillDef(k), s = this.skills[k];
     // 쿨감 공식(8.0 패치~, 상한 없음): 최종 쿨 = 기본 쿨 × 100 / (100 + 쿨감) — 쿨감 30이면 약 23% 감소. 무기·전술 스킬은 쿨 고정
-    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 100 / (100 + this.cdr * 100)) * Game.cdMul; s.reduced = false;
+    s.cd = s.cdMax = lv(def.cd, s.lv) * (def.fixedCd ? 1 : 100 / (100 + this.cdr * 100 + (k === 'R' ? this.ultCdr || 0 : 0))) * Game.cdMul; s.reduced = false;   // R: 궁극기 쿨감 장비
   }
   baseAaCfg() { return CONFIG.basicAttack[this.weapon]; }
   aaCfg() { const c = this.baseAaCfg(); return this.rangeBuff ? Object.assign({}, c, { range: c.range * (1 + this.rangeBuff.pct) }) : c; }   // 붉은 폭풍: 사거리 증가

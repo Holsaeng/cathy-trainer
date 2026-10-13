@@ -372,6 +372,151 @@
         "https://playeternalreturn.com/posts/news/3838",
         "https://playeternalreturn.com/posts/news/3867"
       ]
+    },
+    "chloe": {
+      "name": "클로에",
+      "weapon": "directfire",
+      "base": {
+        "hp": [
+          920,
+          73
+        ],
+        "ad": [
+          32,
+          4.3
+        ],
+        "def": [
+          51,
+          2.7
+        ],
+        "asBonus": 0.09,
+        "ms": 3.45,
+        "regen": [
+          1.2,
+          0.075
+        ]
+      },
+      "weaponAs": 0.55,
+      "mastery": {
+        "as": 0.031,
+        "sp": 0,
+        "baAmp": 0.016,
+        "other": "기본 공격 증폭 +1.6%/레벨 (dak.gg IncreaseBasicAttackDamageRatio, 스킬 증폭 숙련도 없음 → sp 0)"
+      },
+      "builds": [
+        {
+          "label": "완성 1위: 수다르사나 / 길리 슈트 / 블래스터 헬멧 / 월왕구천 / 알렉산드로스",
+          "pick": "n=331 (dak.gg itemBuildStats, DirectFire 5121게임 중 6.5%), TOP3 39.3%, 승률 7.3%",
+          "gear": {
+            "weapon": 113501,
+            "chest": 202523,
+            "head": 201521,
+            "arm": 205305,
+            "leg": 204504
+          }
+        },
+        {
+          "label": "완성 2위: 흑련비표-진홍 / 길리 슈트 / 블래스터 헬멧 / 월왕구천 / 알렉산드로스",
+          "pick": "n=192 (dak.gg itemBuildStats, DirectFire 5121게임 중 3.7%), TOP3 75.5%, 승률 31.3%",
+          "gear": {
+            "weapon": 113701,
+            "chest": 202523,
+            "head": 201521,
+            "arm": 205305,
+            "leg": 204504
+          }
+        },
+        {
+          "label": "시작(영웅): 플레솃 / 광학미채 슈트 / 카우보이 모자 / 미닛맨의 표식 / 글레디에이터",
+          "pick": "n=81 (dak.gg itemBuildStats, DirectFire 5121게임 중 1.6%), TOP3 0.0%, 승률 0.0%",
+          "gear": {
+            "weapon": 113410,
+            "chest": 202405,
+            "head": 201417,
+            "arm": 203415,
+            "leg": 204418
+          }
+        }
+      ],
+      "src": [
+        "https://dak.gg/er/characters/Chloe",
+        "https://dak.gg/er/characters/Chloe/items",
+        "https://er.dakgg.io/api/v1/data/items?hl=ko",
+        "https://namu.wiki/w/클로에(이터널%20리턴)",
+        "https://namu.wiki/w/이터널%20리턴/무기%20스킬"
+      ]
+    },
+    "alonso": {
+      "name": "알론소",
+      "weapon": "glove",
+      "base": {
+        "hp": [
+          1000,
+          94
+        ],
+        "ad": [
+          36,
+          4.2
+        ],
+        "def": [
+          55,
+          3.4
+        ],
+        "asBonus": 0.1,
+        "ms": 3.6,
+        "regen": [
+          1.67,
+          0.12
+        ]
+      },
+      "weaponAs": 0.63,
+      "mastery": {
+        "as": 0.023,
+        "sp": 0.04,
+        "other": "스킬 증폭형 숙련도 (dak.gg SkillAmpRatio)"
+      },
+      "builds": [
+        {
+          "label": "완성 1위: 프로스트팽 / 유령 신부의 드레스 / 드워프의 투구 / 하트 온 파이어 / EOD 부츠",
+          "pick": "n=127 (dak.gg itemBuildStats, Glove 5399게임 중 2.4%), TOP3 78.7%, 승률 28.3%",
+          "gear": {
+            "weapon": 110502,
+            "chest": 202522,
+            "head": 201508,
+            "arm": 705603,
+            "leg": 204409
+          }
+        },
+        {
+          "label": "완성 2위: 아이언 피스트 / 유령 신부의 드레스 / 드워프의 투구 / 하트 온 파이어 / EOD 부츠",
+          "pick": "n=122 (dak.gg itemBuildStats, Glove 5399게임 중 2.3%), TOP3 80.3%, 승률 33.6%",
+          "gear": {
+            "weapon": 110504,
+            "chest": 202522,
+            "head": 201508,
+            "arm": 705603,
+            "leg": 204409
+          }
+        },
+        {
+          "label": "시작(영웅): 디바인 피스트 / EOD 슈트 / 비질란테 / 소드 스토퍼 / 강철 무릎 보호대",
+          "pick": "n=360 (dak.gg itemBuildStats, Glove 5399게임 중 6.7%), TOP3 0.0%, 승률 0.0%",
+          "gear": {
+            "weapon": 110406,
+            "chest": 202417,
+            "head": 201413,
+            "arm": 203402,
+            "leg": 204401
+          }
+        }
+      ],
+      "src": [
+        "https://dak.gg/er/characters/Alonso",
+        "https://dak.gg/er/characters/Alonso/items",
+        "https://er.dakgg.io/api/v1/data/items?hl=ko",
+        "https://namu.wiki/w/알론소(이터널%20리턴)",
+        "https://namu.wiki/w/이터널%20리턴/무기%20스킬"
+      ]
     }
   },
   "items": {
@@ -413,6 +558,77 @@
         "penPct": 10
       },
       "pas": ""
+    },
+    "110406": {
+      "name": "디바인 피스트",
+      "slot": "weapon",
+      "grade": "epic",
+      "weapon": "glove",
+      "stats": {
+        "ad": 41,
+        "sp": 72,
+        "hp": 100
+      },
+      "pas": ""
+    },
+    "110502": {
+      "name": "프로스트팽",
+      "slot": "weapon",
+      "grade": "legend",
+      "weapon": "glove",
+      "stats": {
+        "ad": 38,
+        "sp": 87,
+        "cdr": 15
+      },
+      "pas": "한파"
+    },
+    "110504": {
+      "name": "아이언 피스트",
+      "slot": "weapon",
+      "grade": "legend",
+      "weapon": "glove",
+      "stats": {
+        "ad": 40,
+        "sp": 90,
+        "hp": 120
+      },
+      "pas": "충전 - 섬광"
+    },
+    "113410": {
+      "name": "플레솃",
+      "slot": "weapon",
+      "grade": "epic",
+      "weapon": "directfire",
+      "stats": {
+        "ad": 56,
+        "as": 25,
+        "msPct": 2
+      },
+      "pas": "열정"
+    },
+    "113501": {
+      "name": "수다르사나",
+      "slot": "weapon",
+      "grade": "legend",
+      "weapon": "directfire",
+      "stats": {
+        "ad": 66,
+        "as": 25
+      },
+      "pas": "열정"
+    },
+    "113701": {
+      "name": "흑련비표-진홍",
+      "slot": "weapon",
+      "grade": "mythic",
+      "weapon": "directfire",
+      "stats": {
+        "ad": 77,
+        "as": 25,
+        "penPct": 7
+      },
+      "pas": "열정"
     },
     "114401": {
       "name": "편전",
@@ -541,6 +757,27 @@
       },
       "pas": "포톤 런처"
     },
+    "201413": {
+      "name": "비질란테",
+      "slot": "head",
+      "grade": "epic",
+      "stats": {
+        "sp": 50,
+        "hp": 150,
+        "cdr": 10
+      },
+      "pas": "부패"
+    },
+    "201417": {
+      "name": "카우보이 모자",
+      "slot": "head",
+      "grade": "epic",
+      "stats": {
+        "ad": 28,
+        "as": 35
+      },
+      "pas": "치유 감소"
+    },
     "201418": {
       "name": "플라즈마 투구",
       "slot": "head",
@@ -574,6 +811,17 @@
       },
       "pas": ""
     },
+    "201508": {
+      "name": "드워프의 투구",
+      "slot": "head",
+      "grade": "legend",
+      "stats": {
+        "def": 13,
+        "hpLv": 16,
+        "cdr": 15
+      },
+      "pas": "리플렉션"
+    },
     "201509": {
       "name": "트와일라잇",
       "slot": "head",
@@ -595,6 +843,16 @@
         "crit": 35
       },
       "pas": "연장 총열"
+    },
+    "201521": {
+      "name": "블래스터 헬멧",
+      "slot": "head",
+      "grade": "legend",
+      "stats": {
+        "ad": 30,
+        "as": 35
+      },
+      "pas": "블래스터 탄환"
     },
     "201525": {
       "name": "레가투스",
@@ -640,6 +898,18 @@
         "adLv": 3,
         "def": 13,
         "crit": 24
+      },
+      "pas": ""
+    },
+    "202417": {
+      "name": "EOD 슈트",
+      "slot": "chest",
+      "grade": "epic",
+      "stats": {
+        "def": 25,
+        "hpLv": 20,
+        "regen": 60,
+        "cdr": 15
       },
       "pas": ""
     },
@@ -727,6 +997,16 @@
       },
       "pas": "선고"
     },
+    "202522": {
+      "name": "유령 신부의 드레스",
+      "slot": "chest",
+      "grade": "legend",
+      "stats": {
+        "def": 45,
+        "hpLv": 24
+      },
+      "pas": "쇠약의 안개"
+    },
     "202523": {
       "name": "길리 슈트",
       "slot": "chest",
@@ -761,6 +1041,17 @@
         "cdr": 10
       },
       "pas": "치유 감소"
+    },
+    "203402": {
+      "name": "소드 스토퍼",
+      "slot": "arm",
+      "grade": "epic",
+      "stats": {
+        "def": 13,
+        "hp": 120,
+        "cdr": 10
+      },
+      "pas": "리플렉션"
     },
     "203405": {
       "name": "바이탈 센서",
@@ -815,6 +1106,17 @@
       },
       "pas": "가벼운 발걸음"
     },
+    "204401": {
+      "name": "강철 무릎 보호대",
+      "slot": "leg",
+      "grade": "epic",
+      "stats": {
+        "def": 8,
+        "ms": 0.22,
+        "tenacity": 20
+      },
+      "pas": ""
+    },
     "204408": {
       "name": "부케팔로스",
       "slot": "leg",
@@ -825,6 +1127,18 @@
         "crit": 25
       },
       "pas": ""
+    },
+    "204409": {
+      "name": "EOD 부츠",
+      "slot": "leg",
+      "grade": "legend",
+      "stats": {
+        "def": 10,
+        "hp": 100,
+        "regen": 50,
+        "ms": 0.25
+      },
+      "pas": "격동"
     },
     "204410": {
       "name": "글레이셜 슈즈",
@@ -846,6 +1160,17 @@
         "as": 10,
         "ms": 0.22,
         "ls": 8
+      },
+      "pas": ""
+    },
+    "204418": {
+      "name": "글레디에이터",
+      "slot": "leg",
+      "grade": "epic",
+      "stats": {
+        "as": 16,
+        "ms": 0.22,
+        "crit": 25
       },
       "pas": ""
     },
@@ -927,6 +1252,17 @@
         "cdr": 20
       },
       "pas": ""
+    },
+    "705603": {
+      "name": "하트 온 파이어",
+      "slot": "arm",
+      "grade": "legend",
+      "stats": {
+        "def": 15,
+        "hpLv": 16,
+        "cdr": 10
+      },
+      "pas": "불꽃 결계"
     }
   }
 }

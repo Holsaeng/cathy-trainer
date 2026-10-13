@@ -21,6 +21,7 @@ class DanielPlayer extends Cathy {
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k];
     this.K = CONFIG.rangedKits.daniel;
     Object.assign(this, { qShots: 0, qT: 0, shadowT: 0, mark: null, lastHitOn: {}, pendingQ: [], shadow: null, qSeq: 0 });
+    const g = Game.opts && Game.opts.gear; if (g && g.char === 'daniel') Builds.applyToPlayer(this, 'daniel', Builds.resolveGear('daniel', st, g));   // 장비(인기 빌드 아이템)
   }
   // ---------- 수치 ----------
   L(k) { return k === 'P' ? this.plv : this.skills[k].lv; }

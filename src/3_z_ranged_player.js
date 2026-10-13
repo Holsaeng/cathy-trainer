@@ -18,6 +18,7 @@ class RangedPlayer extends Cathy {
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
     this.K = CONFIG.rangedKits[key]; this.kit = PKits[key];
     Object.assign(this, { asBuffs: [], noAA: 0, chans: [], pend: [], chase: null, zones: [] });
+    const g = Game.opts && Game.opts.gear; if (g && g.char === key) Builds.applyToPlayer(this, key, Builds.resolveGear(key, st, g));   // 장비(인기 빌드 아이템)
     if (this.kit.init) this.kit.init(this);
   }
   // ---------- 수치 ----------
