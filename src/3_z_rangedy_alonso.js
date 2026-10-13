@@ -11,7 +11,7 @@
 
 const AlonsoCore = {
   attach(o) {
-    Object.assign(o, { alMark: null, alW: null, alR: null, alBar: { ready: true, quiet: 0, immune: 0 } });
+    Object.assign(o, { alMark: null, alW: null, alR: null, alWaves: [], alBar: { ready: true, quiet: 0, immune: 0 } });
     o.ccGuard = type => this.guard(o, type);
     o.dmgMulFrom = src => this.shieldMul(o, src);
   },
@@ -55,7 +55,19 @@ const AlonsoCore = {
   wWave(o, fin) {
     const W = o.al.K.W, l = o.al.L('W'), bh = this.bonusHp(o), amt = fin ? lv(W.fin, l) + (o.sp || 0) * W.finSp + bh * W.finHp : lv(W.base, l) + (o.sp || 0) * W.sp + bh * W.bhp;
     FX.slash(V.add(o.pos, V.mul(o.alW.dir, W.near)), V.ang(o.alW.dir), W.len, 0.3, fin ? '#ffb347' : o.al.color, 0.2);
-    for (const u of o.al.foes()) if (this.wBox(o, u)) o.al.hit(u, amt, 'W');
+    o.alWaves.push({ from: V.copy(o.pos), dir: V.copy(o.alW.dir), d: W.near, amt, hit: new Set() });   // 파동 = 14m/s 투사체(나무위키) — 앞으로 나아가며 닿은 적에게 1번씩
+  },
+  // 파동 진행: 이번 스텝에 지난 구간(앞 0.5~5m · 폭 3m) 안의 적
+  wTick(o, dt) {
+    const W = o.al.K.W;
+    for (const w of o.alWaves) {
+      const d0 = w.d; w.d = Math.min(W.len, w.d + W.speed * dt);
+      for (const u of o.al.foes()) {
+        if (w.hit.has(u.id)) continue; const rel = V.sub(u.pos, w.from), a = V.dot(rel, w.dir), s = Math.abs(rel.x * w.dir.y - rel.y * w.dir.x);
+        if (a >= d0 - u.r && a <= w.d + u.r && s <= W.width / 2 + u.r) { w.hit.add(u.id); o.al.hit(u, w.amt, 'W'); }
+      }
+    }
+    o.alWaves = o.alWaves.filter(w => w.d < W.len);
   },
   wEnd(o) { if (!o.alW) return; this.wWave(o, true); o.alW = null; },
   // ---------- E 어트랙션 슬램! (0.8초 뒤 돌진) ----------
@@ -106,6 +118,7 @@ const AlonsoCore = {
   // ---------- 매 스텝 ----------
   update(o, dt) {
     const K = o.al.K, B = o.alBar;
+    if (o.alWaves.length) this.wTick(o, dt);
     if (B.immune > 0) B.immune -= dt;
     if (!B.ready && (B.quiet += dt) >= lv(K.P.cd, o.al.L('P'))) { B.ready = true; FX.ring(o.pos, o.r, o.r + 0.4, '#7fd7ff', 0.25); }
     // Q 연결: 시간·거리 · 연결 대상을 바라보며 움직이면 이속(가까울수록 더 — 최대 2배 ⚠)
@@ -153,7 +166,7 @@ PKits.alonso = {
   fireAA(p, t) { p.aaLand(t); return true; },
   onAAHit(p, u) { AlonsoCore.pop(p, u); },
   onDamaged(p) { AlonsoCore.onDamaged(p); },
-  reset(p) { Object.assign(p, { alMark: null, alW: null, alR: null, alBar: { ready: true, quiet: 0, immune: 0 } }); },
+  reset(p) { Object.assign(p, { alMark: null, alW: null, alR: null, alWaves: [], alBar: { ready: true, quiet: 0, immune: 0 } }); },
   recast(p, k) { return (k === 'W' && !!p.alW) || (k === 'R' && !!p.alR); },
   // R 정신 집중 중 재입력 = 바로 마무리 (시전 중에도)
   instant(p, k) {

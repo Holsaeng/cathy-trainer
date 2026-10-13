@@ -197,7 +197,7 @@ const CONFIG = {
     dagger: { label: '단검', range: 1.25, windupRatio: 0.30, backRatio: 0.22, critMul: 1.75, asMul: 1.0, hits: 1, hitRatio: 1.0 }, // 후딜 ≈0.2초는 영상과 일치, 선딜은 TODO
     // 쌍검 일반 평타: 공격력 80% × 2회 (나무위키). 강화 평타는 1회(Q: 공격력 110%)
     dual:   { label: '쌍검', range: 1.4,  windupRatio: 0.26, backRatio: 0.20, critMul: 1.75, asMul: 0.8, hits: 2, hitRatio: 0.8, hitGap: 0.12 }, // asMul: 무기 기본 공속 0.43/0.58 반영 추정(TODO)
-    enhanced: { timeout: 6, windup: 0.22 },  // 강화 평타 모션 — 영상(1440p) 측정 기반. 유지시간은 TODO
+    enhanced: { timeout: 6, windup: 0.22 },  // 강화 평타 모션 — 영상(1440p) 측정 기반. 유지 6초(영문 위키 「최대 6초 또는 사용할 때까지」)
   },
   passive: {
     name: '외과 전문의',
@@ -240,7 +240,7 @@ const CONFIG = {
          zoneDur: 4, zoneHealPct: 4, zoneHealSp: 0.03, stamina: 25 },
     D_dagger: { name: '단검 무기 스킬', short: '단검', dmg: [10, 30, 50], bonusAd: 0.5, sp: 0.25, curHpPct: 0.08,
          slow: [0.2, 0.25, 0.3], slowDur: 1, msBoost: [0.3, 0.35, 0.4], cd: [30, 25, 20], fixedCd: true,
-         range: 2.5, behind: 1.5, duration: 3, msDur: 1, windup: 0.15, recovery: 0.1 }, // 「망토와 단검」 1차 망토 = 1초간 이속 크게 증가(3초 안에 재사용) → 2차 단검 = 대상 뒤로 순간이동
+         range: 2.5, behind: 1.5, duration: 3, msDur: 1, windup: 0.2, recovery: 0.1 },   // 시전 0.2초(나무위키 무기 스킬 문서) // 「망토와 단검」 1차 망토 = 1초간 이속 크게 증가(3초 안에 재사용) → 2차 단검 = 대상 뒤로 순간이동
     D_dual: { name: '쌍검 무기 스킬', short: '쌍검', dmg1: [20, 35, 50], ad1: [0.2, 0.3, 0.4], sp1: [0.05, 0.06, 0.07], hits1: 6,
          dmg2: [100, 175, 250], ad2: [1, 1.25, 1.5], sp2: [0.4, 0.5, 0.6], dist: 3.5, hitWidth: 1.4,
          cd: 25, fixedCd: true, time1: 0.66, time2: 0.2, recastWindow: 5, recovery: 0.1 },   // 영상: 1식 = 빠르게 파고든 뒤 제자리 연속 베기
@@ -276,12 +276,14 @@ const CONFIG = {
   },
   // 1:1 결투 상대 — 이터널 리턴 원거리 딜러 4명 (스킬: 나무위키 실험체·무기 스킬 문서 수치 / 능력치: 유튜브 랭크 영상 HUD 실측)
   // 단계별 [Lv6, Lv12, Lv18] 공격력·스킬증폭·공속·치명·방관 (나딘·클로에·알론소는 2026-10-14 랭크 영상 HUD 실측 — docs/er_notes_playables.md 12장)
+  // 체력 = 닥지지 12.5 기본 능력치(기본 + 성장×(레벨−1)) — 나딘·클로에 HUD 실측값과 정확히 일치(원딜 랭크 빌드는 체력 장비 없음)
+  // 아야·리오·카티야 방어력 = 기본 성장 + 원딜 2명(나딘·클로에) 실측 장비 방어 평균(+13 / +13 / +24)
   // 피해 공식(나무위키 가이드): 평타 = 공격력 × 100/(100+방어력×(1-방관)) × (치명 시 1.75)
   rangedMotifs: {
-    aya:    { name: '아야',   weapon: '권총',   build: '스킬 증폭', color: '#5aa9ff', aaRange: 4.85, aaSpeed: 26, ad: [100, 124, 148], sp: [250, 565, 831], as: [1.1, 1.31, 1.24], crit: [0, 0, 0],       pen: [0, 0.11, 0.11] },
-    rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0], aaAmp: [0.039, 0.104, 0.169] },   // 방관은 패시브로 계산
+    aya:    { name: '아야',   weapon: '권총',   build: '스킬 증폭', color: '#5aa9ff', aaRange: 4.85, aaSpeed: 26, ad: [100, 124, 148], sp: [250, 565, 831], as: [1.1, 1.31, 1.24], crit: [0, 0, 0],       pen: [0, 0.11, 0.11], hp: [1285, 1741, 2197], def: [76, 89, 114] },
+    rio:    { name: '리오',   weapon: '활',     build: '평타 치명', color: '#7bd88f', aaRange: 6.4,  aaSpeed: 24, ad: [170, 249, 330], sp: [0, 0, 0],       as: [1.05, 1.51, 1.62], crit: [0.6, 0.97, 1.0], pen: [0, 0, 0], aaAmp: [0.039, 0.104, 0.169], hp: [1300, 1744, 2188], def: [77, 93, 119] },   // 방관은 패시브로 계산
     nadine: { name: '나딘',   weapon: '석궁',   build: '평타 치명', color: '#e0a35a', aaRange: 5.2,  aaSpeed: 24, ad: [197, 239, 333], sp: [0, 0, 0],       as: [1.57, 1.96, 2.16], crit: [0.77, 0.95, 1.0], pen: [0, 0, 0.07], hp: [1295, 1733, 2171], def: [80, 96, 125], ms: [3.74, 3.8, 3.83], aaAmp: [0.036, 0.096, 0.156] },
-    katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4], aaAmp: [0.06, 0.16, 0.26] },   // aaAmp: 무기 숙련도 기본 공격 증폭(12.5 닥지지, 숙련도 3/8/13레벨) · 사거리 6.4m 설(나무위키)은 ⚠
+    katja:  { name: '카티야', weapon: '저격총', build: '평타 치명', color: '#c58bff', aaRange: 6.0,  aaSpeed: 34, ad: [153, 271, 358], sp: [0, 0, 0],       as: [0.93, 1.4, 1.29],  crit: [0.49, 0.93, 1.0], pen: [0.07, 0.22, 0.4], aaAmp: [0.06, 0.16, 0.26], hp: [1290, 1770, 2250], def: [79, 95, 122] },   // aaAmp: 무기 숙련도 기본 공격 증폭(12.5 닥지지, 숙련도 3/8/13레벨) · 사거리: 무기 6.0m + 실험체 기본 0.4m = 6.4m(영문 위키) — 거리는 몸 가장자리부터 재므로 무기 값 6.0 그대로
     // 클로에(암기, 평타 원딜 + 인형 니나) — 12.5 닥지지 기본 능력치 · 단계별 능력치 = 랭크 영상 HUD 실측(1판, 6·12·18레벨 비전투 프레임) · 기본 공격 증폭 = 암기 숙련도 1.6%/레벨
     chloe:  { name: '클로에', weapon: '암기',   build: '평타 치명', color: '#f08cbc', aaRange: 4.8,  aaSpeed: 22, ad: [191, 240, 325], sp: [0, 0, 0],       as: [1.4, 1.69, 1.89],  crit: [0.73, 0.84, 1.0], pen: [0, 0, 0.07], aaAmp: [0.048, 0.128, 0.208],
               hp: [1285, 1723, 2161], def: [77, 93, 118], ms: [3.7, 3.79, 3.78] },
@@ -304,25 +306,25 @@ const CONFIG = {
       Q: { name: '마그네틱 펀치', base: [100, 140, 180, 220, 260], sp: 0.4, cd: [7, 6.5, 6, 5.5, 5], range: 7.5, width: 1.6, speed: 14.5, windup: 0.25,
            ms: [0.25, 0.275, 0.3, 0.325, 0.35], popPct: [0.06, 0.07, 0.08, 0.09, 0.1], popLv: 6, stun: 0.9, markDur: 4, breakDist: 9 },   // 연결(표식) 4초·끊어지는 거리 9m ⚠ · 추가 피해 = 대상 최대 체력 % + 레벨×6 ⚠(툴팁 표기 해석)
       W: { name: '바운싱 실드', dur: 2.5, reduce: 0.6, waves: [0.55, 1.05, 1.5, 1.85, 2.15], base: [30, 35, 40, 45, 50], sp: 0.25, bhp: 0.1,
-           fin: [80, 120, 160, 200, 240], finSp: 0.5, finHp: 0.2, cd: [14, 13.5, 13, 12.5, 12], near: 0.5, len: 5, width: 3, slow: 0.25 },   // 파동 5회는 점점 빠르게(시각 ⚠) · 방패 중 이속 감소 25% ⚠
-      E: { name: '어트랙션 슬램!', base: [60, 90, 120, 150, 180], defR: 0.2, hpR: 0.07, root: [0.7, 0.8, 0.9, 1.0, 1.1], cd: [14, 13, 12, 11, 10], range: 4.75, windup: 0.8, cancel: 8.25, refund: 0.3, dashSpeed: 22 },   // 돌진 속도 ⚠
+           fin: [80, 120, 160, 200, 240], finSp: 0.5, finHp: 0.2, cd: [14, 13.5, 13, 12.5, 12], near: 0.5, len: 5, width: 3, speed: 14, slow: 0.15 },   // 파동 5회 시각 = 공식 영상 확인(±0.1초) · 파동 투사체 14m/s(나무위키) · 방패 중 이속 감소 15%(영문 위키)
+      E: { name: '어트랙션 슬램!', base: [60, 90, 120, 150, 180], defR: 0.2, hpR: 0.07, root: [0.7, 0.8, 0.9, 1.0, 1.1], cd: [14, 13, 12, 11, 10], range: 4.75, windup: 0.8, cancel: 8.25, refund: 0.3, dashSpeed: 15 },   // 돌진 약 15m/s: 공식 영상 실측(4.9m를 약 0.33초)
       R: { name: '게더링 필드', base: [70, 160, 250], sp: 0.5, heal: 30, healPct: [0.03, 0.04, 0.05], tick: 0.5, dot: [16, 20, 24], dotSp: 0.15,
            minF: [100, 150, 200], minSp: 0.5, minHp: 0.12, maxF: [200, 300, 400], maxSp: 1.0, maxHp: 0.24, cd: [80, 70, 60], r: 4.75, pull: 1.6, pullTime: 0.2, slow: 0.6, dur: 3.5 },   // 유지 3.5초: 공식 영상 실측
-      D: { name: '어퍼컷', bad: 1.1, sp: 0.25, extra: [0.6, 0.8, 1.0], fixed: [50, 60, 70], cd: [9, 7, 5], range: 1.35, hop: 1.5 },   // 무기 스킬(글러브) · 다가가는 거리 1.5m ⚠
+      D: { name: '어퍼컷', bad: 1.1, sp: 0.25, extra: [0.6, 0.8, 1.0], fixed: [50, 60, 70], cd: [9, 7, 5], range: 1.35, hop: 0 },   // 무기 스킬(글러브) · 사거리 1.35m 안의 대상에게 붙어 때림(평타 1.2m보다 조금 긴 「짧은 도약」 — 나무위키·영문 위키)
     },
     // 클로에 — 나무위키(2026-10-05 수정판) + 12.2 버프(니나 추가 방어력 20/35/50 · Q 니나 공격력 80%) · 근거 docs/er_notes_playables.md 10장. ⚠ = 출처 없는 추정값
     chloe: {
       P: { name: '살아 있는 마리오네트', stab: [20, 50, 80], stabAd: 0.5, marks: 2, respawn: [20, 18, 16], respawnCost: 0.2, respawnHp: 0.8, leash: 10,
            ratio: 0.6, ratioLv: 0.02, bonusAd: [4, 7, 10], bonusDef: [20, 35, 50], bonusHp: [200, 250, 300], as: 0.8,
-           range: 1.0, windup: 0.25, r: 0.38, follow: 1.3 },   // 니나 = 클로에 공·방·치명·스증·방관(·체력 ⚠)의 60% + 레벨당 2% + 추가 · 공속 0.8 고정 · 사거리 1.0m(근접) ⚠
+           range: 1.0, windup: 0.25, r: 0.38, follow: 1.3 },   // 니나 = 클로에 공·방·치명·스증·방관·체력의 60% + 레벨당 2% + 추가(체력도 같은 비율 — 영문 위키) · 공속 0.8 고정 · 사거리 1.0m(근접) ⚠
       Q: { name: '공격 명령', base: [70, 90, 110, 130, 150], ninaAd: 0.8, cd: 5, radius: 2.5, delay: 0.2, slow: [0.1, 0.15, 0.2, 0.25, 0.3], slowDur: 1.5 },
       W: { name: '인형극', cd: [15, 14, 13, 12, 11], spin: 3, spinR: 3, tick: [15, 24, 33, 42, 51], tickAd: 0.06, tickEvery: 0.5, spinSlow: 0.35, refund: 0.5,
            range: 6.5, r: 3, base: [40, 60, 80, 100, 120], ad: 0.8, slow: [0.3, 0.35, 0.4, 0.45, 0.5], slowDur: 1, throwTime: 0.3,
            slam: [40, 80, 120, 160, 200], slamAd: 0.7, slamR: 4, slamDelay: 0.45, airborne: 0.5, bounce: 2.5, pickR: 0.9, pickLife: 4, ms: 0.4, msDur: 2 },   // 던지기 0.3초·내려찍기 0.45초: 공식 영상 확인(⚠ 대략) · 피해 주기 0.5초 ⚠
-      E: { name: '퀼트 리퍼', cd: [14, 13.5, 13, 12.5, 12], dist: 4, time: 0.2, width: 1.0, base: [40, 55, 70, 85, 100], ad: 0.4, recastAfter: 1, window: 4,
-           ninaDist: 7, ninaSpeed: 22, ninaWidth: 1.0, ninaBase: [50, 80, 110, 140, 170], ninaAd: 0.6 },   // 클로에 돌진 0.2초 ⚠ · 니나 돌진 속도 ⚠
-      R: { name: '생명 공유', cd: [80, 70, 60], dur: 5, as: [0.2, 0.25, 0.3], ms: [0.25, 0.3, 0.35], cdCut: 0.3, lineMin: [30, 60, 90], lineMax: [70, 140, 210], ramp: 2, tick: 0.25, hitShare: 0.7, linkShare: 0.6 },   // 연결선 피해가 최대가 되는 시간 2초 ⚠
-      D: { name: '마름쇠 투척', cd: [25, 25, 25], range: 5, r: 1.8, windup: 0.25, life: 6, base: [60, 90, 120], bad: 0.65, sp: [0.25, 0.3, 0.35], slow: [0.3, 0.4, 0.5], slowDur: 1.5, decay: 0.45, rehit: 0.5 },   // 나무위키 무기 스킬 문서 · 반경 1.8m ⚠
+      E: { name: '퀼트 리퍼', cd: [14, 13.5, 13, 12.5, 12], dist: 4, time: 0.25, width: 1.0, base: [40, 55, 70, 85, 100], ad: 0.4, recastAfter: 1, window: 4,
+           ninaDist: 7, ninaSpeed: 22, ninaWidth: 1.0, ninaBase: [50, 80, 110, 140, 170], ninaAd: 0.6 },   // 클로에 4m 돌진 약 0.25초(공식 영상 실측) · 니나 돌진 속도 ⚠(영상에서 클로에·니나 구분 불가)
+      R: { name: '생명 공유', cd: [80, 70, 60], dur: 5, as: [0.2, 0.25, 0.3], ms: [0.25, 0.3, 0.35], cdCut: 0.3, lineMin: [30, 60, 90], lineMax: [70, 140, 210], ramp: 2, tick: 1 / 3, hitShare: 0.7, linkShare: 0.6 },   // 초당 3틱(영문 위키) · 연결선 피해가 최대가 되는 시간 2초 ⚠
+      D: { name: '마름쇠 투척', cd: [25, 25, 25], range: 5, r: 2, windup: 0.25, life: 6, base: [60, 90, 120], bad: 0.65, sp: [0.25, 0.3, 0.35], slow: [0.3, 0.4, 0.5], slowDur: 1.5, decay: 0.45, rehit: 0.5 },   // 나무위키 무기 스킬 문서 · 반경 2m(영문 위키)
     },
     katja: {
       P: { name: '잿빛 사신', base: [50, 75, 100], ad: [0.3, 0.45, 0.6], window: 5 },                          // Q·E 후 5초 내 다음 평타 추가 스킬 피해
@@ -945,7 +947,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'ab5d45bc';
+const BUILD_ID = '2813cbc1';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -1766,7 +1768,7 @@ class Cathy extends Unit {
         this.beginCast('D', t.pos, Impl.Ddagger, { target: t }); return true;
       }
       if (s.cd > 0) { this.cdError('D'); return false; }
-      // 1차: 유틸 — 이동 속도 증가 + 3초 내 재사용 가능 (TODO: 실제 1차 효과 확인)
+      // 1차 망토: 1초간 이속 증가 + 3초 안에 2차 단검 사용 가능 (나무위키 무기 스킬 문서)
       this.daggerReady = def.duration; this.addMsBuff(lv(def.msBoost, s.lv), def.msDur || def.duration, false, 'dagger');   // 망토: 1초 이속 증가
       this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // 무기 스킬 사용 → 강화 평타
       FX.ring(this.pos, 0.3, 1.5, '#5ff0e6', 0.45, 0.1);
@@ -3075,14 +3077,14 @@ PKits.nadine = {
   update(p, dt) {
     const K = p.K, foes = p.foes().filter(u => u.kind !== 'animal');
     if (p.wolfT > 0) p.wolfT -= dt;
-    // Q 충전: 이속 서서히 −20%, 평타 불가, CC를 받으면 취소(쿨 50% 반환), 최대 충전 1초 뒤 자동 발사(⚠ 출처 없음)
+    // Q 충전: 이속 서서히 −20%, 평타 불가, CC를 받으면 취소(쿨 50% 반환), 2초 충전이 다 차면 바로 발사(나무위키 「2초에 걸쳐 힘을 모은 뒤 화살을 발사」)
     const C = p.charge;
     if (C) {
       C.t += dt; const Q = K.Q; p.noAA = 0.15; p.addMsBuff(-Q.chargeSlow * Math.min(1, C.t / Q.charge), 0.1, false, 'charge');
       if (p.stun > 0 || p.fear > 0 || p.forced || p.silence > 0 || p.dead) { p.charge = null; p.skills.Q.cd = p.skills.Q.cdMax = Q.cd * Q.refund; FX.text(p.pos, '충전 취소', '#aaa', 11); }
-      else if (C.t >= Q.charge + 1) this.fireQ(p, p.cursor || V.add(p.pos, V.fromAng(p.facing)));
+      else if (C.t >= Q.charge) this.fireQ(p, p.cursor || V.add(p.pos, V.fromAng(p.facing)));
     }
-    // W 첫 덫: 5초 안에 두 번째를 못 던지면 사라짐(⚠) — 쿨 시작
+    // W 첫 덫: 5초 안에 두 번째를 못 던지면 사라짐(영문 위키 「5초 안에 재설치」) — 쿨 시작
     if (p.trapA && (p.trapA.t -= dt) <= 0) { p.trapA = null; p.startCd('W'); }
     // 덫 연결선을 지나간 적: 피해 + 이속 감소 + 5초 노출 (이미 이 덫에 둔화 중이면 30%)
     for (const u of foes) { const lp = p.lastP[u.id]; if (lp) for (const tr of p.traps) {
@@ -3305,7 +3307,7 @@ PKits.katja = {
 
 const AlonsoCore = {
   attach(o) {
-    Object.assign(o, { alMark: null, alW: null, alR: null, alBar: { ready: true, quiet: 0, immune: 0 } });
+    Object.assign(o, { alMark: null, alW: null, alR: null, alWaves: [], alBar: { ready: true, quiet: 0, immune: 0 } });
     o.ccGuard = type => this.guard(o, type);
     o.dmgMulFrom = src => this.shieldMul(o, src);
   },
@@ -3349,7 +3351,19 @@ const AlonsoCore = {
   wWave(o, fin) {
     const W = o.al.K.W, l = o.al.L('W'), bh = this.bonusHp(o), amt = fin ? lv(W.fin, l) + (o.sp || 0) * W.finSp + bh * W.finHp : lv(W.base, l) + (o.sp || 0) * W.sp + bh * W.bhp;
     FX.slash(V.add(o.pos, V.mul(o.alW.dir, W.near)), V.ang(o.alW.dir), W.len, 0.3, fin ? '#ffb347' : o.al.color, 0.2);
-    for (const u of o.al.foes()) if (this.wBox(o, u)) o.al.hit(u, amt, 'W');
+    o.alWaves.push({ from: V.copy(o.pos), dir: V.copy(o.alW.dir), d: W.near, amt, hit: new Set() });   // 파동 = 14m/s 투사체(나무위키) — 앞으로 나아가며 닿은 적에게 1번씩
+  },
+  // 파동 진행: 이번 스텝에 지난 구간(앞 0.5~5m · 폭 3m) 안의 적
+  wTick(o, dt) {
+    const W = o.al.K.W;
+    for (const w of o.alWaves) {
+      const d0 = w.d; w.d = Math.min(W.len, w.d + W.speed * dt);
+      for (const u of o.al.foes()) {
+        if (w.hit.has(u.id)) continue; const rel = V.sub(u.pos, w.from), a = V.dot(rel, w.dir), s = Math.abs(rel.x * w.dir.y - rel.y * w.dir.x);
+        if (a >= d0 - u.r && a <= w.d + u.r && s <= W.width / 2 + u.r) { w.hit.add(u.id); o.al.hit(u, w.amt, 'W'); }
+      }
+    }
+    o.alWaves = o.alWaves.filter(w => w.d < W.len);
   },
   wEnd(o) { if (!o.alW) return; this.wWave(o, true); o.alW = null; },
   // ---------- E 어트랙션 슬램! (0.8초 뒤 돌진) ----------
@@ -3400,6 +3414,7 @@ const AlonsoCore = {
   // ---------- 매 스텝 ----------
   update(o, dt) {
     const K = o.al.K, B = o.alBar;
+    if (o.alWaves.length) this.wTick(o, dt);
     if (B.immune > 0) B.immune -= dt;
     if (!B.ready && (B.quiet += dt) >= lv(K.P.cd, o.al.L('P'))) { B.ready = true; FX.ring(o.pos, o.r, o.r + 0.4, '#7fd7ff', 0.25); }
     // Q 연결: 시간·거리 · 연결 대상을 바라보며 움직이면 이속(가까울수록 더 — 최대 2배 ⚠)
@@ -3447,7 +3462,7 @@ PKits.alonso = {
   fireAA(p, t) { p.aaLand(t); return true; },
   onAAHit(p, u) { AlonsoCore.pop(p, u); },
   onDamaged(p) { AlonsoCore.onDamaged(p); },
-  reset(p) { Object.assign(p, { alMark: null, alW: null, alR: null, alBar: { ready: true, quiet: 0, immune: 0 } }); },
+  reset(p) { Object.assign(p, { alMark: null, alW: null, alR: null, alWaves: [], alBar: { ready: true, quiet: 0, immune: 0 } }); },
   recast(p, k) { return (k === 'W' && !!p.alW) || (k === 'R' && !!p.alR); },
   // R 정신 집중 중 재입력 = 바로 마무리 (시전 중에도)
   instant(p, k) {
@@ -4325,7 +4340,8 @@ class RangedDuelist extends Duelist {
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + rnd() * 0.6); this.think(); if (this.act) return; }
     const p = this.foe;
     if (this.kiteT > 0) { this.kiteT -= dt; this.moveStep(dt); return; }   // ① 쏘고 움직이는 중
-    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - (this.melee ? this.r : 0) <= this.aaRange()) {
+    // 평타 거리 = 내 가장자리~상대 가장자리(플레이어와 같음) — 게임 표기 「무기 사거리 + 실험체 기본 0.4m」(영문 위키 Attack Range)
+    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - this.r <= this.aaRange()) {
       this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()), target: p }; return;
     }
     this.moveStep(dt);

@@ -283,6 +283,29 @@
     Settings.character = 'cathy';
   });
 
+  // 추정값 확정(2026-10-14): 위키·공식 영상 근거 — docs/er_notes_playables.md 13장
+  G('추정값 확정', () => {
+    const KC = CONFIG.rangedKits;
+    T.ok('마름쇠 반경 2m · 알론소 방패 감속 15% · E 돌진 15m/s · 어퍼컷 사거리 1.35m(추가 이동 없음)', KC.chloe.D.r === 2 && KC.alonso.W.slow === 0.15 && KC.alonso.E.dashSpeed === 15 && KC.alonso.D.hop === 0);
+    T.ok('캐시 단검 D 시전 0.2초 · 클로에 R 초당 3틱', CONFIG.skills.D_dagger.windup === 0.2 && Math.abs(KC.chloe.R.tick - 1 / 3) < 1e-9);
+    // 알론소 W 파동: 14m/s로 나아감 — 5m 앞 적은 쏜 순간이 아니라 약 0.3초 뒤에 맞음
+    reset(); Settings.character = 'alonso'; Game.start('dummy', { count: 1, hp: 50000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 12.3, y: 9 };
+    AlonsoCore.wStart(p, { x: 1, y: 0 }); AlonsoCore.wWave(p, false); const h0 = Stats.dmgBy.W || 0; run(12); const h1 = Stats.dmgBy.W || 0; run(36); const h2 = Stats.dmgBy.W || 0;
+    T.ok('알론소 W 파동: 투사체처럼 나아가 늦게 맞음(14m/s)', h0 === 0 && h1 === 0 && h2 > 0, `${h0}/${h1}/${Math.round(h2)}`);
+    p.alW = null; p.alWaves = [];
+    // 나딘 Q: 2초 충전이 다 차면 바로 발사
+    reset(); Settings.character = 'nadine'; Game.start('dummy', { count: 1, hp: 50000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    const q = Game.player; q.cmdSkill('Q', V.add(q.pos, { x: 5, y: 0 })); Input.aiming = null; run(Math.round(1.9 * 120)); const still = !!q.charge; run(Math.round(0.2 * 120));
+    T.ok('나딘 Q: 2초 충전 끝에 자동 발사(더 기다리지 않음)', still && !q.charge && (Stats.casts.Q || 0) >= 1);
+    // 원거리 AI 평타 거리: 가장자리끼리(플레이어와 같음) — 카티야 6.0 + 몸 → 중심 거리 약 6.4m+에서도 쏨
+    reset(); Settings.character = 'cathy'; Game.start('duel', { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'basic', rounds: 1, seed: 2 }); Game.freeze = 0; Modes.duel.banner = null;
+    const e = Modes.duel.enemy, pc = Game.player; pc.untargetable = 0; e.pos = { x: 8, y: 9 }; pc.pos = { x: 8 + 6.0 + pc.r + e.r - 0.05, y: 9 }; pc.stun = 9; e.aaCd = 0; e.kiteT = 0; e.moveTarget = null;
+    const aa0 = e.stats.aa || 0; let fired = false; const keep = Events.emit; for (let i = 0; i < 60 && !fired; i++) { pc.pos = { x: 8 + 6.0 + pc.r + e.r - 0.05, y: 9 }; e.pos = { x: 8, y: 9 }; step(); fired = e.aa && e.aa.phase && e.aa.phase !== 'none' || e.aaCd > 0.05; }
+    T.ok('카티야 AI: 무기 사거리 6.0m(가장자리 기준) 끝에서 평타', fired);
+    Settings.character = 'cathy';
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });
@@ -660,8 +683,8 @@
     p.applyCC('stun', 1); p.applyCC('root', 1); T.ok('P: 첫 이동 불가 무효 + 0.1초 동안 추가 CC도 면역', p.stun === 0 && p.root === 0 && !p.alBar.ready);
     run(20); p.applyCC('stun', 0.3); T.ok('P: 면역이 끝나면 CC 적용', p.stun > 0);
     run(Math.round(lv(K.P.cd, p.L('P')) * 120) + 10); T.ok('P: 피해 없이 쿨이 지나면 다시 준비', p.alBar.ready);
-    // D 어퍼컷: 짧게 다가가 피해 + 연결된 적 기절
-    ({ p, d } = setup()); p.cmdSkill('Q', d.pos); run(80); d.pos = { x: p.pos.x + 2.6, y: 9 }; p.skills.D.cd = 0; p.cmdSkill('D', d.pos); run(3);
+    // D 어퍼컷: 사거리 1.35m까지 다가가 피해 + 연결된 적 기절
+    ({ p, d } = setup()); p.cmdSkill('Q', d.pos); run(80); d.pos = { x: p.pos.x + 2.6, y: 9 }; p.skills.D.cd = 0; p.cmdSkill('D', d.pos); run(60);   // 사거리 1.35m — 밖이면 걸어가서 사용
     T.ok('D 어퍼컷: 다가가서 피해 + 연결 기절', (Stats.dmgBy.D || 0) > 0 && d.stun > 0 && V.dist(p.pos, d.pos) < p.r + d.r + K.D.range + 0.1);
     // AI 알론소: 결투·팀 대전 — 팀에서는 앞라인
     for (const [ch, map] of [['katja', 'basic'], ['cathy', 'arena']]) {

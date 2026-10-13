@@ -272,14 +272,14 @@ PKits.nadine = {
   update(p, dt) {
     const K = p.K, foes = p.foes().filter(u => u.kind !== 'animal');
     if (p.wolfT > 0) p.wolfT -= dt;
-    // Q 충전: 이속 서서히 −20%, 평타 불가, CC를 받으면 취소(쿨 50% 반환), 최대 충전 1초 뒤 자동 발사(⚠ 출처 없음)
+    // Q 충전: 이속 서서히 −20%, 평타 불가, CC를 받으면 취소(쿨 50% 반환), 2초 충전이 다 차면 바로 발사(나무위키 「2초에 걸쳐 힘을 모은 뒤 화살을 발사」)
     const C = p.charge;
     if (C) {
       C.t += dt; const Q = K.Q; p.noAA = 0.15; p.addMsBuff(-Q.chargeSlow * Math.min(1, C.t / Q.charge), 0.1, false, 'charge');
       if (p.stun > 0 || p.fear > 0 || p.forced || p.silence > 0 || p.dead) { p.charge = null; p.skills.Q.cd = p.skills.Q.cdMax = Q.cd * Q.refund; FX.text(p.pos, '충전 취소', '#aaa', 11); }
-      else if (C.t >= Q.charge + 1) this.fireQ(p, p.cursor || V.add(p.pos, V.fromAng(p.facing)));
+      else if (C.t >= Q.charge) this.fireQ(p, p.cursor || V.add(p.pos, V.fromAng(p.facing)));
     }
-    // W 첫 덫: 5초 안에 두 번째를 못 던지면 사라짐(⚠) — 쿨 시작
+    // W 첫 덫: 5초 안에 두 번째를 못 던지면 사라짐(영문 위키 「5초 안에 재설치」) — 쿨 시작
     if (p.trapA && (p.trapA.t -= dt) <= 0) { p.trapA = null; p.startCd('W'); }
     // 덫 연결선을 지나간 적: 피해 + 이속 감소 + 5초 노출 (이미 이 덫에 둔화 중이면 30%)
     for (const u of foes) { const lp = p.lastP[u.id]; if (lp) for (const tr of p.traps) {

@@ -256,7 +256,8 @@ class RangedDuelist extends Duelist {
     if (this.thinkT <= 0) { this.thinkT = this.diff.react * (0.7 + rnd() * 0.6); this.think(); if (this.act) return; }
     const p = this.foe;
     if (this.kiteT > 0) { this.kiteT -= dt; this.moveStep(dt); return; }   // ① 쏘고 움직이는 중
-    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - (this.melee ? this.r : 0) <= this.aaRange()) {
+    // 평타 거리 = 내 가장자리~상대 가장자리(플레이어와 같음) — 게임 표기 「무기 사거리 + 실험체 기본 0.4m」(영문 위키 Attack Range)
+    if (p && !p.dead && this.canAct() && this.aaCd <= 0 && this.noAA <= 0 && !this.castDodge && !this.dodgeQ && V.dist(this.pos, p.pos) - p.r - this.r <= this.aaRange()) {
       this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()), target: p }; return;
     }
     this.moveStep(dt);

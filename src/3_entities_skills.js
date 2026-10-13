@@ -195,7 +195,7 @@ class Cathy extends Unit {
         this.beginCast('D', t.pos, Impl.Ddagger, { target: t }); return true;
       }
       if (s.cd > 0) { this.cdError('D'); return false; }
-      // 1차: 유틸 — 이동 속도 증가 + 3초 내 재사용 가능 (TODO: 실제 1차 효과 확인)
+      // 1차 망토: 1초간 이속 증가 + 3초 안에 2차 단검 사용 가능 (나무위키 무기 스킬 문서)
       this.daggerReady = def.duration; this.addMsBuff(lv(def.msBoost, s.lv), def.msDur || def.duration, false, 'dagger');   // 망토: 1초 이속 증가
       this.enhanced = CONFIG.basicAttack.enhanced.timeout;   // 무기 스킬 사용 → 강화 평타
       FX.ring(this.pos, 0.3, 1.5, '#5ff0e6', 0.45, 0.1);
