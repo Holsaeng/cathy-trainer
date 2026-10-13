@@ -140,6 +140,17 @@ const UI = {
     return name;
   },
 
+  // 입문 튜토리얼 완료 → 다음 연습으로 이어주기
+  showTutorialDone() {
+    const ch = Settings.character || 'cathy', name = ch === 'cathy' ? '캐시' : (CONFIG.rangedMotifs[ch] || {}).name || ch;
+    this.show(`<h2>🎓 튜토리얼 완료!</h2><div class="sub">${esc(name)}의 기본 조작(이동·평타·스킬·리듬·궁극기·전술 스킬)을 모두 해 봤습니다. 이제 실전처럼 연습해 보세요.</div>
+      <div class="row" style="margin-top:12px"><button class="btn primary" data-a="tcombo">▶ ${esc(name)} 콤보 연습</button><button class="btn primary" data-a="tduel">⚔ 쉬운 1:1 결투</button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button></div>
+      <div class="sub" style="margin-top:8px">판이 끝나면 결과 화면의 코칭이 고칠 점 3가지와 연습 방법을 알려 줍니다. 조작 방식(시전 방식·키)은 설정에서 바꿀 수 있어요.</div>`, {
+      tcombo: () => this.start('combo', this.quickOpts('combo')),
+      tduel: () => this.start('duel', Object.assign(this.quickOpts('duel'), { diff: 'easy' })),
+      menu: () => this.showMenu(),
+    }, { m: 'menu', M: 'menu' });
+  },
   showMenu() {
     Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
@@ -156,6 +167,7 @@ const UI = {
       <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
       <div class="row"><label>전술 스킬 (F)</label><select data-in="tac">${TACTICAL_ORDER.map(k => `<option value="${k}" ${Tactical.key() === k ? 'selected' : ''}>${CONFIG.tactical[k].name}</option>`).join('')}</select>
         <span class="sub" style="margin:0 0 0 6px">${esc(Tactical.def(Tactical.key()).desc)} · 쿨 ${Tactical.def(Tactical.key()).cd.join('/')}초</span></div>
+      <div class="row" style="margin-top:10px"><button class="btn ${Settings.tutorialDone ? '' : 'primary'}" data-a="tutorial">🎓 ${Settings.tutorialDone ? '입문 튜토리얼 다시 하기' : '처음이세요? 입문 튜토리얼 (약 3분) — 이동·평타·스킬·리듬·궁극기'}</button></div>
       ${last ? `<div class="row" style="margin-top:10px"><button class="btn primary" data-a="last">▶ 최근 플레이 다시 — ${esc(last)} <kbd>Enter</kbd></button></div>` : ''}
       <div class="grid" style="margin-top:14px">${modes.map(([id, ic, t, d], i) => `<div class="mode" data-a="mode" data-v="${id}">
         <b><kbd>${i + 1}</kbd> ${ic} ${t}</b><small>${d}</small>
@@ -173,6 +185,7 @@ const UI = {
       gear: () => this.showGear(),
       'in:replayFile': el => { const f = el.files && el.files[0]; if (!f) return; f.text().then(t => { try { Replay.watch(JSON.parse(t)); } catch (e) { FX.toast('리플레이를 열 수 없습니다: ' + e.message, '#ff6b6b'); this.showMenu(); } }); },
       quick: d => this.start(d.v, this.quickOpts(d.v)),
+      tutorial: () => Game.start('tutorial', {}),   // 최근 플레이에는 남기지 않음
       last: () => { const L = Settings.lastPlay; if (L && Modes[L.id]) this.start(L.id, L.opts); },
       records: () => this.showRecords(), settings: () => this.showSettings(() => this.showMenu()), help: () => this.showHelp(),
     }, Object.assign({ Enter: 'last' }, Object.fromEntries(modes.map(([id], i) => [String(i + 1), ['mode', id]]))));

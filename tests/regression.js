@@ -355,6 +355,38 @@
     Game.start('duel', { diff: 'easy', motif: 'aya', enemyBuild: 'mid', map: 'basic', rounds: 1 }); const n0 = Cmd.log.length; key('t'); T.ok('팀 대전이 아니면 핑 명령 없음(안내만)', Cmd.log.length === n0);
   });
 
+  // 입문 튜토리얼: 메뉴 버튼 → 6단계 자동 진행(이동·평타·스킬·리듬·궁극기·전술) → 완료 화면
+  G('입문 튜토리얼', () => {
+    const play = ch => {
+      reset(); Settings.character = ch; Settings.castMode = 'smart'; Settings.lastPlay = null; UI.showMenu(); click('[data-a="tutorial"]');
+      Game.freeze = 0; const M = Modes.tutorial, p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); let f = 0, a0 = 0;
+      while (f < 120 * 60 && !M.done) { const i = M.i;
+        if (f % 12 === 0) {
+          if (i === 0) { const m = M.MARKS[Math.min(M.mark, 2)]; p.cmdMove({ x: m[0], y: m[1] }); }
+          else if (i === 1) { if (p.attackTarget !== d) p.cmdAttack(d); }
+          else if (i === 2) { for (const k of ['Q', 'W', 'E']) if (!((Stats.casts[k] || 0) > (M.base.casts[k] || 0)) && p.skills[k].cd <= 0 && !p.cast) { p.cmdSkill(k, d.pos); Input.aiming = null; break; } }
+          else if (i === 3) {
+            if (M.kind === 'ranged') { if (Stats.aaHits > a0) { a0 = Stats.aaHits; p.cmdMove(V.add(p.pos, { x: 0, y: f % 24 ? 1 : -1 })); } else if (!p.moveTarget && p.attackTarget !== d) p.cmdAttack(d); }
+            else { if ((M.kind === 'cathy' ? p.enhanced <= 0 : M.seq === 1)) for (const k of ['Q', 'W', 'E', 'D']) if (p.skills[k].cd <= 0 && !p.cast) { p.cmdSkill(k, d.pos); Input.aiming = null; break; } if (p.attackTarget !== d) p.cmdAttack(d); }
+          }
+          else if (i === 4) { if (p.attackTarget !== d) p.cmdAttack(d); if (p.skills.R.cd <= 0 && !p.cast && (M.kind === 'ranged' || V.dist(p.pos, d.pos) < 2.8)) { p.cmdSkill('R', d.pos); Input.aiming = null; } }
+          else if (i === 5) { if (p.skills.F.cd <= 0 && !p.cast) { p.cmdSkill('F', V.add(p.pos, { x: -2, y: 0 })); Input.aiming = null; } }
+        }
+        step(); f++; }
+      return { M, t: f / 120 };
+    };
+    for (const ch of ['cathy', 'nadine', 'alonso']) {
+      const { M, t } = play(ch);
+      T.ok(`${ch} 튜토리얼 6단계 완주`, M.done && M.i === 6 && Settings.tutorialDone, `${M.i}단계 · ${fmt(t, 1)}초`);
+      T.ok(`${ch} 완료 화면 → 다음 연습 버튼`, document.getElementById('card').innerText.includes('튜토리얼 완료') && !!document.querySelector('[data-a="tcombo"]') && !!document.querySelector('[data-a="tduel"]'));
+      Game.paused = false;
+    }
+    T.ok('튜토리얼은 최근 플레이에 남지 않음', !Settings.lastPlay);
+    click('[data-a="tduel"]'); T.ok('완료 → 쉬운 결투로 바로', Game.modeId === 'duel' && Game.state === 'play' && Modes.duel.diff === 'easy');
+    reset(); Settings.tutorialDone = false; UI.showMenu(); T.ok('처음이면 메뉴에 「처음이세요?」 강조', document.querySelector('[data-a="tutorial"]').classList.contains('primary'));
+    Settings.character = 'cathy';
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });
