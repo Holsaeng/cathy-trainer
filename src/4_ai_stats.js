@@ -503,6 +503,7 @@ const Stats = {
       comboAtt: 0, comboOk: 0, streak: 0, bestStreak: 0, shots: 0, shotHits: 0, movingHits: 0, leadHits: 0,
       hitPositions: [], kills: 0, playerHits: 0,
       combatT: 0, aaIdle: 0, heroAA: 0, kiteAA: 0, rangeSum: 0, closeAA: 0, lastAAPos: null,   // 원거리 실험체 코칭(7_a_coach.js)
+      counts: {},   // 실험체 연계 기록(알론소 자력 연결 linkOn·linkPop · 다니엘 영감 표식 markOn·markPop)
     });
   },
   tick(dt) { this.t += dt; },
@@ -534,11 +535,12 @@ const Stats = {
       this.waste[k] = (this.waste[k] || 0) + dt;
     }
   },
-  // 원거리 실험체: 평타 공백(사거리 안 · 평타 준비 · 행동 가능인데 안 쏨) — 교전 = 보이는 적(실험체·허수아비)이 사거리 + 3m 안
+  count(k) { this.counts[k] = (this.counts[k] || 0) + 1; },
+  // 평타 공백(사거리 안 · 평타 준비 · 행동 가능인데 안 침) — 교전 = 보이는 적(실험체·허수아비)이 사거리 + 3m 안 · 원거리·근접 키트 실험체 공통
   trackRanged(p, dt) {
-    if (p.dead || p.motif.melee) return;
+    if (p.dead) return;
     const range = p.aaCfg().range; let e = null, bd = range + 3;
-    for (const u of Game.enemies(p)) if (!u.dead && (isHero(u) || u.kind === 'dummy') && !(u.untargetable > 0) && Vision.visible(p, u)) { const d = V.dist(p.pos, u.pos) - u.r; if (d < bd) { bd = d; e = u; } }
+    for (const u of Game.enemies(p)) if (!u.dead && (isHero(u) || u.kind === 'dummy') && !(u.untargetable > 0) && Vision.visible(p, u)) { const d = V.dist(p.pos, u.pos) - u.r - p.r; if (d < bd) { bd = d; e = u; } }   // 평타 판정과 같은 가장자리 거리
     if (!e) return;
     this.combatT += dt;
     if (bd <= range && p.aaCd <= 0 && p.aa.phase === 'none' && !p.cast && !(p.noAA > 0) && p.canAct()) this.aaIdle += dt;

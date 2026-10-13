@@ -79,6 +79,23 @@ const Coach = {
       drill: { mode: 'duel', label: '결투에서 최대 사거리 유지 연습' } });
     return out;
   },
+  // 근접 키트 실험체(다니엘·알론소): 붙어 있는데 평타 쉼 · 실험체 핵심 연계(자력 연결 기절 · 영감 표식 폭발)
+  meleeMetrics(St, W) {
+    const out = [], C = St.counts || {};
+    if (St.combatT > 8 && St.aaIdle > 3 && St.aaIdle / St.combatT > 0.2) out.push({ id: 'aaIdle', w: 1.2, n: Math.round(St.aaIdle), unit: '초', title: '붙어 있는데 평타를 쉬는 시간이 김',
+      why: `평타 사거리 안에 적이 있고 평타가 준비됐는데 치지 않은 시간이 ${fmt(St.aaIdle, 1)}초(교전의 ${pct(St.aaIdle, St.combatT)})입니다.`,
+      tip: '붙은 뒤엔 평타를 계속 넣고, 스킬은 평타 사이(후딜)에 섞으세요. 스킬 쿨을 기다리며 서 있는 시간이 가장 큰 손해입니다.',
+      drill: { mode: 'dummy', label: '허수아비에서 평타 사이 스킬 섞기' } });
+    if (W.ch === 'alonso' && (C.linkOn || 0) >= 3 && (C.linkPop || 0) / C.linkOn < 0.4) out.push({ id: 'linkPop', w: 1.3, n: C.linkOn - (C.linkPop || 0), unit: '회', title: `자력 연결을 기절로 못 이음 (${C.linkPop || 0}/${C.linkOn})`,
+      why: 'Q로 연결된 적을 평타·어퍼컷(D)으로 쳐야 최대 체력 비례 추가 피해와 0.9초 기절이 터집니다. 연결이 끊기면 Q의 절반을 버린 셈입니다.',
+      tip: 'Q 적중 → 대상을 바라보고 걸으면 이속이 붙음 → 평타 사거리에 들어가자마자 평타나 어퍼컷. 가장 확실한 건 E(속박) → Q → 평타입니다.',
+      drill: { mode: 'combo', combo: this.comboWith('alonso', 'Q'), label: '자력 연결 → 기절 콤보 연습' } });
+    if (W.ch === 'daniel' && (C.markOn || 0) >= 3 && (C.markPop || 0) / C.markOn < 0.4) out.push({ id: 'markPop', w: 1.3, n: C.markOn - (C.markPop || 0), unit: '회', title: `영감(W) 표식을 못 터뜨림 (${C.markPop || 0}/${C.markOn})`,
+      why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
+      tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
+      drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    return out;
+  },
   // 키트 실험체 스킬별 적중률(조준 스킬만)
   aimMetrics(St, W) {
     const out = [];
@@ -99,7 +116,7 @@ const Coach = {
       why: `적이 8m 안에 있는데 쓸 수 있는 스킬을 쓰지 않은 시간이 ${fmt(waste, 1)}초입니다.`,
       tip: W.cathy ? '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 특히 Q는 쿨이 짧아 자주 돌립니다.' : '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 궁극기·무기 스킬도 아끼다 판이 끝나면 손해입니다.',
       drill: { mode: 'dummy', label: '허수아비 DPS 측정으로 쿨 돌리기' } });
-    if (!W.cathy) return out.concat(W.ranged ? this.rangedMetrics(St, W) : [], this.aimMetrics(St, W));   // 아래는 캐시 전용(수쳐·강화 평타)
+    if (!W.cathy) return out.concat(W.ranged ? this.rangedMetrics(St, W) : this.meleeMetrics(St, W), this.aimMetrics(St, W));   // 아래는 캐시 전용(수쳐·강화 평타)
     const e = St.casts.E || 0, eh = St.hits.E || 0;
     if (e >= 4 && eh / e < 0.45) out.push({ id: 'eAim', w: 1.2, n: e - eh, unit: '회', title: `수쳐(E) 적중률 낮음 (${pct(eh, e)})`,
       why: 'E는 캐시 교전의 시작입니다. 빗나가면 속박·기절 연계가 모두 사라집니다.',
@@ -119,6 +136,9 @@ const Coach = {
     if (St.heroAA >= 10 && St.kiteAA / St.heroAA >= 0.6) out.push(`쏘고 움직이기 ${pct(St.kiteAA, St.heroAA)} — 평타 사이 무빙이 좋습니다.`);
     if (St.heroAA >= 10 && St.rangeSum / St.heroAA >= 0.8) out.push(`평타 평균 거리 사거리의 ${pct(St.rangeSum, St.heroAA)} — 사거리 관리가 좋습니다.`);
     if (St.combatT > 8 && St.aaIdle / St.combatT < 0.05) out.push('교전 중 평타를 거의 쉬지 않았습니다.');
+    const C = St.counts || {};
+    if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
+    if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
     if (St.enhAA >= 3 && St.aaHits && St.enhAA / St.aaHits >= 0.5) out.push(`강화 평타 ${St.enhAA}회 — 스킬과 평타를 잘 섞고 있습니다.`);
     if (St.eDouble > 0) out.push(`2인 수쳐 ${St.eDouble}회 — 고급 기술을 쓰고 있습니다.`);
     if (St.eWall > 0) out.push(`벽꿍 수쳐 ${St.eWall}회 — 지형을 잘 활용합니다.`);

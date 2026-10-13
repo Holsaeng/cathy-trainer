@@ -306,6 +306,24 @@
     Settings.character = 'cathy';
   });
 
+  // 근접 실험체 코칭: 다니엘 영감 표식 폭발 · 알론소 자력 연결 기절 · 붙어 있는데 평타 쉼
+  G('근접 코칭', () => {
+    reset(); Settings.character = 'daniel'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    let p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 3, y: d.pos.y };
+    p.cmdSkill('W', d.pos); Input.aiming = null; run(Math.round(4.4 * 120)); p.cmdAttack(d); run(240);
+    T.ok('다니엘: 표식 4초 뒤 공격 → 폭발 기록', Stats.counts.markOn === 1 && Stats.counts.markPop === 1, JSON.stringify(Stats.counts));
+    reset(); Settings.character = 'alonso'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    p = Game.player; d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 4, y: d.pos.y };
+    p.cmdSkill('Q', d.pos); Input.aiming = null; run(120); p.cmdAttack(d); run(240);
+    T.ok('알론소: 연결 후 평타 → 기절 기록', Stats.counts.linkOn === 1 && Stats.counts.linkPop === 1, JSON.stringify(Stats.counts));
+    Object.assign(Stats, { t: 60, combatT: 40, aaIdle: 12, counts: { linkOn: 6, linkPop: 1 } });
+    const ids = Coach.metrics(Stats).map(x => x.id);
+    T.ok('알론소 코칭: 연결 못 이음 · 붙어서 평타 쉼 · 원딜 항목 없음', ids.includes('linkPop') && ids.includes('aaIdle') && !ids.includes('kite') && !ids.includes('markPop'), ids.join(','));
+    Game.finish('test'); const card = document.getElementById('card').innerText;
+    T.ok('알론소 결과 화면: 자력 연결 기절 · 평타 공백 · 캐시 통계 숨김', card.includes('자력 연결 → 기절') && card.includes('평타 공백') && !card.includes('2인 수쳐'));
+    Settings.character = 'cathy';
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });

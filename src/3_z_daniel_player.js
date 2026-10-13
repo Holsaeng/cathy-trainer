@@ -95,7 +95,7 @@ class DanielPlayer extends Cathy {
     const K = this.K.W, t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this);
     if (!t || t.kind === 'ward') { this.S.mistake('영감: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.playFor(this, 'error'); return false; }
     if (V.dist(this.pos, t.pos) - t.r > K.range) { FX.toastFor(this, `사거리 밖 (${K.range}m)`); Sfx.playFor(this, 'error'); return false; }
-    this.mark = { target: t, t: 0, acc: 0 }; t.blindT = K.blind; t.blindR = K.blindR;
+    this.mark = { target: t, t: 0, acc: 0 }; this.S.count('markOn'); t.blindT = K.blind; t.blindR = K.blindR;
     this.startCd('W'); this.S.cast('W'); Vision.act(this, 'skill'); this.breakStealth();
     FX.text(t.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(t.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw'); Events.emit('action', { k: 'W' });
     this.S.resolveShot('W', true);
@@ -112,7 +112,7 @@ class DanielPlayer extends Cathy {
     this.lastHitOn[tgt.id] = Game.time; tgt.blindT = 0;
     const M = this.mark, W = this.K.W; if (!M || M.target !== tgt || o.markPop || o.tick) return;
     if (M.t >= W.ready) {
-      this.mark = null; const acc = M.acc;
+      this.mark = null; const acc = M.acc; this.S.count('markPop');
       Combat.damage(this, tgt, acc, { type: 'true', source: 'W 축적', markPop: true });
       if (!tgt.dead) Combat.damage(this, tgt, this.calc(W, 'W'), { type: 'skill', source: 'W 폭발', markPop: true });
       tgt.addSlow(W.slow, W.slowDur);
@@ -142,6 +142,7 @@ class DanielPlayer extends Cathy {
   passiveMoveBoost() {}   // 캐시 패시브 없음
   // ---------- 매 스텝 ----------
   update(dt) {
+    this.S.trackRanged(this, dt);   // 코칭: 평타 공백
     if (this.qT > 0 && (this.qT -= dt) <= 0) { this.qShots = 0; this.as = this.baseAs; }
     if (this.shadowT > 0 && (this.shadowT -= dt) <= 0) this.breakStealth();
     for (const o of this.pendingQ) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; if (!this.dead) this.qLand(o); } }

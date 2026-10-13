@@ -35,12 +35,12 @@ const AlonsoCore = {
   // ---------- Q 마그네틱 펀치 ----------
   qHit(o, u) {
     const Q = o.al.K.Q, l = o.al.L('Q'); o.al.hit(u, lv(Q.base, l) + (o.sp || 0) * Q.sp, 'Q');
-    if (isHero(u) || u.kind === 'dummy') { o.alMark = { u, t: Q.markDur }; FX.text(u.pos, '자력 연결', o.al.color, 12, { bold: true }); }
+    if (isHero(u) || u.kind === 'dummy') { o.al.S.count('linkOn'); o.alMark = { u, t: Q.markDur }; FX.text(u.pos, '자력 연결', o.al.color, 12, { bold: true }); }
   },
   // 연결된 적을 평타·무기 스킬로 치면: 최대 체력 비례 추가 피해 + 기절
   pop(o, u) {
     const M = o.alMark; if (!M || M.u !== u) return;
-    const Q = o.al.K.Q, l = o.al.L('Q'); o.alMark = null;
+    const Q = o.al.K.Q, l = o.al.L('Q'); o.alMark = null; o.al.S.count('linkPop');
     o.al.hit(u, u.maxHp * lv(Q.popPct, l) + o.al.level() * Q.popLv, 'Q');
     if (this.cc(o, u, 'stun', Q.stun)) FX.text(u.pos, '기절', '#ffd166', 12, { bold: true });
   },
@@ -157,7 +157,7 @@ PKits.alonso = {
   noCrit: true,
   init(p) {
     p.melee = true;   // 근접(팀 AI·상대 AI 판단) — 조작 틀은 실험체 키트 그대로
-    p.al = { K: p.K, color: p.color, L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1,
+    p.al = { K: p.K, color: p.color, S: p.S, L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1,
       cdStart: k => p.startCd(k), cdSet: (k, v) => { p.skills[k].cd = v; } };
     Object.defineProperty(p.al, 'S', { get: () => p.S });
     AlonsoCore.attach(p);

@@ -947,7 +947,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '2813cbc1';
+const BUILD_ID = '8d9f7258';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -2489,7 +2489,7 @@ class DanielPlayer extends Cathy {
     const K = this.K.W, t = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, this);
     if (!t || t.kind === 'ward') { this.S.mistake('영감: 대상 지정 실패 (커서 위에 적 없음)'); Sfx.playFor(this, 'error'); return false; }
     if (V.dist(this.pos, t.pos) - t.r > K.range) { FX.toastFor(this, `사거리 밖 (${K.range}m)`); Sfx.playFor(this, 'error'); return false; }
-    this.mark = { target: t, t: 0, acc: 0 }; t.blindT = K.blind; t.blindR = K.blindR;
+    this.mark = { target: t, t: 0, acc: 0 }; this.S.count('markOn'); t.blindT = K.blind; t.blindR = K.blindR;
     this.startCd('W'); this.S.cast('W'); Vision.act(this, 'skill'); this.breakStealth();
     FX.text(t.pos, '영감 표식', '#d9a8ff', 13, { bold: true }); FX.ring(t.pos, 1.2, 0.4, '#d9a8ff', 0.4); Sfx.play('throw'); Events.emit('action', { k: 'W' });
     this.S.resolveShot('W', true);
@@ -2506,7 +2506,7 @@ class DanielPlayer extends Cathy {
     this.lastHitOn[tgt.id] = Game.time; tgt.blindT = 0;
     const M = this.mark, W = this.K.W; if (!M || M.target !== tgt || o.markPop || o.tick) return;
     if (M.t >= W.ready) {
-      this.mark = null; const acc = M.acc;
+      this.mark = null; const acc = M.acc; this.S.count('markPop');
       Combat.damage(this, tgt, acc, { type: 'true', source: 'W 축적', markPop: true });
       if (!tgt.dead) Combat.damage(this, tgt, this.calc(W, 'W'), { type: 'skill', source: 'W 폭발', markPop: true });
       tgt.addSlow(W.slow, W.slowDur);
@@ -2536,6 +2536,7 @@ class DanielPlayer extends Cathy {
   passiveMoveBoost() {}   // 캐시 패시브 없음
   // ---------- 매 스텝 ----------
   update(dt) {
+    this.S.trackRanged(this, dt);   // 코칭: 평타 공백
     if (this.qT > 0 && (this.qT -= dt) <= 0) { this.qShots = 0; this.as = this.baseAs; }
     if (this.shadowT > 0 && (this.shadowT -= dt) <= 0) this.breakStealth();
     for (const o of this.pendingQ) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; if (!this.dead) this.qLand(o); } }
@@ -3331,12 +3332,12 @@ const AlonsoCore = {
   // ---------- Q 마그네틱 펀치 ----------
   qHit(o, u) {
     const Q = o.al.K.Q, l = o.al.L('Q'); o.al.hit(u, lv(Q.base, l) + (o.sp || 0) * Q.sp, 'Q');
-    if (isHero(u) || u.kind === 'dummy') { o.alMark = { u, t: Q.markDur }; FX.text(u.pos, '자력 연결', o.al.color, 12, { bold: true }); }
+    if (isHero(u) || u.kind === 'dummy') { o.al.S.count('linkOn'); o.alMark = { u, t: Q.markDur }; FX.text(u.pos, '자력 연결', o.al.color, 12, { bold: true }); }
   },
   // 연결된 적을 평타·무기 스킬로 치면: 최대 체력 비례 추가 피해 + 기절
   pop(o, u) {
     const M = o.alMark; if (!M || M.u !== u) return;
-    const Q = o.al.K.Q, l = o.al.L('Q'); o.alMark = null;
+    const Q = o.al.K.Q, l = o.al.L('Q'); o.alMark = null; o.al.S.count('linkPop');
     o.al.hit(u, u.maxHp * lv(Q.popPct, l) + o.al.level() * Q.popLv, 'Q');
     if (this.cc(o, u, 'stun', Q.stun)) FX.text(u.pos, '기절', '#ffd166', 12, { bold: true });
   },
@@ -3453,7 +3454,7 @@ PKits.alonso = {
   noCrit: true,
   init(p) {
     p.melee = true;   // 근접(팀 AI·상대 AI 판단) — 조작 틀은 실험체 키트 그대로
-    p.al = { K: p.K, color: p.color, L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1,
+    p.al = { K: p.K, color: p.color, S: p.S, L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1,
       cdStart: k => p.startCd(k), cdSet: (k, v) => { p.skills[k].cd = v; } };
     Object.defineProperty(p.al, 'S', { get: () => p.S });
     AlonsoCore.attach(p);
@@ -4587,6 +4588,7 @@ const Stats = {
       comboAtt: 0, comboOk: 0, streak: 0, bestStreak: 0, shots: 0, shotHits: 0, movingHits: 0, leadHits: 0,
       hitPositions: [], kills: 0, playerHits: 0,
       combatT: 0, aaIdle: 0, heroAA: 0, kiteAA: 0, rangeSum: 0, closeAA: 0, lastAAPos: null,   // 원거리 실험체 코칭(7_a_coach.js)
+      counts: {},   // 실험체 연계 기록(알론소 자력 연결 linkOn·linkPop · 다니엘 영감 표식 markOn·markPop)
     });
   },
   tick(dt) { this.t += dt; },
@@ -4618,11 +4620,12 @@ const Stats = {
       this.waste[k] = (this.waste[k] || 0) + dt;
     }
   },
-  // 원거리 실험체: 평타 공백(사거리 안 · 평타 준비 · 행동 가능인데 안 쏨) — 교전 = 보이는 적(실험체·허수아비)이 사거리 + 3m 안
+  count(k) { this.counts[k] = (this.counts[k] || 0) + 1; },
+  // 평타 공백(사거리 안 · 평타 준비 · 행동 가능인데 안 침) — 교전 = 보이는 적(실험체·허수아비)이 사거리 + 3m 안 · 원거리·근접 키트 실험체 공통
   trackRanged(p, dt) {
-    if (p.dead || p.motif.melee) return;
+    if (p.dead) return;
     const range = p.aaCfg().range; let e = null, bd = range + 3;
-    for (const u of Game.enemies(p)) if (!u.dead && (isHero(u) || u.kind === 'dummy') && !(u.untargetable > 0) && Vision.visible(p, u)) { const d = V.dist(p.pos, u.pos) - u.r; if (d < bd) { bd = d; e = u; } }
+    for (const u of Game.enemies(p)) if (!u.dead && (isHero(u) || u.kind === 'dummy') && !(u.untargetable > 0) && Vision.visible(p, u)) { const d = V.dist(p.pos, u.pos) - u.r - p.r; if (d < bd) { bd = d; e = u; } }   // 평타 판정과 같은 가장자리 거리
     if (!e) return;
     this.combatT += dt;
     if (bd <= range && p.aaCd <= 0 && p.aa.phase === 'none' && !p.cast && !(p.noAA > 0) && p.canAct()) this.aaIdle += dt;
@@ -9178,6 +9181,23 @@ const Coach = {
       drill: { mode: 'duel', label: '결투에서 최대 사거리 유지 연습' } });
     return out;
   },
+  // 근접 키트 실험체(다니엘·알론소): 붙어 있는데 평타 쉼 · 실험체 핵심 연계(자력 연결 기절 · 영감 표식 폭발)
+  meleeMetrics(St, W) {
+    const out = [], C = St.counts || {};
+    if (St.combatT > 8 && St.aaIdle > 3 && St.aaIdle / St.combatT > 0.2) out.push({ id: 'aaIdle', w: 1.2, n: Math.round(St.aaIdle), unit: '초', title: '붙어 있는데 평타를 쉬는 시간이 김',
+      why: `평타 사거리 안에 적이 있고 평타가 준비됐는데 치지 않은 시간이 ${fmt(St.aaIdle, 1)}초(교전의 ${pct(St.aaIdle, St.combatT)})입니다.`,
+      tip: '붙은 뒤엔 평타를 계속 넣고, 스킬은 평타 사이(후딜)에 섞으세요. 스킬 쿨을 기다리며 서 있는 시간이 가장 큰 손해입니다.',
+      drill: { mode: 'dummy', label: '허수아비에서 평타 사이 스킬 섞기' } });
+    if (W.ch === 'alonso' && (C.linkOn || 0) >= 3 && (C.linkPop || 0) / C.linkOn < 0.4) out.push({ id: 'linkPop', w: 1.3, n: C.linkOn - (C.linkPop || 0), unit: '회', title: `자력 연결을 기절로 못 이음 (${C.linkPop || 0}/${C.linkOn})`,
+      why: 'Q로 연결된 적을 평타·어퍼컷(D)으로 쳐야 최대 체력 비례 추가 피해와 0.9초 기절이 터집니다. 연결이 끊기면 Q의 절반을 버린 셈입니다.',
+      tip: 'Q 적중 → 대상을 바라보고 걸으면 이속이 붙음 → 평타 사거리에 들어가자마자 평타나 어퍼컷. 가장 확실한 건 E(속박) → Q → 평타입니다.',
+      drill: { mode: 'combo', combo: this.comboWith('alonso', 'Q'), label: '자력 연결 → 기절 콤보 연습' } });
+    if (W.ch === 'daniel' && (C.markOn || 0) >= 3 && (C.markPop || 0) / C.markOn < 0.4) out.push({ id: 'markPop', w: 1.3, n: C.markOn - (C.markPop || 0), unit: '회', title: `영감(W) 표식을 못 터뜨림 (${C.markPop || 0}/${C.markOn})`,
+      why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
+      tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
+      drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    return out;
+  },
   // 키트 실험체 스킬별 적중률(조준 스킬만)
   aimMetrics(St, W) {
     const out = [];
@@ -9198,7 +9218,7 @@ const Coach = {
       why: `적이 8m 안에 있는데 쓸 수 있는 스킬을 쓰지 않은 시간이 ${fmt(waste, 1)}초입니다.`,
       tip: W.cathy ? '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 특히 Q는 쿨이 짧아 자주 돌립니다.' : '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 궁극기·무기 스킬도 아끼다 판이 끝나면 손해입니다.',
       drill: { mode: 'dummy', label: '허수아비 DPS 측정으로 쿨 돌리기' } });
-    if (!W.cathy) return out.concat(W.ranged ? this.rangedMetrics(St, W) : [], this.aimMetrics(St, W));   // 아래는 캐시 전용(수쳐·강화 평타)
+    if (!W.cathy) return out.concat(W.ranged ? this.rangedMetrics(St, W) : this.meleeMetrics(St, W), this.aimMetrics(St, W));   // 아래는 캐시 전용(수쳐·강화 평타)
     const e = St.casts.E || 0, eh = St.hits.E || 0;
     if (e >= 4 && eh / e < 0.45) out.push({ id: 'eAim', w: 1.2, n: e - eh, unit: '회', title: `수쳐(E) 적중률 낮음 (${pct(eh, e)})`,
       why: 'E는 캐시 교전의 시작입니다. 빗나가면 속박·기절 연계가 모두 사라집니다.',
@@ -9218,6 +9238,9 @@ const Coach = {
     if (St.heroAA >= 10 && St.kiteAA / St.heroAA >= 0.6) out.push(`쏘고 움직이기 ${pct(St.kiteAA, St.heroAA)} — 평타 사이 무빙이 좋습니다.`);
     if (St.heroAA >= 10 && St.rangeSum / St.heroAA >= 0.8) out.push(`평타 평균 거리 사거리의 ${pct(St.rangeSum, St.heroAA)} — 사거리 관리가 좋습니다.`);
     if (St.combatT > 8 && St.aaIdle / St.combatT < 0.05) out.push('교전 중 평타를 거의 쉬지 않았습니다.');
+    const C = St.counts || {};
+    if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
+    if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
     if (St.enhAA >= 3 && St.aaHits && St.enhAA / St.aaHits >= 0.5) out.push(`강화 평타 ${St.enhAA}회 — 스킬과 평타를 잘 섞고 있습니다.`);
     if (St.eDouble > 0) out.push(`2인 수쳐 ${St.eDouble}회 — 고급 기술을 쓰고 있습니다.`);
     if (St.eWall > 0) out.push(`벽꿍 수쳐 ${St.eWall}회 — 지형을 잘 활용합니다.`);
@@ -9746,7 +9769,7 @@ const UI = {
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(rng ? '평타 / 무빙 비율' : dan ? '평타' : '평타 / 강화 평타', rng ? `${St.aaHits} / ${St.heroAA ? pct(St.kiteAA, St.heroAA) : '-'}` : dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
-        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
+        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) + (pl.charKey === 'alonso' ? stat('자력 연결 → 기절', `${(St.counts || {}).linkPop || 0} / ${(St.counts || {}).linkOn || 0}`) : pl.charKey === 'daniel' ? stat('영감 표식 폭발', `${(St.counts || {}).markPop || 0} / ${(St.counts || {}).markOn || 0}`) : '') : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}
