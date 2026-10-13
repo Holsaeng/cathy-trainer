@@ -15,7 +15,7 @@ class DanielPlayer extends Cathy {
     this.charKey = 'daniel'; this.name = '다니엘'; this.color = M.color; this.weapon = 'dagger'; this.usesTrauma = false;
     this.maxHp = this.hp = M.hp[si]; this.def = M.def[si]; this.baseMs = M.ms[si]; this.baseHpAtLv = 920 + 90 * (CONFIG.rangedAI.stages[st].level - 1);
     this.ad = M.ad[si]; this.bonusAd = Math.max(0, M.ad[si] - M.baseAd[si]); this.sp = 0; this.critChance = M.crit[si]; this.pen = M.pen[si]; this.aaAmp = M.aaAmp[si];
-    this.baseAs = M.as[si]; this.as = this.baseAs; this.cdr = [0.15, 0.25, 0.25][si];   // 쿨감: HUD 실측 Lv11~20 25%
+    this.baseAs = M.as[si]; this.as = this.baseAs; this.cdr = M.cdr ? M.cdr[si] : 0;   // 쿨감 수치(CONFIG.rangedMotifs.daniel.cdr)
     this.build = Object.assign({}, this.build, { level: CONFIG.rangedAI.stages[st].level }); this.regen = Builds.regen('daniel', this.build.level);
     const L = M.skillLv[si]; this.plv = L.P;
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k];

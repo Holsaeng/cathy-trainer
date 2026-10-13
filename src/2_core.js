@@ -274,7 +274,7 @@ const Store = {
   set(k, v) { try { localStorage.setItem('cathySim.' + k, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } },
 };
 const DEFAULT_KEYS = { Q: 'q', W: 'w', E: 'e', R: 'r', D: 'd', F: 'f', S: 's', A: 'a', C: 'c', V: 'v', X: 'x', Y: 'y' };   // C 망원 카메라 · V 정찰 드론
-const DEFAULT_SETTINGS = { gfx: '2d', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
+const DEFAULT_SETTINGS = { gfx: '2d', gfxQ: 'auto', models3d: true, models3dBy: {}, camLock: true, toon: true, vfx3d: true, tactical: 'blink', character: 'cathy', fog: true, duelTime: 'day', duelMap: 'basic', duelAnimals: false, enemyBuild: 'same', castMode: 'normal', castModes: {}, smartCast: false, showRange: true, gameSpeed: 1, showHitbox: false, pointerLock: false, moveButton: 'right', gearOn: false, gearSets: null, sound: true, ambient: true, weather: 'clear', volume: 0.5, side: true, weapon: 'dagger', build: 'late' };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 Settings.keys = Object.assign({}, DEFAULT_KEYS, Settings.keys || {});
 // 시전 방식: normal(키 → 좌클릭) / smart(키를 누르면 즉시) / release(누르는 동안 범위 표시, 떼면 시전)
@@ -333,8 +333,11 @@ const Sfx = {
     if (type === 'skill') return 'hitSkill';
     if (!src) return 'hit';
     if (src.charKey === 'daniel' || src.motifKey === 'daniel') return 'hitShadow';
-    if (src === Game.player) return src.weapon === 'dual' ? 'hitTwin' : 'hitBlade';
+    if (src.kind === 'doll') return 'hitScissor';   // 클로에 인형 니나
+    if (src === Game.player && (!src.charKey || src.charKey === 'cathy')) return src.weapon === 'dual' ? 'hitTwin' : 'hitBlade';   // 캐시만 — 다른 실험체는 무기로
     const w = (src.motif && src.motif.weapon) || '';
+    if (/암기/.test(w)) return 'hitNeedle';
+    if (/글러브/.test(w)) return 'hitPunch';
     if (/권총|총|저격|pistol|sniper|rifle/i.test(w)) return 'hitGun';
     if (/활|석궁|bow|crossbow/i.test(w)) return 'hitArrow';
     return src.melee ? 'hitBlade' : 'hit';
@@ -370,6 +373,12 @@ const Sfx = {
       case 'hitGun': this.noise(0.05, 0.3, 2400, 'highpass'); this.tone(140, 0.09, 'sine', 0.09, 60); break;
       // 활·석궁: 퍽
       case 'hitArrow': this.noise(0.06, 0.22, 1200); this.tone(320, 0.08, 'triangle', 0.05, 160); break;
+      // 암기(클로에): 짧고 높은 바늘 소리
+      case 'hitNeedle': this.noise(0.04, 0.18, 5200, 'highpass'); this.tone(2600, 0.04, 'triangle', 0.03, 1800); break;
+      // 니나: 가위질 두 번
+      case 'hitScissor': this.noise(0.03, 0.2, 4800); this.noise(0.03, 0.18, 5600, 'bandpass', 0.06); this.tone(1500, 0.03, 'square', 0.02, null, 0.06); break;
+      // 글러브(알론소): 둔탁한 주먹
+      case 'hitPunch': this.noise(0.08, 0.3, 500, 'lowpass'); this.tone(110, 0.1, 'sine', 0.1, 60); break;
       case 'hitSkill': this.noise(0.12, 0.28, 1500); this.tone(180, 0.12, 'square', 0.05, 80); break;
       // 치명타: 높은 울림 강조
       case 'hitCrit': this.noise(0.08, 0.3, 3200); this.tone(1320, 0.1, 'triangle', 0.07, 1760); this.tone(200, 0.1, 'square', 0.05, 90); break;
@@ -391,6 +400,12 @@ const Sfx = {
       case 'error': this.tone(200, 0.08, 'square', 0.05); break;
       case 'hurt': this.noise(0.2, 0.35, 400, 'lowpass'); this.tone(150, 0.2, 'sawtooth', 0.08, 80); break;
       case 'click': this.tone(700, 0.04, 'sine', 0.05); break;
+      // 클로에 W 재봉실 회전: 실이 감기는 소리
+      case 'spool': this.tone(600, 0.35, 'sawtooth', 0.025, 1200); this.noise(0.3, 0.1, 2000); break;
+      // 니나 내려찍기
+      case 'slam': this.noise(0.25, 0.35, 300, 'lowpass'); this.tone(80, 0.3, 'sine', 0.14, 40); break;
+      // 니나 부활: 올라가는 실로폰
+      case 'revive': [880, 1175, 1568].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.05, null, i * 0.06)); break;
       // 밤 귀뚜라미
       case 'chirp': [0, 0.05, 0.1].forEach(d => this.tone(4300 + Math.random() * 300, 0.035, 'sine', 0.012, null, d)); break;
       // 천둥: 낮게 우르릉

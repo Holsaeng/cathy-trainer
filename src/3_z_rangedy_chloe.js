@@ -111,7 +111,7 @@ const ChloeCore = {
     return true;
   },
   // W 1단계: 3초 회전 (주변 고정 피해 · 둔화, 평타 불가 · Q·E만 사용 가능)
-  w1(o) { o.spin = { t: o.ch.K.W.spin, acc: 0, t0: Game.time }; FX.text(o.pos, o.ch.K.W.name, o.ch.color, 12, { bold: true }); Sfx.play('click'); },
+  w1(o) { o.spin = { t: o.ch.K.W.spin, acc: 0, t0: Game.time }; FX.text(o.pos, o.ch.K.W.name, o.ch.color, 12, { bold: true }); Sfx.play('spool', o.pos); },
   // W 2단계: 지점(6.5m)에 칼날 자수 → 니나 순간이동 내려찍기(에어본) → 자수가 클로에 쪽으로 튕김
   w2(o, aim) {
     const W = o.ch.K.W, l = o.ch.L('W'), d = Math.min(W.range, V.dist(o.pos, aim)), dir = d > 0.05 ? V.norm(V.sub(aim, o.pos)) : V.fromAng(o.facing);
@@ -124,7 +124,7 @@ const ChloeCore = {
       const n = o.nina; if (!this.up(o) || n.root > 0 || n.stun > 0) return;   // 니나가 이동 방해를 받았으면 내려찍기 없음
       n.pos = V.copy(pt); n.dash = null; n.swing = null; n.moveTarget = null; n.busyT = W.slamDelay; FX.ring(pt, 0.2, 1, n.color, 0.3);
       this.later(o, W.slamDelay, () => {
-        if (n.dead) return; FX.ring(n.pos, 0.5, W.slamR, '#ffffff', 0.35);
+        if (n.dead) return; FX.ring(n.pos, 0.5, W.slamR, '#ffffff', 0.35); Sfx.play('slam', n.pos);
         for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= W.slamR + u.r) { o.ch.hit(u, lv(W.slam, l) + n.ad * W.slamAd, 'W', { pen: n.penPct }); if (u.applyCC('stun', W.airborne)) { u.airborneT = Game.time + W.airborne; FX.text(u.pos, '에어본', '#ffd166', 12, { bold: true }); } }
         const back = V.dist(o.pos, n.pos) > 0.1 ? V.norm(V.sub(o.pos, n.pos)) : { x: 1, y: 0 };
         o.chPick = { pos: Geo.pushOut(V.add(n.pos, V.mul(back, Math.min(W.bounce, V.dist(o.pos, n.pos)))), 0.2), t: W.pickLife };
@@ -163,7 +163,7 @@ const ChloeCore = {
       n.respawnT += dt;
       if (n.respawnT >= lv(K.P.respawn, o.ch.L('P'))) {
         n.respawnT = 0; n.resetState(); n.refresh(true); n.hp = n.maxHp * K.P.respawnHp; n.mode = 'follow'; n.order = null; n.teleportNear();
-        o.hp = Math.max(1, o.hp - o.hp * K.P.respawnCost); FX.text(n.pos, '니나 부활', n.color, 13, { bold: true });
+        o.hp = Math.max(1, o.hp - o.hp * K.P.respawnCost); FX.text(n.pos, '니나 부활', n.color, 13, { bold: true }); Sfx.play('revive', n.pos);
       }
     }
     if (n && !n.dead && Math.floor(Game.time * 2) !== Math.floor((Game.time - dt) * 2)) n.refresh(false);   // 0.5초마다 능력치 갱신(버프 반영)

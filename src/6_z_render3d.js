@@ -38,7 +38,7 @@ const Render3D = {
   // ---------- 좌표 ----------
   resize() {
     const W = innerWidth, H = innerHeight;
-    this.gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.gl.setSize(W, H, false);
+    this.gl.setPixelRatio(Gfx.dpr()); this.gl.setSize(W, H, false); this.sun.castShadow = !Gfx.low();   // 품질 낮음: 그림자 패스 생략
     this.camera.aspect = W / Math.max(1, H); this.camera.updateProjectionMatrix();
     this.W = W; this.H = H;
   },

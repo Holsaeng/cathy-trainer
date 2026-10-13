@@ -133,7 +133,7 @@ const Builds = {
   // 실측(장비 없음) 능력치 — 비교 표용 (RangedPlayer·DanielPlayer와 같은 값)
   measured(ch, stage) {
     const M = CONFIG.rangedMotifs[ch], st = CONFIG.rangedAI.stages[stage] ? stage : 'mid', si = ['early', 'mid', 'late'].indexOf(st), S0 = CONFIG.rangedAI.stages[st];
-    return { hp: M.hp ? M.hp[si] : S0.hp, ad: M.ad[si], sp: M.sp[si], def: M.def ? M.def[si] : S0.def, as: M.as[si], ms: (M.ms ? M.ms[si] : S0.ms), crit: M.crit[si], pen: M.pen[si], cdr: ch === 'daniel' ? [0.15, 0.25, 0.25][si] : 0 };
+    return { hp: M.hp ? M.hp[si] : S0.hp, ad: M.ad[si], sp: M.sp[si], def: M.def ? M.def[si] : S0.def, as: M.as[si], ms: (M.ms ? M.ms[si] : S0.ms), crit: M.crit[si], pen: M.pen[si], cdr: M.cdr ? M.cdr[si] : 0 };
   },
   // 플레이어 실험체(키트·다니엘)에 장비 능력치 적용
   applyToPlayer(p, key, G) {

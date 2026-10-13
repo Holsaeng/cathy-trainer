@@ -8,7 +8,7 @@ const Coach = {
   // 실수 문구(정규식) → 분류
   RULES: [
     { re: /^평타 선딜 중 이동/, id: 'aaCancel', w: 1.2, title: '평타가 이동 입력에 끊김',
-      why: '평타 선딜 중에 이동을 누르면 평타가 취소돼 피해도, 강화 평타도 날아갑니다.',
+      why: '평타 선딜 중에 이동을 누르면 평타가 취소돼 피해가 날아갑니다(캐시는 강화 평타까지).',
       tip: '이동은 피해 숫자가 뜬 「뒤」(후딜 구간)에 누르세요. 무빙 평타는 「평타 → 짧게 이동 → 평타」 리듬입니다.',
       drill: { mode: 'dummy', label: '허수아비에서 무빙 평타 리듬 연습' } },
     { re: /선딜 중 이동 입력으로 캔슬/, id: 'castCancel', w: 1.4, title: '스킬이 선딜 중에 취소됨',
@@ -52,13 +52,54 @@ const Coach = {
       tip: '커서를 상대 위에 정확히 올리고 누르세요(7m).',
       drill: { mode: 'dummy', label: '허수아비에서 W 표식 연습' } },
   ],
+  // 조준이 필요한 스킬(빗나갈 수 있는 스킬샷·범위기) — 버프·이동기·대상 지정기는 적중률 코칭에서 뺌
+  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], daniel: ['Q'] },
+  // 지금 판의 실험체: cathy / daniel / 키트 실험체(원거리·근접)
+  who() {
+    const p = Game.player, ch = (p && p.charKey) || Settings.character || 'cathy';
+    return { p, ch, cathy: ch === 'cathy', ranged: !!(p && p.ranged && !(p.motif && p.motif.melee)) };
+  },
+  // 그 실험체 콤보 중 키 k가 들어간 것(연습 버튼용)
+  comboWith(ch, k) { const c = UI.combosFor(ch).find(x => x.steps.some(st => String(st).startsWith(k))); return c ? c.id : null; },
+  // 원거리 실험체: 평타 공백 · 쏘고 움직이기 · 사거리 활용
+  rangedMetrics(St, W) {
+    const out = [], p = W.p, range = p ? p.aaCfg().range : 5;
+    if (St.combatT > 8 && St.aaIdle > 3 && St.aaIdle / St.combatT > 0.2)   // 쏘고 움직이기 중 자연스러운 공백(약 10~15%)은 봐줌
+    out.push({ id: 'aaIdle', w: 1.2, n: Math.round(St.aaIdle), unit: '초', title: '평타를 쉬는 시간이 김',
+      why: `상대가 사거리 안에 있고 평타가 준비됐는데 쏘지 않은 시간이 ${fmt(St.aaIdle, 1)}초(교전의 ${pct(St.aaIdle, St.combatT)})입니다. 원딜 피해의 대부분은 평타입니다.`,
+      tip: '「평타 → 짧게 이동 → 평타」 리듬을 끊지 마세요. 스킬은 평타가 나간 직후(후딜)에 섞으면 평타를 덜 잃습니다.',
+      drill: { mode: 'dummy', label: '허수아비 DPS 측정으로 평타 쉬지 않기' } });
+    if (St.heroAA >= 10 && St.kiteAA / St.heroAA < 0.35) out.push({ id: 'kite', w: 1.1, n: St.heroAA - St.kiteAA, unit: '회', title: `제자리 평타가 많음 (무빙 ${pct(St.kiteAA, St.heroAA)})`,
+      why: '평타 사이에 움직이지 않으면 상대 스킬샷을 그대로 맞고, 근접 실험체에게 붙잡힙니다.',
+      tip: '평타가 손을 떠난 직후 우클릭으로 옆·뒤로 짧게 움직이고 다시 평타 — 「쏘고 움직이기」. 선딜 중에 움직이면 평타가 취소되니 발사를 본 뒤 움직이세요.',
+      drill: { mode: 'duel', label: '결투에서 쏘고 움직이기 연습' } });
+    if (St.heroAA >= 10 && St.rangeSum / St.heroAA < 0.65) out.push({ id: 'aaRange', w: 1.0, n: St.closeAA, unit: '회', title: `사거리를 못 살림 (평균 ${pct(St.rangeSum, St.heroAA)})`,
+      why: `평타를 평균 ${fmt(St.rangeSum / St.heroAA * range, 1)}m(사거리 ${fmt(range, 1)}m의 ${pct(St.rangeSum, St.heroAA)})에서 쐈습니다. 가까울수록 상대 스킬·근접 공격 범위에 들어갑니다.`,
+      tip: `사거리 원(${fmt(range, 1)}m) 끝에 상대를 두고 쏘세요. 상대가 다가오면 한 걸음 물러난 뒤 다시 쏩니다.`,
+      drill: { mode: 'duel', label: '결투에서 최대 사거리 유지 연습' } });
+    return out;
+  },
+  // 키트 실험체 스킬별 적중률(조준 스킬만)
+  aimMetrics(St, W) {
+    const out = [];
+    for (const k of this.AIMED[W.ch] || []) {
+      const c = St.casts[k] || 0, h = St.hits[k] || 0; if (c < 4 || h / c >= 0.4) continue;
+      const name = W.p && W.p.skillDef ? W.p.skillDef(k).name : k, combo = this.comboWith(W.ch, k);
+      out.push({ id: 'aim' + k, w: 1.0, n: c - h, unit: '회', title: `${k} ${name} 적중률 낮음 (${pct(h, c)})`,
+        why: '빗나간 스킬은 쿨타임 동안 피해·견제 기회를 잃습니다.',
+        tip: '움직이는 상대는 「지금 위치」가 아니라 0.3초 뒤 위치를, 또는 상대가 평타·스킬을 쓰며 멈춘 순간을 노리세요. 사거리 표시 안에서만 쓰세요.',
+        drill: combo ? { mode: 'combo', combo, label: `${k}가 들어간 콤보 연습` } : { mode: 'duel', label: `결투에서 ${k} 맞히기 연습` } });
+    }
+    return out;
+  },
   // 통계 → 분류 (판 길이에 맞춰 판단)
   metrics(St) {
-    const out = [], t = Math.max(1, St.t), waste = Object.values(St.waste).reduce((a, b) => a + b, 0);
+    const W = this.who(), out = [], t = Math.max(1, St.t), waste = Object.values(St.waste).reduce((a, b) => a + b, 0);
     if (waste > 8 && waste / t > 0.25) out.push({ id: 'waste', w: 1.1, n: Math.round(waste), unit: '초', title: '교전 중 쿨타임이 놀았음',
       why: `적이 8m 안에 있는데 쓸 수 있는 스킬을 쓰지 않은 시간이 ${fmt(waste, 1)}초입니다.`,
-      tip: '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 특히 Q는 쿨이 짧아 자주 돌립니다.',
+      tip: W.cathy ? '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 특히 Q는 쿨이 짧아 자주 돌립니다.' : '교전 중엔 쿨이 돈 스킬을 바로 쓰는 습관을 들이세요. 궁극기·무기 스킬도 아끼다 판이 끝나면 손해입니다.',
       drill: { mode: 'dummy', label: '허수아비 DPS 측정으로 쿨 돌리기' } });
+    if (!W.cathy) return out.concat(W.ranged ? this.rangedMetrics(St, W) : [], this.aimMetrics(St, W));   // 아래는 캐시 전용(수쳐·강화 평타)
     const e = St.casts.E || 0, eh = St.hits.E || 0;
     if (e >= 4 && eh / e < 0.45) out.push({ id: 'eAim', w: 1.2, n: e - eh, unit: '회', title: `수쳐(E) 적중률 낮음 (${pct(eh, e)})`,
       why: 'E는 캐시 교전의 시작입니다. 빗나가면 속박·기절 연계가 모두 사라집니다.',
@@ -75,6 +116,9 @@ const Coach = {
   strengths(St) {
     const out = [], { c, h } = St.totalCasts();
     if (c >= 5 && h / c >= 0.7) out.push(`스킬 적중률 ${pct(h, c)} — 조준이 정확합니다.`);
+    if (St.heroAA >= 10 && St.kiteAA / St.heroAA >= 0.6) out.push(`쏘고 움직이기 ${pct(St.kiteAA, St.heroAA)} — 평타 사이 무빙이 좋습니다.`);
+    if (St.heroAA >= 10 && St.rangeSum / St.heroAA >= 0.8) out.push(`평타 평균 거리 사거리의 ${pct(St.rangeSum, St.heroAA)} — 사거리 관리가 좋습니다.`);
+    if (St.combatT > 8 && St.aaIdle / St.combatT < 0.05) out.push('교전 중 평타를 거의 쉬지 않았습니다.');
     if (St.enhAA >= 3 && St.aaHits && St.enhAA / St.aaHits >= 0.5) out.push(`강화 평타 ${St.enhAA}회 — 스킬과 평타를 잘 섞고 있습니다.`);
     if (St.eDouble > 0) out.push(`2인 수쳐 ${St.eDouble}회 — 고급 기술을 쓰고 있습니다.`);
     if (St.eWall > 0) out.push(`벽꿍 수쳐 ${St.eWall}회 — 지형을 잘 활용합니다.`);
@@ -84,10 +128,10 @@ const Coach = {
     return out.slice(0, 3);
   },
   analyze(St) {
-    const items = new Map();
+    const items = new Map(), W = this.who();
     for (const [txt, n] of Object.entries(St.mistakes)) {
       const r = this.RULES.find(x => x.re.test(txt)); if (!r) continue;
-      const cur = items.get(r.id) || Object.assign({ n: 0, unit: '회' }, r); cur.n += n; items.set(r.id, cur);
+      const cur = items.get(r.id) || Object.assign({ n: 0, unit: '회' }, r, W.cathy || r.drill.mode !== 'combo' ? {} : { drill: { mode: 'combo', label: '내 실험체 콤보로 입력 리듬 연습' } }); cur.n += n; items.set(r.id, cur);   // 캐시 외 실험체: 캐시 콤보 이름 대신
     }
     for (const m of this.metrics(St)) if (!items.has(m.id)) items.set(m.id, m);
     // 무게 × log(횟수) 순. 초 단위(쿨 낭비)는 4초 = 실수 1회로 환산
@@ -98,8 +142,9 @@ const Coach = {
   startDrill(d) {
     if (!d) return;
     if (d.mode === 'combo') {
-      const list = UI.allCombos(), cur = Modes.combo && Modes.combo.combo;
-      const combo = (d.combo && list.find(c => c.id === d.combo)) || cur || list[0];
+      const list = UI.allCombos(), cur = Modes.combo && Modes.combo.combo, mine = UI.combosFor(this.who().ch);
+      let combo = (d.combo && list.find(c => c.id === d.combo)) || cur || list[0];
+      if (mine.length && !mine.some(c => c.id === combo.id)) combo = mine[0];   // 캐시 콤보를 가리키는 규칙이어도 지금 실험체 콤보로
       UI.start('combo', { combo, diff: d.combo ? (Settings.comboDiff || 'intro') : 'intro' });
     } else UI.start(d.mode, UI.quickOpts(d.mode));
   },

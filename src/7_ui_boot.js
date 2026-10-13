@@ -144,12 +144,13 @@ const UI = {
     Replay.stop();   // 다시 보기 중이었으면 설정 원래대로
     Game.state = 'menu'; Game.paused = false; Game.mode = null; Game.units = []; Game.projectiles = []; Game.zones = []; Game.player = null;
     const modes = this.modeList(), ch = Settings.character || 'cathy', dan = ch === 'daniel', RM = CONFIG.rangedMotifs[ch], rng = !!(PKits[ch] && RM && !dan);
-    const chName = dan ? '다니엘' : rng ? RM.name : '캐시', chEn = { cathy: 'CATHY', daniel: 'DANIEL', aya: 'AYA', rio: 'RIO', nadine: 'NADINE', katja: 'KATJA' }[ch] || 'CATHY';
+    const chName = dan ? '다니엘' : rng ? RM.name : '캐시', chEn = ch.toUpperCase();   // 메뉴 제목 (실험체 키 = 영문 이름)
     const wb = (v, l) => `<button class="btn ${Settings.weapon === v ? 'sel' : ''}" data-a="weapon" data-v="${v}">${l}</button>`;
     const bb = Object.entries(CONFIG.builds).map(([k, b]) => `<button class="btn ${Settings.build === k ? 'sel' : ''}" data-a="build" data-v="${k}">${b.label}</button>`).join('');
     const last = this.lastLabel();
     this.show(`<h1>${chEn} <span>수련장</span></h1>
       <div class="sub">이터널 리턴 · 실험체 「${chName}」 숙련도 트레이닝 시뮬레이터 — 실제 스킬 수치 · 랭크 영상 실측 능력치 · 시야 시스템.</div>
+      ${matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches ? '<div class="sub" style="color:#ffb347">📱 터치 화면입니다 — 이 수련장은 키보드·마우스로 조작합니다(터치 조작 없음). 휴대폰에선 기록·리플레이 보기 위주로 쓰세요.</div>' : ''}
       <div class="row"><label>실험체</label>${[['cathy', '캐시', CONFIG.theme.accent], ['daniel', '다니엘', CONFIG.rangedMotifs.daniel.color]].concat(Object.keys(PKits).map(k => [k, CONFIG.rangedMotifs[k].name, CONFIG.rangedMotifs[k].color])).map(([k, l, c]) => `<button class="btn ${(Settings.character || 'cathy') === k ? 'sel' : ''}" data-a="char" data-v="${k}" style="color:${c}">${l}</button>`).join('')}
         <label style="margin-left:14px">무기</label>${dan ? '<button class="btn sel">단검 (다니엘 전용)</button>' : rng ? `<button class="btn sel">${RM.weapon} (${RM.name} 전용)</button>` : wb('dagger', '단검') + wb('dual', '쌍검')}</div>
       <div class="row"><label>빌드</label>${bb}<button class="btn ${Builds.current() ? 'sel' : ''}" data-a="gear" title="아이템 조합에 따라 능력치가 바뀜">🛠 장비 ${Builds.current() ? '사용 중' : '(끔)'}</button><label style="margin-left:14px">그래픽</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험)</button></div>
@@ -291,7 +292,7 @@ const UI = {
     const row = (n, a, b, f = v => v) => { const d = b - a; return `<tr><td>${n}</td><td>${f(a)}</td><td><b style="color:${d > 0.001 ? '#5dff9a' : d < -0.001 ? '#ff8a8a' : '#e6e9ef'}">${f(b)}</b></td></tr>`; };
     const pc = v => Math.round(v * 100) + '%';
     const cmp = [row('체력', A.hp, G.hp), row('공격력', A.ad, G.ad), row('스킬 증폭', A.sp, G.sp), row('방어력', A.def, G.def), row('공격 속도', A.as, G.as), row('이동 속도', A.ms, G.ms),
-      row('치명타', A.crit, G.crit, pc), row('방어 관통', A.pen, G.pen, pc), row('쿨다운 감소', A.cdr, G.cdr / 100, pc)].join('');
+      row('치명타', A.crit, G.crit, pc), row('방어 관통', A.pen, G.pen, pc), row('쿨다운 감소', A.cdr, G.cdr / 100, v => `${Math.round(v * 100)} (${Math.round(100 - 10000 / (100 + v * 100))}%)`)].join('');
     const pas = G.passives.length ? G.passives.map(n => { const P = CONFIG.itemPassives[n] || {}; return `<li><b>${esc(n)}</b> ${P.text ? '— ' + esc(P.text) : ''} ${P.impl ? '<span style="color:#5dff9a">✔ 적용</span>' : '<span style="color:#8a93a6">· 효과 미구현(능력치만)</span>'}</li>`; }).join('') : '<li class="sub">고유 효과 없음</li>';
     this.show(`<h2>🛠 장비 — ${M.name} (${M.weapon}) · ${S0.label}</h2>
       <div class="row"><label><input type="checkbox" data-in="cgearOn" ${on ? 'checked' : ''}> 장비 사용</label><span class="sub" style="margin:0 0 0 8px">끄면 지금처럼 랭크 영상·추정 능력치(실측). 단계는 메뉴의 빌드(Lv6/12/18)</span></div>
@@ -353,13 +354,15 @@ const UI = {
 
   showSettings(back) {
     this.settingsBack = back;
-    const names = { Q: 'Q 동맥절제술', W: 'W 앰퓨테이션', E: 'E 수쳐', R: 'R 이머전시 OP', D: 'D 무기 스킬', F: 'F 블링크', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)' };
+    const ch = Settings.character || 'cathy', K = CONFIG.rangedKits[ch], CN = { cathy: '캐시' }[ch] || (CONFIG.rangedMotifs[ch] || {}).name || ch;
+    const sn = k => k === 'F' ? (CONFIG.tactical[Settings.tactical] || CONFIG.tactical.blink).name : ch !== 'cathy' && K && K[k] ? K[k].name : CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '');   // 지금 실험체의 스킬 이름
+    const names = { Q: 'Q ' + sn('Q'), W: 'W ' + sn('W'), E: 'E ' + sn('E'), R: 'R ' + sn('R'), D: 'D ' + sn('D') + ' (무기 스킬)', F: 'F ' + sn('F') + ' (전술 스킬)', S: '정지', A: '공격 이동', C: 'C 망원 카메라 (결투)', V: 'V 정찰 드론 (결투)', X: 'X 휴식', Y: 'Y 카메라 잠금 전환 (3D)' };
     const cb = (k, l) => `<div class="row"><label><input type="checkbox" data-in="${k}" ${Settings[k] ? 'checked' : ''}> ${l}</label></div>`;
     this.show(`<h2>⚙ 설정</h2>
-      <h3>시전 방식</h3>
+      <h3>시전 방식 <span class="sub" style="font-weight:normal">(스킬 이름: ${esc(CN)} — 메뉴에서 고른 실험체)</span></h3>
       <div class="row"><label>기본</label>${Object.entries(CAST_MODES).map(([k, l]) => `<button class="btn ${Settings.castMode === k ? 'sel' : ''}" data-a="cast" data-v="${k}">${l}</button>`).join('')}</div>
-      <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${CONFIG.skills[k === 'D' ? 'D_dagger' : k].name.replace('단검 ', '')}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
-      <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동. 단검 1차(유틸)는 항상 즉시 발동.</div>
+      <table>${['Q', 'W', 'E', 'R', 'D', 'F'].map(k => `<tr><td>${k} ${esc(sn(k))}</td><td><select data-in="cm" data-k="${k}"><option value="">기본 설정 따름</option>${Object.entries(CAST_MODES).map(([m, l]) => `<option value="${m}" ${Settings.castModes[k] === m ? 'selected' : ''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</table>
+      <div class="sub" style="margin:4px 0">스마트: 키를 누르는 순간 커서 방향으로 발동 · 범위 표시 후 떼면 발동: 누르고 있는 동안 범위를 보고 키를 떼면 발동.${ch === 'cathy' ? ' 단검 1차(유틸)는 항상 즉시 발동.' : ''}</div>
       <h3>마우스</h3>
       <div class="row"><label>이동 버튼</label><button class="btn ${Settings.moveButton !== 'left' ? 'sel' : ''}" data-a="mbtn" data-v="right">우클릭 (게임과 동일)</button><button class="btn ${Settings.moveButton === 'left' ? 'sel' : ''}" data-a="mbtn" data-v="left">좌클릭 (웨일 마우스 제스처 회피)</button></div>
       <div class="sub" style="margin:4px 0">웨일 브라우저의 마우스 제스처는 브라우저 자체 기능이라 페이지에서 막을 수 없습니다. <b>좌클릭 이동</b>으로 바꾸면 우클릭 드래그를 쓸 일이 없어 제스처가 뜨지 않습니다(스킬 조준 확정도 좌클릭, 우클릭은 조준 취소).</div>
@@ -367,8 +370,11 @@ const UI = {
       <div class="sub" style="margin:4px 0">우클릭을 누르고 있으면 커서를 따라 계속 이동합니다. 잠금 모드로도 제스처가 뜨면 브라우저 설정에서 '마우스 제스처'를 끄세요 (웨일: 설정 → 검색창에 '제스처').</div>
       <h3>그래픽</h3>
       <div class="row"><label>표시</label><button class="btn ${Renderer.mode !== '3d' ? 'sel' : ''}" data-a="gfx" data-v="2d">2D (가볍고 안정적)</button><button class="btn ${Renderer.mode === '3d' ? 'sel' : ''}" data-a="gfx" data-v="3d">3D (시험) — 쿼터뷰·그림자·로우폴리 캐릭터</button></div>
+      <div class="row"><label>품질</label>${[['auto', '자동'], ['high', '높음'], ['low', '낮음 (휴대폰·저사양)']].map(([v, n]) => `<button class="btn ${(Settings.gfxQ || 'auto') === v ? 'sel' : ''}" data-a="gq" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">지금: ${Gfx.low() ? '낮음' : '높음'}${(Settings.gfxQ || 'auto') === 'auto' ? ' · 자동은 3D에서 프레임이 계속 40 아래면 낮음으로' : ''}</span></div>
+      <div class="sub" style="margin:4px 0">낮음: 해상도 배율 1 · 3D 그림자 끔 · 비 절반 (판정은 그대로)</div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나'], ['alonso', '알론소']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}
+      <details${Renderer.mode === '3d' ? ' open' : ''}><summary class="sub" style="cursor:pointer;margin:6px 0">실험체별 3D 모델 고르기 (9명)</summary>
+      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나'], ['alonso', '알론소']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}</details>
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>
@@ -388,6 +394,7 @@ const UI = {
       cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       weather: d => { Settings.weather = d.v; saveSettings(); this.showSettings(back); },
+      gq: d => { Settings.gfxQ = d.v; Gfx.autoLow = false; saveSettings(); Gfx.apply(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
       'in:showHitbox': el => { Settings.showHitbox = el.checked; saveSettings(); }, 'in:sound': el => { Settings.sound = el.checked; saveSettings(); }, 'in:ambient': el => { Settings.ambient = el.checked; saveSettings(); },
@@ -458,7 +465,7 @@ const UI = {
 
   showResults(r) {
     Side.update();
-    const dan = Game.player && Game.player.charKey === 'daniel';   // 다니엘: 캐시 전용 통계 숨김
+    const pl = Game.player, dan = !!(pl && pl.charKey && pl.charKey !== 'cathy'), rng = !!(pl && pl.ranged && !(pl.motif && pl.motif.melee));   // 캐시 외 실험체: 캐시 전용 통계 숨김 · 원거리: 무빙·사거리 통계
     const St = Stats, { c, h } = St.totalCasts(), waste = Object.values(St.waste).reduce((a, b) => a + b, 0);
     const gc = { S: CONFIG.theme.gold, A: CONFIG.theme.accent2, B: '#7aa2ff', C: '#c0c4cc', D: '#ff5d5d' }[r.grade];
     const stat = (k, v) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`;
@@ -476,10 +483,10 @@ const UI = {
           <div class="sub" style="margin:4px 0">${esc(r.scoreLabel || '점수')}: <b style="color:#fff;font-size:18px">${r.score}</b>
           ${r.isBest ? ' <b style="color:#ffc857">🏅 최고 기록!</b>' : r.prevBest != null ? ` · 최고 ${r.prevBest}` : ''} · 종합 ${r.gradeScore}점</div>${comp}
           <div class="row" style="margin-top:8px"><button class="btn primary" data-a="retry">다시 하기 <kbd>R</kbd></button><button class="btn" data-a="menu">메인 메뉴 <kbd>M</kbd></button>${Replay.last ? '<button class="btn" data-a="rwatch">🔍 리플레이로 실수 보기</button><button class="btn" data-a="replay">📼 리플레이 저장</button>' : ''}</div></div></div>
-      <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(dan ? '평타' : '평타 / 강화 평타', dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
+      <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(rng ? '평타 / 무빙 비율' : dan ? '평타' : '평타 / 강화 평타', rng ? `${St.aaHits} / ${St.heroAA ? pct(St.kiteAA, St.heroAA) : '-'}` : dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
-        ${dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
+        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? '' : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}
@@ -507,7 +514,7 @@ function advanceSim(now, maxDt = 0.1, maxSteps = CONFIG.sim.maxSteps) {
 }
 function loop(now) {
   let dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-  fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05);
+  fps = lerp(fps, 1 / Math.max(dt, 1e-4), 0.05); Gfx.watch(dt, fps);   // 품질 자동 낮춤
   advanceSim(now);
   try { Renderer.frame(); } catch (e) { console.error(e); }
   if (Replay.active) Replay.updateBar();   // 리플레이 타임라인 위치

@@ -89,7 +89,7 @@ const Grade = {
     const weak = comps.filter(cp => cp.w > 0).sort((a, b) => a.v - b.v)[0];
     const p100 = v => Math.round(v * 100);
     const tips = {
-      acc: v => `스킬 적중률 ${p100(v)}% → ${Math.min(100, p100(v) + 10)}% 목표. E는 상대 진행 방향 앞쪽을, W는 바깥 범위(3~4m) 거리를 맞추세요.`,
+      acc: v => `스킬 적중률 ${p100(v)}% → ${Math.min(100, p100(v) + 10)}% 목표. ` + (!Game.player || !Game.player.charKey || Game.player.charKey === 'cathy' ? 'E는 상대 진행 방향 앞쪽을, W는 바깥 범위(3~4m) 거리를 맞추세요.' : '스킬샷은 상대 진행 방향 앞쪽이나 멈춘 순간을 노리세요.'),   // 캐시 외 실험체는 일반 요령
       waste: () => `교전 중 쿨이 돌아온 스킬을 오래 묵혔습니다. 콤보 사이클을 줄여 쿨 낭비 시간을 절반으로 줄여 보세요.`,
       mistake: () => `실수가 잦습니다. 아래 실수 분석에서 가장 많은 항목 하나만 집중 교정해 보세요.`,
       mode: () => `${r.modeLabel || '모드 목표'} 수치를 끌어올리는 것이 다음 목표입니다. 게임 속도를 0.7x로 낮춰 연습한 뒤 1.0x로 돌아오세요.`,
@@ -239,6 +239,19 @@ const Draw = {
 // ============================== 렌더러 (표시 계층) ==============================
 // 게임 로직은 월드 좌표(m)만 다루고, 그리기와 화면↔월드 좌표 변환은 Renderer가 담당
 // 구현: Render(2D 캔버스). 이후 3D 구현을 같은 인터페이스로 추가 — init / frame / toWorld / toScreen / pxPerMeter / inputCanvas
+// 그래픽 품질: auto(기본 높음 — 3D에서 FPS가 4초 넘게 40 아래면 낮음으로 바꾸고 알림) / high / low
+//   낮음 = 해상도 배율 1(고해상도 화면에서 픽셀 수 1/4) · 3D 그림자 끔 · 비 절반. 판정은 그대로
+const Gfx = {
+  autoLow: false, slowT: 0,
+  low() { const q = Settings.gfxQ || 'auto'; return q === 'low' || (q === 'auto' && this.autoLow); },
+  dpr() { return this.low() ? 1 : Math.min(2, window.devicePixelRatio || 1); },
+  apply() { Renderer.resize(); },
+  watch(dt, fps) {
+    if ((Settings.gfxQ || 'auto') !== 'auto' || this.autoLow || Renderer.mode !== '3d' || Game.state !== 'play' || document.hidden) { this.slowT = 0; return; }
+    this.slowT = fps < 40 ? this.slowT + dt : 0;
+    if (this.slowT > 4) { this.autoLow = true; this.apply(); FX.toast('프레임이 낮아 그래픽 품질을 「낮음」으로 바꿨습니다 (설정 → 그래픽)', '#9fd8ff'); }
+  },
+};
 const Renderer = {
   impl: null, mode: '2d',
   init() { Render.init(); this.impl = Render; this.setMode(Settings.gfx, true); },
@@ -265,7 +278,7 @@ const HUD_H = 118;
 const Render = {
   init() { this.cv = document.getElementById('game'); this.ctx = this.cv.getContext('2d'); this.resize(); window.addEventListener('resize', () => Renderer.resize()); },
   resize() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    const dpr = Gfx.dpr(), W = innerWidth, H = innerHeight;
     this.cv.width = W * dpr; this.cv.height = H * dpr;
     // 기본 공간보다 큰 맵(원형 투기장): 화면 배율은 기본 공간 기준 그대로, 카메라가 내 캐릭터를 따라감
     const B = CONFIG.worldBase || CONFIG.world, big = CONFIG.world.w > B.w || CONFIG.world.h > B.h, F = big ? B : CONFIG.world;

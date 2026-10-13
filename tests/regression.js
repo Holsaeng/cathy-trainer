@@ -225,7 +225,9 @@
     T.ok('Q 80% 못 넘음', !tryDash('cathy', 'Q', 0.8, 4)); T.ok('Q 90% 넘음', tryDash('cathy', 'Q', 0.9, 4));
     T.ok('R 75% 못 넘음', !tryDash('cathy', 'R', 0.75, 6)); T.ok('R 85% 넘음', tryDash('cathy', 'R', 0.85, 6));
     T.ok('다니엘 E 40% 못 넘음', !tryDash('daniel', 'E', 0.4, 3)); T.ok('다니엘 E 60% 넘음', tryDash('daniel', 'E', 0.6, 3));
-    const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && Math.random() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && Math.random() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
+    // 봇 전용 난수: 효과음(실제 시간으로 35ms 제한)도 Math.random을 쓰므로, 같은 걸 쓰면 컴퓨터 속도에 따라 봇 행동이 달라져 가끔 실패함
+    let bs = 777; const brnd = () => { bs = bs + 0x6D2B79F5 | 0; let t = Math.imul(bs ^ bs >>> 15, 1 | bs); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const bot = (p, e) => { if (p.dead || e.dead || p.cast || p.fear > 0 || p.shadow || p.stasis) return; if (!Vision.visible(p, e) || e.untargetable > 0) { const g = Vision.ghosts[e.id]; if (!p.moveTarget) p.cmdMove(g ? g.pos : (Sphere.active ? Sphere.c : { x: CONFIG.world.w / 2, y: CONFIG.world.h / 2 })); return; } const d = V.dist(p.pos, e.pos); for (const k of ['E', 'W', 'Q', 'R', 'D', 'F']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && d < 5.5 && brnd() < 0.5) { if (k === 'R' && p.charKey === 'daniel' && !p.rTarget(e.pos)) continue; if (k === 'F' && brnd() < 0.8) continue; p.cmdSkill(k, e.pos); Input.aiming = null; return; } if (p.attackTarget !== e) p.cmdAttack(e); };
     let done = 0, n = 0, outC = 0, outWho = '';
     for (const ch of ['cathy', 'daniel']) for (const m of ['katja', 'rio', 'aya', 'nadine', 'daniel']) {
       n++; reset(); Settings.character = ch; Settings.build = ['early', 'mid', 'late'][n % 3]; Settings.tactical = TACTICAL_ORDER[n % 10];
@@ -272,6 +274,12 @@
       Game.start('duel', { diff: 'normal', motif: ch, enemyBuild: 'late', map: 'basic', rounds: 1, seed: 2 }); const e = Game.mode.enemy;
       T.ok(`${ch} AI Lv18: 체력·방어 실측값`, Math.abs(e.maxHp - (ch === 'alonso' ? 4100 : hp)) < 1 && e.def === def && Math.abs(CONFIG.rangedMotifs[ch].as[2] - as) < 1e-9, `${e.maxHp}/${e.def}`);
     }
+    // 쿨감 = HUD 「수치 (감소%)」의 수치 — 플레이어·AI 같은 값 (알론소 55 → 35%, 다니엘 33 → 25%)
+    for (const [ch, v] of [['alonso', 55], ['daniel', 33]]) {
+      reset(); Settings.character = ch; Settings.build = 'late'; Game.start('dummy', { count: 1, hp: 3000, def: 0, infinite: true }); const pc = Game.player.cdr;
+      Game.start('duel', { diff: 'normal', motif: ch, enemyBuild: 'late', map: 'basic', rounds: 1, seed: 2 });
+      T.ok(`${ch} Lv18 쿨감 수치 ${v}: 플레이어·AI 같음`, Math.abs(pc * 100 - v) < 1e-6 && Math.abs(Game.mode.enemy.cdrAi - v) < 1e-6, `${pc}/${Game.mode.enemy.cdrAi}`);
+    }
     Settings.character = 'cathy';
   });
 
@@ -285,6 +293,21 @@
     Game.finish('test'); T.ok('코칭: 결과 화면 표시', document.querySelectorAll('.coach').length === 3 && !!document.querySelector('[data-a="drill"]'));
     click('[data-a="drill"][data-v="0"]'); T.ok('코칭: 연습하기 → 기본 콤보', Game.state === 'play' && Game.modeId === 'combo' && Modes.combo.combo && Modes.combo.combo.id === 'basic');
     Stats.reset(); T.ok('코칭: 실수 없으면 빈 목록', Coach.analyze(Stats).top.length === 0);
+    // 원거리 실험체: 평타 공백 · 쏘고 움직이기 · 사거리 · 조준 스킬 적중률 — 캐시 전용 항목은 안 나옴
+    reset(); Settings.character = 'nadine'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
+    Object.assign(Stats, { t: 40, combatT: 30, aaIdle: 10, heroAA: 20, kiteAA: 2, rangeSum: 9, closeAA: 12, aaHits: 20, enhAA: 0, casts: { Q: 6, E: 5, R: 2 }, hits: { Q: 1, E: 0, R: 0 }, mistakes: { '평타 선딜 중 이동 → 평타 취소': 2 } });
+    const RA = Coach.analyze(Stats), ids = RA.top.map(x => x.id), all = Coach.metrics(Stats).map(x => x.id);
+    T.ok('원거리 코칭: 평타 공백·무빙·사거리·Q 적중률', ['aaIdle', 'kite', 'aaRange', 'aimQ'].every(k => all.includes(k)) && ids.includes('kite'), all.join(',') + ' / 상위 ' + ids.join(','));
+    T.ok('원거리 코칭: 캐시 전용(수쳐·강화 평타)·버프 스킬(E) 없음', !all.some(k => ['eAim', 'enhLow', 'aimE'].includes(k)));
+    T.ok('원거리 코칭: 스킬 이름', Coach.metrics(Stats).find(x => x.id === 'aimQ').title.includes('황소의 눈'));
+    T.ok('원거리 코칭: 캐시 문구 없음', !RA.top.some(x => /강화 평타를 쓰|수쳐/.test(x.title + x.tip)));
+    Object.assign(Stats, { combatT: 30, aaIdle: 0.5, heroAA: 20, kiteAA: 15, rangeSum: 17 });
+    const RG = Coach.analyze(Stats).good.join(' ');
+    T.ok('원거리 코칭: 잘한 점(무빙·사거리·평타 유지)', RG.includes('쏘고 움직이기') && RG.includes('사거리 관리'), RG);
+    Game.finish('test'); const card = document.getElementById('card').innerText;
+    T.ok('원거리 결과 화면: 실험체 스킬 이름 · 무빙 통계 · 캐시 통계 숨김', card.includes('Q 황소의 눈') && card.includes('무빙 비율') && card.includes('평타 거리') && !card.includes('2인 수쳐'));
+    click('[data-a="drill"][data-v="0"]'); T.ok('원거리 코칭: 연습하기는 그 실험체로', Game.state === 'play' && Game.player.charKey === 'nadine');
+    Settings.character = 'cathy';
   });
 
   // ---------------- 콤보 시범(모범 간격) ----------------
@@ -329,7 +352,7 @@
   G('사운드', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.sound = true; Settings.ambient = true;
     Game.start('dummy', { count: 1, hp: 3000, def: 0 }); run(5);
-    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy');
+    let p = Game.player, d = Game.units.find(u => u.kind === 'dummy');
     const R = Sfx.spatial({ x: p.pos.x + 6, y: p.pos.y }), L = Sfx.spatial({ x: p.pos.x - 6, y: p.pos.y }), F = Sfx.spatial({ x: p.pos.x, y: p.pos.y + 30 });
     T.ok('사운드: 오른쪽 소리는 오른쪽 스피커', R.pan > 0.5 && L.pan < -0.5, `${R.pan} / ${L.pan}`);
     T.ok('사운드: 멀수록 작게(최소 30%)', F.vol === 0.3 && R.vol > 0.9 && Sfx.spatial({ x: p.pos.x + 3, y: p.pos.y }).vol === 1 && Sfx.spatial(null).pan === 0);
@@ -337,6 +360,11 @@
     p.weapon = 'dual'; const twin = Sfx.hitKind(p, 'normal'); p.weapon = 'dagger';
     T.ok('사운드: 무기별 타격음', Sfx.hitKind(p, 'normal') === 'hitBlade' && twin === 'hitTwin' && Sfx.hitKind(aya, 'normal') === 'hitGun' && Sfx.hitKind(rio, 'normal') === 'hitArrow' && Sfx.hitKind({ charKey: 'daniel' }, 'normal') === 'hitShadow');
     T.ok('사운드: 치명타·스킬·고정 피해 구분', Sfx.hitKind(p, 'normal', { crit: true }) === 'hitCrit' && Sfx.hitKind(p, 'skill') === 'hitSkill' && Sfx.hitKind(p, 'true') === null);
+    // 캐시 외 플레이어는 무기 소리(예전엔 플레이어면 무조건 칼 소리) · 클로에 암기 · 니나 가위 · 알론소 글러브
+    const kindAs = ch => { Settings.character = ch; Game.start('dummy', { count: 1, hp: 3000, def: 0 }); const q = Game.player; return [Sfx.hitKind(q, 'normal'), q.nina ? Sfx.hitKind(q.nina, 'normal') : null]; };
+    const [kc, kn] = kindAs('chloe'), [ka] = kindAs('alonso'), [kd] = kindAs('nadine'), [kk] = kindAs('katja');
+    T.ok('사운드: 플레이어 실험체별 타격음', kc === 'hitNeedle' && kn === 'hitScissor' && ka === 'hitPunch' && kd === 'hitArrow' && kk === 'hitGun', [kc, kn, ka, kd, kk].join(','));
+    Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 3000, def: 0 }); run(5); p = Game.player; d = Game.units.find(u => u.kind === 'dummy');
     Sfx.init();
     if (!Sfx.ctx) { T.ok('사운드: 오디오 장치', true, '오디오 없음 — 재생 테스트 생략'); return; }
     Sfx.last = {}; Combat.damage(p, d, 10, { type: 'normal' });
@@ -617,7 +645,7 @@
     let rooted = false; for (let i = 0; i < 80; i++) { step(); if (d.root > 0) rooted = true; }
     T.ok('E: 0.8초 동안 제자리 → 돌진 + 속박', mid < 0.05 && rooted && V.dist(p.pos, d.pos) < p.r + d.r + 0.3 && (Stats.dmgBy.E || 0) > 0);
     ({ p, d } = setup()); d.pos = { x: 12, y: 9 }; p.cmdSkill('E', d.pos); run(30); d.pos = { x: 18, y: 9 }; run(80);
-    T.ok('E: 대상이 8.25m 밖이면 취소 · 쿨 30% 반환', V.dist(p.pos, { x: 8, y: 9 }) < 0.05 && Math.abs(p.skills.E.cd - lv(K.E.cd, p.L('E')) * 0.7 + 0.6) < 0.2, fmt(p.skills.E.cd, 2));
+    T.ok('E: 대상이 8.25m 밖이면 취소 · 쿨 30% 반환', V.dist(p.pos, { x: 8, y: 9 }) < 0.05 && Math.abs(p.skills.E.cd - lv(K.E.cd, p.L('E')) * 100 / (100 + p.cdr * 100) * 0.7 + 0.6) < 0.2, fmt(p.skills.E.cd, 2));
     // R: 당기기 · 회복 · 3.5초 정신 집중 · 마무리 / 재입력 = 바로 마무리 / CC로 끊김
     ({ p, d } = setup()); d.pos = { x: 11.5, y: 9 }; p.hp = p.maxHp * 0.5; const h0 = p.hp, dd0 = V.dist(p.pos, d.pos); p.cmdSkill('R', p.pos); run(30);
     T.ok('R: 주변 적 당기기', V.dist(p.pos, d.pos) < dd0 - 1 && !!p.alR, fmt(V.dist(p.pos, d.pos), 2));
@@ -872,6 +900,21 @@
   });
 
   // ---------------- 3D 렌더러 ----------------
+  // 그래픽 품질: 낮음 = 해상도 배율 1 · 그림자 끔 / 자동 = 3D에서 4초 넘게 40fps 아래면 낮음으로
+  G('그래픽 품질', () => {
+    reset(); Settings.gfxQ = 'low'; Gfx.autoLow = false;
+    T.ok('품질 낮음: 해상도 배율 1', Gfx.low() && Gfx.dpr() === 1);
+    Settings.gfxQ = 'high'; T.ok('품질 높음', !Gfx.low() && Gfx.dpr() === Math.min(2, devicePixelRatio || 1));
+    Settings.gfxQ = 'auto'; Game.start('dummy', { count: 1, hp: 3000, def: 0 }); const m0 = Renderer.mode; Renderer.mode = '3d';
+    for (let i = 0; i < 100; i++) Gfx.watch(0.03, 55); const keep = Gfx.low();
+    for (let i = 0; i < 100; i++) Gfx.watch(0.03, 30); const early = Gfx.autoLow; for (let i = 0; i < 50; i++) Gfx.watch(0.03, 30); const cut = Gfx.autoLow;
+    Renderer.mode = m0; Gfx.autoLow = false;
+    T.ok('품질 자동: 프레임이 괜찮으면 유지, 3초는 버티고 4초 넘게 낮으면 낮춤', !keep && !early && cut);
+    Settings.gfxQ = 'high'; Renderer.mode = '3d'; for (let i = 0; i < 200; i++) Gfx.watch(0.03, 20); Renderer.mode = m0;
+    T.ok('품질 높음 고정이면 자동으로 안 바뀜', !Gfx.autoLow && !Gfx.low());
+    Settings.gfxQ = 'auto';
+  });
+
   G('3D', () => {
     if (!window.THREE) { T.ok('Three.js 로드', false, 'CDN 차단 또는 오프라인'); return; }
     reset(); UI.showMenu(); click('[data-a="gfx"][data-v="3d"]');

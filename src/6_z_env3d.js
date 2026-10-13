@@ -75,7 +75,8 @@ const Env3D = {
   updateRain(on, dt) {
     this.rain.visible = this.splash.visible = on; if (!on) return;
     const tg = Render3D.camTarget, P = this.rain.geometry.attributes.position, Wd = this.RAIN_W, D = this.RAIN_D, H = this.RAIN_H, sp = 19, len = 0.55, wind = 0.18;
-    for (let i = 0; i < this.drops.length; i++) {
+    const nd = Gfx.low() ? this.drops.length >> 1 : this.drops.length; this.rain.geometry.setDrawRange(0, nd * 2);   // 품질 낮음: 빗줄기 절반
+    for (let i = 0; i < nd; i++) {
       const d = this.drops[i]; d.y -= sp * d.v * dt;
       if (d.y < 0) { d.y += H; d.x = Math.random(); d.z = Math.random(); }
       const x = tg.x + (d.x - 0.5) * Wd + d.y * wind, zz = tg.z + (d.z - 0.5) * D;
@@ -84,7 +85,8 @@ const Env3D = {
     P.needsUpdate = true;
     // 물방울: 매 프레임 일부를 새 자리로 옮겨 반짝반짝 튀는 느낌
     const S = this.splash.geometry.attributes.position;
-    for (let i = 0; i < this.SPLASH_N; i++) if (dt > 0 && Math.random() < 0.25 || S.getY(i) === 0) S.setXYZ(i, tg.x + (Math.random() - 0.5) * Wd * 0.8, 0.04, tg.z + (Math.random() - 0.5) * D * 0.8);
+    const ns = Gfx.low() ? this.SPLASH_N >> 1 : this.SPLASH_N; this.splash.geometry.setDrawRange(0, ns);
+    for (let i = 0; i < ns; i++) if (dt > 0 && Math.random() < 0.25 || S.getY(i) === 0) S.setXYZ(i, tg.x + (Math.random() - 0.5) * Wd * 0.8, 0.04, tg.z + (Math.random() - 0.5) * D * 0.8);
     S.needsUpdate = true;
   },
 };

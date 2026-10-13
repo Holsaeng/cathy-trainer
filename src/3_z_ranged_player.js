@@ -12,7 +12,7 @@ class RangedPlayer extends Cathy {
     this.charKey = key; this.ranged = true; this.motif = M; this.name = M.name; this.color = M.color; this.weapon = M.weapon; this.usesTrauma = false;
     this.maxHp = this.hp = M.hp ? M.hp[si] : S0.hp; this.def = M.def ? M.def[si] : S0.def; this.baseMs = (M.ms ? M.ms[si] : S0.ms) || this.baseMs; this.baseHpAtLv = 900 + 76 * (S0.level - 1);
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.penPct = M.pen[si]; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0;
-    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdr = 0; this.stacks = S0.stacks;
+    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdr = M.cdr ? M.cdr[si] : 0; this.stacks = S0.stacks;
     this.build = Object.assign({}, this.build, { level: S0.level }); this.regen = Builds.regen(key, S0.level);
     const L = M.skillLv ? M.skillLv[si] : S0.skillLv; this.plv = L.P || 1;
     for (const k of ['Q', 'W', 'E', 'R', 'D']) this.skills[k].lv = L[k] || 1;
@@ -119,7 +119,7 @@ class RangedPlayer extends Cathy {
       const dir = V.norm(V.sub(t.pos, this.pos));
       this.shot({ dir, speed: this.motif.aaSpeed || 24, home: t, only: t, width: 0.25, len: 0.5, onHit: u => this.aaLand(u) });
     }
-    this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
+    this.S.aaHits++; this.S.aaShot(this, t); this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
     Events.emit('action', { k: 'AA' }); Sfx.play('aa'); Tactical.onAA(this, t);
     this.aa.phase = 'back'; this.aa.t = 0; this.aa.dur = cfg.backRatio / this.atkSpd();
   }
@@ -134,6 +134,7 @@ class RangedPlayer extends Cathy {
   onDamaged(dmg, src) { if (this.kit.onDamaged) this.kit.onDamaged(this, dmg, src); }
   // ---------- 매 스텝 ----------
   update(dt) {
+    this.S.trackRanged(this, dt);   // 코칭: 평타 공백
     this.asBuffs = this.asBuffs.filter(a => (a.t -= dt) > 0);
     if (this.noAA > 0) { this.noAA -= dt; this.aaCd = Math.max(this.aaCd, 0.02); if (this.aa.phase === 'windup') this.aa.phase = 'none'; }   // 평타 불가(쿨을 길게 올리지 않고 막기만)
     for (const c of this.chans) { c.t += dt; if (c.onTick) c.onTick(dt, c); if (c.t >= c.dur || c.stop) { c.done = true; if (c.onEnd) c.onEnd(c); } }

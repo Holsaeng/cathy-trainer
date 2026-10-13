@@ -16,3 +16,7 @@ for k in $KEYS; do
   echo "== $k"
   "$B" -b -P tools/blender/make_model.py -- "$k" 2>&1 | grep -E "내보냄|미리보기|Error|Traceback|File \"" | tail -8
 done
+# 게임은 모양만 쓰고 동작은 원본 CC0 파일 것을 쓰므로, 내보낸 파일의 동작 데이터를 빼서 약 1/5로 줄임
+for k in $KEYS; do
+  [ -f "local/${k}_custom.glb" ] && node tools/strip_glb_anim.js "local/${k}_custom.glb"
+done

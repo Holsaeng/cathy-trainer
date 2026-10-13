@@ -150,7 +150,7 @@ class RangedDuelist extends Duelist {
     if (M.skillLv) this.lv = M.skillLv[si];
     this.melee = !!M.melee; this.aaAmp = M.aaAmp ? M.aaAmp[si] : 0; if (this.melee) { this.kind = 'melee'; this.r = 0.5; }
     this.ad = M.ad[si]; this.sp = M.sp[si]; this.as = M.as[si]; this.critChance = M.crit[si]; this.pen = M.pen[si];
-    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd));
+    this.bonusAd = Math.max(0, this.ad - (M.baseAd ? M.baseAd[si] : S0.baseAd)); this.cdrAi = M.cdr ? M.cdr[si] * 100 : 0;   // 쿨감(실측이 있는 실험체만)
     // 장비(결투 옵션 「상대 장비」): 인기 빌드로 계산한 능력치 — 없으면 위 실측값 그대로
     const eg = Game.opts && Game.opts.enemyGear, G = Number.isInteger(eg) ? Builds.resolveAI(motifKey, st, eg) : null;
     if (G) {
@@ -501,6 +501,7 @@ const Stats = {
       aaHits: 0, waste: {}, mistakes: {}, criticals: 0, eDouble: 0, eWall: 0, enhAA: 0,
       comboAtt: 0, comboOk: 0, streak: 0, bestStreak: 0, shots: 0, shotHits: 0, movingHits: 0, leadHits: 0,
       hitPositions: [], kills: 0, playerHits: 0,
+      combatT: 0, aaIdle: 0, heroAA: 0, kiteAA: 0, rangeSum: 0, closeAA: 0, lastAAPos: null,   // 원거리 실험체 코칭(7_a_coach.js)
     });
   },
   tick(dt) { this.t += dt; },
@@ -531,6 +532,23 @@ const Stats = {
       if (k === 'D' && (p.daggerReady > 0 || p.dualRecast > 0)) continue;
       this.waste[k] = (this.waste[k] || 0) + dt;
     }
+  },
+  // 원거리 실험체: 평타 공백(사거리 안 · 평타 준비 · 행동 가능인데 안 쏨) — 교전 = 보이는 적(실험체·허수아비)이 사거리 + 3m 안
+  trackRanged(p, dt) {
+    if (p.dead || p.motif.melee) return;
+    const range = p.aaCfg().range; let e = null, bd = range + 3;
+    for (const u of Game.enemies(p)) if (!u.dead && (isHero(u) || u.kind === 'dummy') && !(u.untargetable > 0) && Vision.visible(p, u)) { const d = V.dist(p.pos, u.pos) - u.r; if (d < bd) { bd = d; e = u; } }
+    if (!e) return;
+    this.combatT += dt;
+    if (bd <= range && p.aaCd <= 0 && p.aa.phase === 'none' && !p.cast && !(p.noAA > 0) && p.canAct()) this.aaIdle += dt;
+  },
+  // 원거리 실험체 평타 발사: 실험체 대상만 — 직전 평타 뒤 움직였는가(쏘고 움직이기) · 사거리 대비 거리
+  aaShot(p, t) {
+    if (!isHero(t) || p.motif.melee) return;
+    const range = p.aaCfg().range, k = clamp((V.dist(p.pos, t.pos) - t.r) / range, 0, 1);
+    this.heroAA++; this.rangeSum += k; if (k < 0.6) this.closeAA++;
+    if (this.lastAAPos && V.dist(this.lastAAPos, p.pos) > 0.4) this.kiteAA++;
+    this.lastAAPos = V.copy(p.pos);
   },
   recentDps(sec = 5) { const i1 = Math.floor(this.t); let s = 0; for (let i = Math.max(0, i1 - sec + 1); i <= i1; i++) s += this.timeline[i] || 0; return s / Math.min(sec, Math.max(1, this.t)); },
   totalCasts() { let c = 0, h = 0; for (const k of SKILL_KEYS) { c += this.casts[k] || 0; h += this.hits[k] || 0; } return { c, h }; },
