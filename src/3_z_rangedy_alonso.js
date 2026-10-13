@@ -153,6 +153,7 @@ PKits.alonso = {
   fireAA(p, t) { p.aaLand(t); return true; },
   onAAHit(p, u) { AlonsoCore.pop(p, u); },
   onDamaged(p) { AlonsoCore.onDamaged(p); },
+  reset(p) { Object.assign(p, { alMark: null, alW: null, alR: null, alBar: { ready: true, quiet: 0, immune: 0 } }); },
   recast(p, k) { return (k === 'W' && !!p.alW) || (k === 'R' && !!p.alR); },
   // R 정신 집중 중 재입력 = 바로 마무리 (시전 중에도)
   instant(p, k) {

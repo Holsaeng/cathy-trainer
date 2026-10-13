@@ -257,12 +257,14 @@ PKits.chloe = {
     else { n.mode = 'point'; n.goal = Geo.pushOut(V.copy(pt), n.r); n.order = null; FX.mark(n.goal, '#ff8ab8'); }
   },
   onAAHit(p, u) { ChloeCore.onAAHit(p, u); },
+  // 콤보 트레이너 초기화: 스킬 상태 + 니나 되살림(새로 만들지 않음)
+  reset(p) { Object.assign(p, { spin: null, eRe: null, link: null, chPick: null, traps: [], chT: [], lastAAT: null }); const n = p.nina; if (n) { n.resetState(); n.refresh(true); n.respawnT = 0; n.mode = 'follow'; n.order = null; n.dash = null; n.busyT = 0; n.teleportNear(); } },
   recast(p, k) { return (k === 'W' && !!p.spin) || (k === 'E' && ChloeCore.e2Ready(p)); },
-  busy(p, k) { if (p.spin && !['Q', 'E', 'W'].includes(k)) { FX.toastFor(p, '인형극 중에는 Q·E만 쓸 수 있습니다', '#aaa'); return true; } return false; },
+  busy(p, k) { if (p.spin && !['Q', 'E', 'W', 'D'].includes(k)) { FX.toastFor(p, '인형극 중에는 Q·E·무기 스킬만 쓸 수 있습니다', '#aaa'); return true; } return false; },   // 나무위키 콤보 W1 → E1 → 무기 스킬 → W2
   update(p, dt) { ChloeCore.update(p, dt); },
   cast: {
     Q(p) { if (!ChloeCore.up(p)) { FX.toastFor(p, '니나가 없어 공격 명령을 쓸 수 없습니다', '#aaa'); return false; } ChloeCore.q(p); p.instantUsed('Q'); return true; },
-    W(p, aim) { if (p.spin) { ChloeCore.w2(p, aim); return true; } ChloeCore.w1(p); p.instantUsed('W'); return true; },
+    W(p, aim) { if (p.spin) { ChloeCore.w2(p, aim); p.instantUsed('W'); return true; } ChloeCore.w1(p); p.instantUsed('W'); return true; },
     E(p, aim) {
       const E = p.K.E;
       if (p.eRe) {
@@ -279,7 +281,7 @@ PKits.chloe = {
       ChloeCore.r(p); p.instantUsed('R'); return true;
     },
     D(p, aim) {
-      const D = p.K.D; if (PKits.chloe.busy(p, 'D')) return false;
+      const D = p.K.D;
       p.beginCast('D', aim, { windup: () => D.windup, recovery: () => 0.05, fire(q, c) { q.startCd('D'); ChloeCore.d(q, c.aim); } }, {});
       return true;
     },

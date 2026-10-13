@@ -243,6 +243,27 @@
   });
 
   // ---------------- 콤보 시범(모범 간격) ----------------
+  G('실험체별 콤보', () => {
+    const e0 = errs.length, chars = ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'alonso'];
+    T.ok('모든 실험체에 콤보가 있고, 그 실험체 콤보만 보임', chars.every(ch => UI.combosFor(ch).length >= (ch === 'cathy' ? 6 : 2) && UI.combosFor(ch).every(c => UI.comboChar(c) === ch)));
+    // 시범 보기: 실험체별 모든 콤보가 실제로 성공 (그 실험체로 시작)
+    const fails = [];
+    for (const ch of chars.slice(1)) for (const c of UI.combosFor(ch)) {
+      reset(); Game.start('combo', { combo: c, diff: 'skilled' }); Game.freeze = 0; const M = Modes.combo; M.startDemo(); let g = 0;
+      while (g < 120 * 25 && (M.demo || M.state !== 'result')) { step(); g++; }
+      if (!M.resultOk || (Game.player.charKey || 'cathy') !== ch) fails.push(c.id + ':' + M.msg);
+    }
+    T.ok('시범 보기: 다니엘·아야·리오·나딘·카티야·클로에·알론소 콤보 전부 성공', !fails.length && errs.length === e0, fails.join(' / '));
+    // 콤보 성공 후 초기화: 클로에 니나는 하나만(새로 만들지 않음) · 쿨 초기화
+    reset(); Game.start('combo', { combo: UI.combosFor('chloe')[0], diff: 'intro' }); Game.freeze = 0; Modes.combo.startDemo(); let g2 = 0; while (g2 < 120 * 25 && (Modes.combo.demo || Modes.combo.state !== 'result')) { step(); g2++; }
+    run(Math.round(CONFIG.modes.combo.resetDelay * 1.6 * 120) + 10);
+    T.ok('초기화: 니나 1명 · 쿨 0 · 스킬 상태 해제', Modes.combo.state === 'idle' && Game.units.filter(u => u.kind === 'doll').length === 1 && Game.player.skills.Q.cd === 0 && !Game.player.eRe && !Game.player.spin);
+    // 사용자 콤보: 지금 고른 실험체로 저장
+    reset(); Settings.character = 'alonso'; Store.set('combos', []); UI.showModeOptions('combo'); document.getElementById('o-json').value = '{"name":"테스트 콤보","steps":["Q","AA"]}'; click('[data-a="add"]');
+    const mine = UI.customCombos()[0]; T.ok('사용자 콤보 = 고른 실험체(알론소) 콤보', mine && mine.char === 'alonso' && UI.combosFor('alonso').includes(mine) === false && UI.combosFor('alonso').some(c => c.id === mine.id) && !UI.combosFor('cathy').some(c => c.id === mine.id));
+    click('[data-a="del"]'); T.ok('사용자 콤보 삭제', !UI.customCombos().length); Store.set('combos', []); Settings.character = 'cathy'; UI.showMenu();
+  });
+
   G('콤보 시범', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger';
     const combo = UI.allCombos().find(c => c.id === 'basic');

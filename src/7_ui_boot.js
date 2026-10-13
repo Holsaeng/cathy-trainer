@@ -95,7 +95,10 @@ const UI = {
     return opts.map(([k, l]) => `<button class="btn ${(Settings.enemyBuild || 'same') === k ? 'sel' : ''}" data-a="ebuild" data-v="${k}">${l}</button>`).join('');
   },
   customCombos() { return Store.get('combos', []); },
-  allCombos() { return CONFIG.combos.concat(CONFIG.videoCombos, this.customCombos()); },
+  allCombos() { return CONFIG.combos.concat(CONFIG.videoCombos, CONFIG.charCombos, this.customCombos()); },
+  comboChar(c) { return c.char || 'cathy'; },
+  combosFor(ch) { const k = PKits[ch] || ch === 'daniel' ? ch : 'cathy'; return this.allCombos().filter(c => this.comboChar(c) === k); },   // 그 실험체의 콤보만
+  comboSelOf(ch) { return ((Settings.comboSelBy || {})[ch]) || 0; },
 
   // 모드 시작 (마지막 플레이로 저장 → 메뉴의 「최근 플레이 다시」·Enter)
   start(id, opts) {
@@ -115,7 +118,7 @@ const UI = {
   // 각 모드의 「바로 시작」 옵션 (마지막으로 고른 값)
   quickOpts(id) {
     if (id === 'dummy') return Object.assign({ count: 1, hp: 3000, def: 50, infinite: true }, Store.get('dummyOpts', {}));
-    if (id === 'combo') { const list = this.allCombos(), i = clamp(Settings.comboSel || 0, 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
+    if (id === 'combo') { const ch = Settings.character || 'cathy', list = this.combosFor(ch), i = clamp(this.comboSelOf(ch), 0, list.length - 1); return { combo: list[i], diff: Settings.comboDiff || 'intro' }; }
     if (id === 'team') return { size: 3, diff: Settings.teamDiff || 'normal', allies: (Settings.teamAllies || []).slice(), enemies: (Settings.teamEnemies || []).slice(), enemyBuild: Settings.enemyBuild, map: Settings.teamMap || 'arena', time: Settings.teamTime || 'day', sphere: Settings.teamSphere ? (Settings.teamSphereKind || 'final') : false };
     if (id === 'duel') return { enemyGear: Number.isInteger(Settings.duelEnemyGear) ? Settings.duelEnemyGear : undefined, diff: Settings.duelDiff || 'normal', motif: Settings.duelMotif || null, enemyBuild: Settings.enemyBuild, map: Settings.duelMap, animals: Settings.duelAnimals, time: Settings.duelTime, sphere: Settings.duelSphere ? (Settings.duelSphereKind || 'final') : false };
     return {};
@@ -123,7 +126,7 @@ const UI = {
   quickLabel(id) {
     const o = this.quickOpts(id);
     if (id === 'dummy') return `${o.count}개 · 체력 ${o.infinite ? '무한' : o.hp} · 방어 ${o.def}`;
-    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${(Settings.character || 'cathy') !== 'cathy' ? ' · 캐시로 진행' : ''}`;
+    if (id === 'combo') return `${o.combo ? o.combo.name : '-'} · ${{ intro: '입문', skilled: '숙련', master: '마스터' }[o.diff]}${o.combo && o.combo.char ? ' · ' + (CONFIG.rangedMotifs[o.combo.char] || {}).name : ''}`;
     if (id === 'team') { const nm = (a, n) => Array.from({ length: n }, (_, i) => a[i] && CONFIG.rangedMotifs[a[i]] ? CONFIG.rangedMotifs[a[i]].name : '랜덤').join('·'); return `${o.size}:${o.size} · 아군 ${nm(o.allies, o.size - 1)} vs ${nm(o.enemies, o.size)} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.arena).name}`; }
     if (id === 'duel') return `${o.motif ? CONFIG.rangedMotifs[o.motif].name : '랜덤 상대'} · ${CONFIG.enemy.difficulty[o.diff].label} · ${(CONFIG.maps[o.map] || CONFIG.maps.basic).name} · ${{ day: '낮', night: '밤', cycle: '낮밤 교대' }[o.time || 'day']}${o.sphere ? (o.sphere === 'final' ? ' · 최종 안전지대' : ' · 크로노 스피어') : ''}${Number.isInteger(o.enemyGear) ? ' · 상대 장비 ' + ['인기 1', '인기 2', '시작'][o.enemyGear] : ''}`;
     return `목숨 ${CONFIG.modes.dodge.lives}개`;
@@ -187,18 +190,18 @@ const UI = {
         },
       }), K);
     } else if (id === 'combo') {
-      const list = this.allCombos(); Settings.comboSel = clamp(Settings.comboSel || 0, 0, list.length - 1);
-      const sel = Settings.comboSel, cd = Settings.comboDiff || 'intro', nC = CONFIG.combos.length + CONFIG.videoCombos.length;
+      const ch = Settings.character || 'cathy', list = this.combosFor(ch), setSel = v => { Settings.comboSelBy = Object.assign({}, Settings.comboSelBy, { [ch]: v }); saveSettings(); };
+      const sel = clamp(this.comboSelOf(ch), 0, list.length - 1), cd = Settings.comboDiff || 'intro', isUser = c => String(c.id || '').startsWith('u');
       const dbtn = (v, l) => `<button class="btn ${cd === v ? 'sel' : ''}" data-a="diff" data-v="${v}">${l}</button>`;
-      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다.${(Settings.character || 'cathy') !== 'cathy' ? ' <b style="color:#ff9f9f">캐시 전용 — 캐시로 진행됩니다.</b>' : ''}</div>
+      this.show(`<h2>🧩 콤보 트레이너</h2><div class="sub">첫 단계 입력부터 측정이 시작됩니다. 단계마다 맞음/틀림과 입력 간격(ms)이 표시되고, 끝나면 쿨타임이 초기화됩니다. 메뉴에서 고른 실험체(<b>${ch === 'cathy' ? '캐시' : (CONFIG.rangedMotifs[ch] || {}).name}</b>)의 콤보만 보입니다. 다른 실험체 콤보는 메뉴에서 실험체를 바꾸세요.</div>
         <div class="row"><label>난이도</label>${dbtn('intro', '입문 (시간 제한 없음)')}${dbtn('skilled', '숙련 (간격 ≤ 2.0s)')}${dbtn('master', '마스터 (간격 ≤ 1.0s)')}</div>
-        ${list.map((c, i) => `<div class="combo ${i === sel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${i >= nC ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
+        ${list.map((c, i) => `<div class="combo ${i === sel ? 'sel' : ''}" data-a="sel" data-v="${i}"><b>${esc(c.name)}</b> ${isUser(c) ? '<span class="lock">(사용자)</span>' : ''}<small>${esc(c.steps.join(' → '))}${c.setup === 'pair' ? ' · 허수아비 2개' : ''}${c.weapon ? ' · ' + CONFIG.basicAttack[c.weapon].label + ' 전용' : ''}<br>${esc(c.tip || '')}</small></div>`).join('')}
         <div class="row" style="margin-top:10px">${back}${go}</div>
         <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">콤보 직접 추가 / 삭제</summary>
         <textarea id="o-json">{"name":"내 콤보","steps":["E","AA","Q","W"],"setup":"single","tip":"설명"}</textarea>
         <div class="sub" style="margin:4px 0">토큰: Q W E R D F AA D1(단검 1차) D2(쌍검 2식) · "W|E" 택1 · "W?" 생략 가능 · "Q~8" 그 단계 허용 간격 8초 · setup "pair" = 허수아비 2개</div>
-        <div class="row"><button class="btn" data-a="add">콤보 추가</button><button class="btn" data-a="del" ${sel < nC ? 'disabled' : ''}>선택한 사용자 콤보 삭제</button></div></details>`, Object.assign(H, {
-        sel: d => { Settings.comboSel = +d.v; saveSettings(); this.showModeOptions('combo'); },
+        <div class="row"><button class="btn" data-a="add">콤보 추가</button><button class="btn" data-a="del" ${list[sel] && isUser(list[sel]) ? '' : 'disabled'}>선택한 사용자 콤보 삭제</button></div></details>`, Object.assign(H, {
+        sel: d => { setSel(+d.v); this.showModeOptions('combo'); },
         diff: d => { Settings.comboDiff = d.v; saveSettings(); this.showModeOptions('combo'); },
         add: () => {
           try {
@@ -206,11 +209,11 @@ const UI = {
             const ok = /^(Q|W|E|R|D|F|AA|D1|D2)$/;
             if (!c.name || !Array.isArray(c.steps) || !c.steps.length) throw new Error('name, steps 필요');
             for (const t of c.steps) for (const a of String(t).toUpperCase().replace(/~[\d.]+$/, '').replace(/\?$/, '').split('|')) if (!ok.test(a.trim())) throw new Error('알 수 없는 토큰: ' + a);
-            c.id = 'u' + Date.now(); const cs = this.customCombos(); cs.push(c); Store.set('combos', cs);
-            Settings.comboSel = this.allCombos().length - 1; saveSettings(); this.showModeOptions('combo');
+            c.id = 'u' + Date.now(); c.char = ch; const cs = this.customCombos(); cs.push(c); Store.set('combos', cs);   // 지금 고른 실험체의 콤보로 저장
+            setSel(this.combosFor(ch).length - 1); this.showModeOptions('combo');
           } catch (e) { alert('콤보 JSON 오류: ' + e.message); }
         },
-        del: () => { const cs = this.customCombos(); cs.splice(sel - nC, 1); Store.set('combos', cs); Settings.comboSel = 0; saveSettings(); this.showModeOptions('combo'); },
+        del: () => { const cur = list[sel]; Store.set('combos', this.customCombos().filter(c => c.id !== cur.id)); setSel(0); this.showModeOptions('combo'); },
         go: () => this.start('combo', this.quickOpts('combo')),
       }), K);
     } else if (id === 'dodge') {
@@ -395,7 +398,7 @@ const UI = {
       · 콤보: <b>E → Q → 평타</b>(속박 중 Q 확정 → 기절). 팀 대전에서는 앞라인을 맡습니다.</div>
       <h3>클로에 + 인형 니나</h3><div class="sub">
       · <b>니나 조종</b>: <b>Alt + 우클릭</b>(또는 <b>휠 클릭</b>) — 적 = 그 적 공격 · 클로에 = 옆에 붙어 따라오기(공격 안 함) · 바닥 = 그 지점으로 이동(도착 전엔 클로에 명령 무시). 기본은 클로에가 평타하는 대상을 같이 공격, 10m 넘게 떨어지면 클로에 옆으로 순간이동.<br>
-      · <b>Q</b> 니나 주변 베기(클로에 행동을 막지 않음) · <b>W</b> 회전(Q·E만 가능) → <b>W</b> 다시 = 커서 지점에 던지기 → 니나 내려찍기 에어본 → 튕겨 나온 자수를 주우면 이속 · <b>E</b> 돌진 → 1초 뒤 <b>E</b> 다시 = 니나가 클로에에게 날아옴(적중 시 Q 초기화) · <b>R</b> 생명 공유 5초(피해 분담 70%/60%, 둘 다 체력이 다 떨어져야 사망) · <b>D</b> 마름쇠.<br>
+      · <b>Q</b> 니나 주변 베기(클로에 행동을 막지 않음) · <b>W</b> 회전(Q·E·D만 가능) → <b>W</b> 다시 = 커서 지점에 던지기 → 니나 내려찍기 에어본 → 튕겨 나온 자수를 주우면 이속 · <b>E</b> 돌진 → 1초 뒤 <b>E</b> 다시 = 니나가 클로에에게 날아옴(적중 시 Q 초기화) · <b>R</b> 생명 공유 5초(피해 분담 70%/60%, 둘 다 체력이 다 떨어져야 사망) · <b>D</b> 마름쇠.<br>
       · 니나가 쓰러지면 Q·R 불가, E 재사용 불가, W 에어본 없음. 부활할 때 클로에 현재 체력 20%를 씁니다. 콤보: <b>Q → E2 → Q</b>(니나–클로에–적 일렬).</div>
       <h3>핵심 메커니즘</h3><div class="sub">
       · <b>평타</b>: 평타 선딜 중 이동하면 평타가 취소됩니다(실수로 기록).<br>

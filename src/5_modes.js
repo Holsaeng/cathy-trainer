@@ -1,9 +1,9 @@
 
 // ============================== 씬 구성 도우미 ==============================
 const Scene = {
-  // 플레이어 실험체: 캐시(기본) / 다니엘 / 원거리 4명(아야·리오·나딘·카티야) — 콤보 트레이너는 캐시 전용
+  // 플레이어 실험체: 캐시(기본) / 다니엘 / 키트 실험체(아야·리오·나딘·카티야·클로에·알론소) — 콤보 트레이너는 그 콤보의 실험체
   player(x, y) {
-    const ch = Game.modeId === 'combo' ? 'cathy' : (Settings.character || 'cathy');
+    const ch = Game.modeId === 'combo' ? ((Game.opts && Game.opts.combo && Game.opts.combo.char) || 'cathy') : (Settings.character || 'cathy');
     const p = ch === 'daniel' ? new DanielPlayer(x, y) : PKits[ch] && CONFIG.rangedKits[ch] ? new RangedPlayer(x, y, ch) : new Cathy(x, y);
     Game.player = p; Game.units.push(p); return p;
   },
@@ -154,7 +154,9 @@ Modes.combo = {
     this.state = 'idle'; this.idx = 0; this.marks = []; this.msg = null;
     const p = Game.player;
     for (const k in p.skills) { p.skills[k].cd = 0; p.skills[k].reduced = false; }
-    Object.assign(p, { st: p.maxSt, enhanced: 0, daggerReady: 0, dualRecast: 0, msBuffs: [], hp: p.maxHp, shield: 0 });
+    Object.assign(p, { st: p.maxSt, enhanced: 0, daggerReady: 0, dualRecast: 0, msBuffs: [], hp: p.maxHp, shield: 0, cast: null, buffer: null, stun: 0, root: 0, slows: [] });
+    if (p.ranged) { Object.assign(p, { asBuffs: [], noAA: 0, chans: [], pend: [], chase: null }); if (p.kit.reset) p.kit.reset(p); else if (p.kit.init) p.kit.init(p); }   // 키트 실험체: 스킬 상태 초기화
+    if (p.charKey === 'daniel') Object.assign(p, { qShots: 0, qT: 0, shadowT: 0, mark: null, shadow: null, pendingQ: [], untargetable: 0, stealthT: 0 });
     for (const d of this.dummies) d.resetState();
   },
   drawScreen(ctx, L) {
