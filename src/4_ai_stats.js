@@ -433,13 +433,13 @@ class RangedDuelist extends Duelist {
   startKite(p) {
     if (this.kit.kite) { this.kit.kite(this, p); return; }
     const RA = CONFIG.rangedAI, t = Math.max(0.15, (1 / this.curAs() - RA.aaWindup) * RA.kiteMoveRatio);
-    const meleeFoe = !(p.ranged || (p.motif && !p.motif.melee));   // 원거리 상대(플레이어·AI)와는 서로 사거리에서 맞딜 — 진입 거리 밖으로 빠지는 건 근접(캐시·다니엘) 상대일 때만
+    const meleeFoe = !((p.ranged && !p.melee) || (p.motif && !p.motif.melee));   // 원거리 상대(플레이어·AI)와는 서로 사거리에서 맞딜 — 진입 거리 밖으로 빠지는 건 근접(캐시·다니엘) 상대일 때만
     const danger = !meleeFoe ? false : (p.charKey || p.motifKey) === 'daniel' ? (foeCd(p, 'E') <= 0.8 || p.daggerReady > 0 || p.cloakT > 0 || p.shadowT > 0) : (foeCd(p, 'E') <= 0.8 || foeCd(p, 'Q') <= 0.8);
     const want = danger ? Math.max(this.threatRange(p) + 0.4, this.aaRange()) : this.aaRange() - 0.3;
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { if ((p.charKey || p.motifKey) === 'alonso') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.range + 0.5 : 2.2; } const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {

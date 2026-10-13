@@ -27,6 +27,7 @@ class Unit {
   speed() { return (this.baseMs + ItemFx.msFlat(this)) * this.msMul(); }   // 고정 이속(장비: 가벼운 발걸음)
   applyCC(type, dur) {
     if (this.dead || this.unstoppable > 0) return false;
+    if (this.ccGuard && this.ccGuard(type)) return false;   // 알론소 플라즈마 배리어
     this[type] = Math.max(this[type], dur);
     if (type === 'stun') this.moveTarget = null;
     return true;
@@ -36,7 +37,7 @@ class Unit {
   canMove() { return !this.dead && this.stun <= 0 && this.root <= 0 && !this.forced && this.baseMs > 0; }
   canAct() { return !this.dead && this.stun <= 0 && this.fear <= 0 && !this.forced; }
   // 공포: 시전자 반대 방향으로 걸어서 도망, 평타·스킬 불가
-  applyFear(dur, from) { if (this.dead || this.unstoppable > 0) return false; this.fear = Math.max(this.fear, dur); this.fearFrom = V.copy(from); return true; }
+  applyFear(dur, from) { if (this.dead || this.unstoppable > 0 || (this.ccGuard && this.ccGuard('fear'))) return false; this.fear = Math.max(this.fear, dur); this.fearFrom = V.copy(from); return true; }
   heal(a, silent) {
     if (this.dead) return 0;
     a *= ItemFx.healMul(this);   // 치유 감소: 캐시 패시브(치명적 외상)·장비 중 큰 값 하나

@@ -526,6 +526,63 @@
     Settings.character = 'cathy';
   });
 
+  G('알론소', () => {
+    const K = CONFIG.rangedKits.alonso, e0 = errs.length;
+    const setup = () => { reset(); Settings.character = 'alonso'; Game.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true, seed: 4 }); Game.freeze = 0; run(10); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 12, y: 9 }; p.cmdStop(); return { p, d }; };
+    T.ok('수치: 나무위키(12.1 패시브 3/4/5%) + 영상(R 3.5초)', K.P.healPct[2] === 0.05 && K.Q.range === 7.5 && K.Q.stun === 0.9 && K.W.reduce === 0.6 && K.E.windup === 0.8 && K.E.cancel === 8.25 && K.R.dur === 3.5 && K.R.r === 4.75 && K.D.cd[2] === 5);
+    let { p, d } = setup();
+    T.ok('플레이어블: 근접 탱커(평타 1.2m · 팀 AI 근접 판정)', p instanceof RangedPlayer && p.charKey === 'alonso' && p.melee && TeamAI.isMelee(p) && p.aaCfg().range === 1.2 && !!PKits.alonso);
+    // 근접 평타: 투사체 없이 즉시
+    p.cmdAttack(d); run(200); p.cmdStop(); T.ok('근접 평타(투사체 없음)', (Stats.dmgBy.AA || 0) > 0 && !Game.projectiles.some(q => q.owner === p), Math.round(Stats.dmgBy.AA || 0));
+    // Q: 직선 투사체 → 연결 → 평타로 기절(최대 체력 비례 추가 피해)
+    ({ p, d } = setup()); p.cmdSkill('Q', d.pos); run(80);
+    T.ok('Q: 적중 → 자력 연결', !!p.alMark && p.alMark.u === d && (Stats.dmgBy.Q || 0) > 0);
+    const q0 = Stats.dmgBy.Q || 0; p.cmdAttack(d); let stunned = false; for (let i = 0; i < 300; i++) { step(); if (d.stun > 0) stunned = true; }
+    T.ok('Q: 연결된 적 평타 → 추가 피해 + 0.9초 기절', stunned && !p.alMark && (Stats.dmgBy.Q || 0) - q0 > d.maxHp * K.Q.popPct[p.L('Q') - 1] * 0.5);
+    // Q 연결 중 대상을 바라보면 이속 증가
+    ({ p, d } = setup()); p.cmdSkill('Q', d.pos); run(80); p.cmdMove(d.pos); run(3); T.ok('Q: 연결 대상 쪽으로 가면 이속 증가', p.msBuffs.some(m => m.tag === 'alQ') && p.speed() > p.baseMs);
+    // W: 전방 피해 60% 감소(뒤는 그대로) · 파동 · 마무리
+    ({ p, d } = setup()); d.pos = { x: 10.5, y: 9 }; p.cmdSkill('W', d.pos); run(2);
+    let ph = p.hp; Combat.damage(d, p, 100, { type: 'true' }); const fr = ph - p.hp; d.pos = { x: 5.5, y: 9 }; ph = p.hp; Combat.damage(d, p, 100, { type: 'true' }); const bk = ph - p.hp; d.pos = { x: 10.5, y: 9 };
+    T.ok('W: 앞에서 맞으면 60% 감소, 뒤는 그대로', Math.abs(fr - 40) < 0.5 && Math.abs(bk - 100) < 0.5, fr + '/' + bk);
+    run(320); T.ok('W: 파동 5회 + 마무리 피해', !p.alW && (Stats.dmgBy.W || 0) > 0 && Stats.hits.W >= 1, Math.round(Stats.dmgBy.W || 0));
+    // E: 대상 지정 → 0.8초 뒤 돌진 + 속박 · 8.25m 밖으로 나가면 취소(쿨 30% 반환)
+    ({ p, d } = setup()); d.pos = { x: 12, y: 9 }; p.cmdSkill('E', d.pos); run(60); const mid = V.dist(p.pos, { x: 8, y: 9 });
+    let rooted = false; for (let i = 0; i < 80; i++) { step(); if (d.root > 0) rooted = true; }
+    T.ok('E: 0.8초 동안 제자리 → 돌진 + 속박', mid < 0.05 && rooted && V.dist(p.pos, d.pos) < p.r + d.r + 0.3 && (Stats.dmgBy.E || 0) > 0);
+    ({ p, d } = setup()); d.pos = { x: 12, y: 9 }; p.cmdSkill('E', d.pos); run(30); d.pos = { x: 18, y: 9 }; run(80);
+    T.ok('E: 대상이 8.25m 밖이면 취소 · 쿨 30% 반환', V.dist(p.pos, { x: 8, y: 9 }) < 0.05 && Math.abs(p.skills.E.cd - lv(K.E.cd, p.L('E')) * 0.7 + 0.6) < 0.2, fmt(p.skills.E.cd, 2));
+    // R: 당기기 · 회복 · 3.5초 정신 집중 · 마무리 / 재입력 = 바로 마무리 / CC로 끊김
+    ({ p, d } = setup()); d.pos = { x: 11.5, y: 9 }; p.hp = p.maxHp * 0.5; const h0 = p.hp, dd0 = V.dist(p.pos, d.pos); p.cmdSkill('R', p.pos); run(30);
+    T.ok('R: 주변 적 당기기', V.dist(p.pos, d.pos) < dd0 - 1 && !!p.alR, fmt(V.dist(p.pos, d.pos), 2));
+    p.cmdMove({ x: 4, y: 9 }); run(5); T.ok('R: 정신 집중 중 이동 불가', V.dist(p.pos, { x: 8, y: 9 }) < 0.05);
+    run(420); T.ok('R: 3.5초 뒤 마무리 + 체력 회복', !p.alR && p.hp - h0 > 400 && (Stats.dmgBy.R || 0) > 0, Math.round(p.hp - h0));
+    ({ p, d } = setup()); d.pos = { x: 11, y: 9 }; p.cmdSkill('R', p.pos); run(60); const r0 = Stats.dmgBy.R || 0; p.cmdSkill('R', p.pos); run(3);
+    T.ok('R: 재입력 = 바로 마무리', !p.alR && (Stats.dmgBy.R || 0) > r0);
+    ({ p, d } = setup()); p.alBar.ready = false; p.alBar.immune = 0; p.cmdSkill('R', p.pos); run(30); const rr0 = Stats.dmgBy.R || 0; p.applyCC('stun', 0.5); run(3);
+    T.ok('R: 기절하면 끊김(마무리 없음)', !p.alR && (Stats.dmgBy.R || 0) === rr0);
+    // P: 이동 불가 1회 무효 + 0.1초 면역 · 피해 없이 일정 시간 → 다시 준비 · 적 실험체를 이동 불가로 만들면 회복
+    ({ p, d } = setup()); T.ok('P: 시작 시 배리어 준비', p.alBar.ready);
+    p.applyCC('stun', 1); p.applyCC('root', 1); T.ok('P: 첫 이동 불가 무효 + 0.1초 동안 추가 CC도 면역', p.stun === 0 && p.root === 0 && !p.alBar.ready);
+    run(20); p.applyCC('stun', 0.3); T.ok('P: 면역이 끝나면 CC 적용', p.stun > 0);
+    run(Math.round(lv(K.P.cd, p.L('P')) * 120) + 10); T.ok('P: 피해 없이 쿨이 지나면 다시 준비', p.alBar.ready);
+    // D 어퍼컷: 짧게 다가가 피해 + 연결된 적 기절
+    ({ p, d } = setup()); p.cmdSkill('Q', d.pos); run(80); d.pos = { x: p.pos.x + 2.6, y: 9 }; p.skills.D.cd = 0; p.cmdSkill('D', d.pos); run(3);
+    T.ok('D 어퍼컷: 다가가서 피해 + 연결 기절', (Stats.dmgBy.D || 0) > 0 && d.stun > 0 && V.dist(p.pos, d.pos) < p.r + d.r + K.D.range + 0.1);
+    // AI 알론소: 결투·팀 대전 — 팀에서는 앞라인
+    for (const [ch, map] of [['katja', 'basic'], ['cathy', 'arena']]) {
+      reset(); Settings.character = ch; let g = 0; Game.start('duel', { diff: 'normal', motif: 'alonso', enemyBuild: 'mid', map, rounds: 1, seed: 6 }); const ai = Modes.duel.enemy; let used = 0, last = Object.assign({}, ai.cds);
+      while (Game.state === 'play' && g < 120 * 90) { step(); g++; if (g % 12 === 0) { const q = Game.player; if (!q.dead && Game.freeze <= 0 && q.attackTarget !== ai && !ai.dead) q.cmdAttack(ai); } for (const k in ai.cds) if (ai.cds[k] > last[k] + 0.5) used++; last = Object.assign({}, ai.cds); }
+      T.ok(`AI 알론소(${ch} 상대·${map}): 결투가 끝나고 스킬 사용`, Game.state === 'result' && ai.melee && used >= 2 && errs.length === e0, `${(g / 120).toFixed(1)}s · 스킬 ${used}`);
+    }
+    reset(); Settings.character = 'rio'; Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 2, allies: ['alonso', 'chloe'], enemies: ['alonso', 'katja', 'aya'] });
+    T.ok('팀 대전: 알론소 = 앞라인', Game.mode.team(0).concat(Game.mode.team(1)).filter(u => u.motifKey === 'alonso').every(u => u.role === 'frontline'));
+    let g2 = 0; while (Game.state === 'play' && g2 < 120 * 120) { step(); g2++; if (g2 % 12 === 0) { const q = Game.player; if (!q.dead && Game.freeze <= 0) { const t = Game.nearestEnemy(q.pos, 9, q); if (t && q.attackTarget !== t) q.cmdAttack(t); else if (!t && !q.moveTarget) q.cmdMove({ x: 18, y: 18 }); } } }
+    T.ok('팀 대전: 알론소 2명 오류 없이 끝남', Game.state === 'result' && errs.length === e0, `${(g2 / 120).toFixed(0)}s`);
+    Renderer.frame(); T.ok('그리기 오류 없음', errs.length === e0, errs.slice(e0).join('/'));
+    Settings.character = 'cathy';
+  });
+
   G('리플레이', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.tactical = 'blink'; Settings.fog = true;
     const opts = { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'day', seed: 4321 };
@@ -811,6 +868,16 @@
         }
         Settings.models3dBy = {}; Models.ver++; Renderer.frame();
         T.ok(k + ' 기본 = Blender 모델(있으면)', Models.choice(k) === (Models.src[k + 'Blend'] ? 'blend' : 'cc0'));
+      }
+      // 알론소(근접 탱커, 남성 뼈대): 직접 만든·Blender 모델 · 평타 = 펀치 동작
+      { reset(); Settings.character = 'alonso'; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2);
+        T.ok('알론소 직접 만든 모델 생성', !!Models.src.alonsoProc && DESIGNS.alonso.rig === 'male');
+        for (const m of ['proc', 'blend']) {
+          if (m === 'blend' && !Models.src.alonsoBlend) continue;
+          Settings.models3dBy = { alonso: m }; Models.ver++; Renderer.frame(); const ra = rigOf(Game.player);
+          T.ok('알론소 ' + m + ' 모델(근접 · 펀치 동작)', !!ra && !ra.ranged && !!ra.actions.stabR && !!ra.actions.stabL && !!ra.actions.run);
+        }
+        Settings.models3dBy = {}; Models.ver++; Renderer.frame();
       }
       // 니나(클로에 인형): 직접 만든·Blender 모델, 아이 크기로 축소, 휘두를 때 공격 동작
       { reset(); Settings.character = 'chloe'; Game.start('dummy', { count: 1, hp: 3000, def: 50, infinite: true }); run(2); const nn = Game.player.nina;

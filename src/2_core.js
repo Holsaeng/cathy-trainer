@@ -520,6 +520,7 @@ const Combat = {
     if (o.min) dmg = Math.max(o.min, dmg);
     dmg *= ItemFx.damageMul(src, tgt, type);   // 장비: 집행자
     dmg = Math.max(0, dmg);
+    if (tgt.dmgMulFrom) dmg *= tgt.dmgMulFrom(src, type);   // 알론소 바운싱 실드: 전방 피해 감소
     const LK = !o.linked && tgt.linkFn && tgt.linkFn();   // 클로에 생명 공유: 맞은 쪽 70% + 연결된 쪽 60%
     if (LK && dmg > 0) { this.damage(src, LK.u, dmg * LK.share, { type: 'true', source: o.source, linked: true, noShake: true, tick: true }); dmg *= LK.hit; }
     let absorbed = 0;

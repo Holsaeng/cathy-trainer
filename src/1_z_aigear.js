@@ -24,6 +24,7 @@ CONFIG.aiGear = {
         { label: '완성 2위: 템페스트 / 현자의 로브 / 레가투스 / 월왕구천 / 알렉산드로스', gear: {weapon: 115503, chest: 202525, head: 201525, arm: 205305, leg: 204504} },
         { label: '시작(영웅): 대황 / 창파오 / 수정 티아라 / 미닛맨의 표식 / 부케팔로스', gear: {weapon: 115402, chest: 202420, head: 201404, arm: 203415, leg: 204408} },
       ] },
+    alonso: { name: '알론소', weapon: 'glove', base: {hp: [1000,94], ad: [36,4.2], def: [55,3.4], asBonus: 0.1, ms: 3.6, regen: [1.67,0.12]}, weaponAs: 0.63, mastery: {as: 0.023, sp: 0.04}, builds: [] },   // 12.5 닥지지 · 인기 빌드 미수집
     chloe: { name: '클로에', weapon: 'directfire', base: {hp: [920,73], ad: [32,4.3], def: [51,2.7], asBonus: 0.09, ms: 3.45, regen: [1.205,0.075]}, weaponAs: 0.55, mastery: {as: 0.031, baAmp: 0.016}, builds: [] },   // 12.5 닥지지 · 인기 빌드 미수집
     katja: { name: '카티야', weapon: 'sniper', base: {hp: [890,80], ad: [36,4.7], def: [52,2.7], asBonus: 0.13, ms: 3.5, regen: [1.2,0.09]}, weaponAs: 0.43, mastery: {as: 0.036, sp: 0, baAmp: 0.02},
       builds: [
