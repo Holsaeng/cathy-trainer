@@ -324,6 +324,20 @@
     Settings.character = 'cathy';
   });
 
+  // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
+  G('실측값 입력', () => {
+    reset(); const K = CONFIG.rangedKits;
+    T.ok('실측 항목 21개 · 경로가 모두 숫자', Measure.ITEMS.length === 21 && Measure.ITEMS.every(it => typeof Measure.value(it) === 'number'));
+    Measure.put('alonsoLink', 3.2); T.ok('입력 → 바로 적용', K.alonso.Q.markDur === 3.2 && Measure.measured(Measure.ITEMS[0]) && Measure.count() === 1);
+    Measure.put('sphereMove', 9); T.ok('여러 경로 항목(임시·최종 스피어 이동)', CONFIG.sphere.phases[3].dur === 9 && CONFIG.sphere.finalPhases[3].dur === 9);
+    Measure.put('plasmaShots', 7.6); T.ok('정수 항목은 반올림', CONFIG.tactical.plasmadash.shots === 8);
+    Measure.put('ninaRange', 99); T.ok('범위 밖은 최대값으로', K.chloe.P.range === 4);
+    Measure.put('ruptureR', 3); T.ok('아이템 효과(ItemFx)도 적용', ItemFx.RUPTURE.r === 3);
+    UI.showSettings(() => UI.showMenu()); click('[data-a="measure"]'); T.ok('설정 → 실측값 화면', document.querySelectorAll('[data-in="mv"]').length === 21 && document.getElementById('card').innerText.includes('✔ 실측 적용'));
+    click('[data-a="mclear"]'); T.ok('모두 지우기 → 추정값 복원', K.alonso.Q.markDur === 4 && CONFIG.sphere.phases[3].dur === 6 && CONFIG.tactical.plasmadash.shots === 5 && K.chloe.P.range === 1 && ItemFx.RUPTURE.r === 2.5 && Measure.count() === 0);
+    UI.showMenu();
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });

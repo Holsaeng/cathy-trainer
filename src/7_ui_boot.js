@@ -352,6 +352,25 @@ const UI = {
     });
   },
 
+  // 실측값 입력 (7_a_measure.js) — 항목별 현재 값 · 기본(추정)값 · 재는 방법 · 입력칸(비우면 기본값)
+  showMeasure(back) {
+    const groups = [...new Set(Measure.ITEMS.map(it => it.g))];
+    const row = it => { const m = Measure.measured(it), b = Measure.base(it), v = Measure.value(it);
+      return `<tr><td><b>${esc(it.label)}</b><div class="sub" style="margin:2px 0 0">${esc(it.how)}</div></td>
+        <td style="white-space:nowrap">${fmt(b, 2)} ${it.unit}<div class="sub" style="margin:0">추정</div></td>
+        <td style="white-space:nowrap"><input type="number" data-in="mv" data-k="${it.key}" min="${it.min}" max="${it.max}" step="${it.step}" value="${m ? v : ''}" placeholder="${fmt(b, 2)}" style="width:76px"> ${it.unit}
+          <div class="sub" style="margin:0" id="mvs-${it.key}">${m ? '<b style="color:#5dff9a">✔ 실측 적용</b>' : '추정값 사용 중'}</div></td></tr>`; };
+    this.show(`<h2>📏 실측값 입력</h2>
+      <div class="sub">공개 자료로 확정하지 못한 수치입니다. 게임(커스텀 게임·연습 모드)에서 재서 넣으면 시뮬레이터에 바로 적용되고 이 브라우저에 저장됩니다. 칸을 비우면 추정값으로 돌아갑니다.<br>
+        재는 요령: 화면 녹화(60fps) 후 프레임 수 ÷ 60 = 초 · 거리는 사거리 표시 원(알고 있는 m)을 자로 삼아 픽셀 비례 · 자세한 순서는 저장소의 docs/measure_guide.md</div>
+      ${groups.map(g => `<h3>${esc(g)}</h3><table><tr><th>항목</th><th>기본</th><th>실측</th></tr>${Measure.ITEMS.filter(it => it.g === g).map(row).join('')}</table>`).join('')}
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기 <kbd>Esc</kbd></button><button class="btn" data-a="mclear">실측값 모두 지우기</button></div>`, {
+      'in:mv': el => { Measure.put(el.dataset.k, el.value === '' ? null : el.value); const it = Measure.ITEMS.find(x => x.key === el.dataset.k), st = document.getElementById('mvs-' + el.dataset.k);
+        if (st) st.innerHTML = Measure.measured(it) ? `<b style="color:#5dff9a">✔ 실측 적용 (${fmt(Measure.value(it), 2)})</b>` : '추정값 사용 중'; },
+      mclear: () => { Settings.measured = {}; saveSettings(); Measure.apply(); this.showMeasure(back); },
+      back: () => back(),
+    }, { Escape: 'back' });
+  },
   showSettings(back) {
     this.settingsBack = back;
     const ch = Settings.character || 'cathy', K = CONFIG.rangedKits[ch], CN = { cathy: '캐시' }[ch] || (CONFIG.rangedMotifs[ch] || {}).name || ch;
@@ -386,6 +405,9 @@ const UI = {
       ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('ambient', '환경음(바람·새·귀뚜라미)')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
       <div class="row"><label>게임 속도 <b id="spdv">x${fmt(Settings.gameSpeed, 1)}</b> (느린 연습용)</label><input type="range" min="0.5" max="1.5" step="0.1" value="${Settings.gameSpeed}" data-in="gameSpeed"></div>
+      <h3>실측값</h3>
+      <div class="row"><button class="btn" data-a="measure">📏 실측값 입력 — 게임에서 직접 잰 값 (${Measure.count()}/${Measure.ITEMS.length} 입력됨)</button></div>
+      <div class="sub" style="margin:4px 0">위키·패치노트·공식 영상에 수치가 없는 추정값을, 게임 연습 모드에서 재서 넣으면 바로 적용됩니다.</div>
       <h3>키 설정 (버튼 클릭 후 새 키 입력, 겹치면 맞바꿈)</h3>
       <table>${Object.keys(names).map(k => `<tr><td>${names[k]}</td><td><button class="btn" data-a="bind" data-k="${k}">${(Settings.keys[k] || '').toUpperCase()}</button></td></tr>`).join('')}</table>
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
@@ -394,6 +416,7 @@ const UI = {
       cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       weather: d => { Settings.weather = d.v; saveSettings(); this.showSettings(back); },
+      measure: () => this.showMeasure(() => this.showSettings(back)),
       gq: d => { Settings.gfxQ = d.v; Gfx.autoLow = false; saveSettings(); Gfx.apply(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },

@@ -947,7 +947,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'fa07b55f';
+const BUILD_ID = 'e8ced15a';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -9318,6 +9318,79 @@ const Coach = {
   },
 };
 
+// ============================== 실측값 입력 (로드맵 A) ==============================
+// 공개 자료(위키·패치노트·공식 영상)로 확정하지 못한 추정값을 게임 연습 모드에서 직접 재서 넣는 곳.
+// 넣은 값은 Settings.measured에 저장되고 CONFIG(·ItemFx)에 바로 덮어씀. 지우면 기본(추정)값으로 돌아감.
+// 재는 방법 자세히: docs/measure_guide.md
+const Measure = {
+  ITEMS: [
+    { g: '알론소', key: 'alonsoLink', path: 'CONFIG.rangedKits.alonso.Q.markDur', label: 'Q 자력 연결 지속', unit: '초', min: 1, max: 10, step: 0.1,
+      how: 'Q를 맞힌 뒤 평타 없이 기다리며, 연결선이 사라질 때까지의 시간(녹화 프레임 ÷ fps).' },
+    { g: '알론소', key: 'alonsoBreak', path: 'CONFIG.rangedKits.alonso.Q.breakDist', label: 'Q 연결이 끊어지는 거리', unit: 'm', min: 3, max: 20, step: 0.1,
+      how: 'Q를 맞힌 뒤 뒤로 걸어 멀어지며 연결선이 끊기는 순간의 거리. 화면 자: E 사거리 원(4.75m)의 반지름 픽셀.' },
+    { g: '클로에', key: 'ninaRange', path: 'CONFIG.rangedKits.chloe.P.range', label: '니나 평타 사거리', unit: 'm', min: 0.5, max: 4, step: 0.05,
+      how: 'Alt+우클릭으로 니나에게 허수아비를 공격시키고, 니나가 멈춰서 때리기 시작하는 거리(니나 중심~허수아비 가장자리).' },
+    { g: '클로에', key: 'ninaSpeed', path: 'CONFIG.rangedKits.chloe.E.ninaSpeed', label: 'E 재사용 니나 돌진 속도', unit: 'm/s', min: 5, max: 60, step: 0.5,
+      how: '클로에와 니나를 7m 떨어뜨린 뒤 E 재사용 — 니나가 날아간 거리 ÷ 걸린 시간.' },
+    { g: '클로에', key: 'spinTick', path: 'CONFIG.rangedKits.chloe.W.tickEvery', label: 'W 회전 고정 피해 간격', unit: '초', min: 0.1, max: 1, step: 0.05,
+      how: '허수아비 옆에서 W(회전) — 고정 피해 숫자가 뜨는 간격.' },
+    { g: '클로에', key: 'linkRamp', path: 'CONFIG.rangedKits.chloe.R.ramp', label: 'R 연결선 피해가 최대가 되는 시간', unit: '초', min: 0.3, max: 6, step: 0.1,
+      how: 'R 후 허수아비가 연결선에 계속 닿게 두고, 틱 피해 숫자가 더 이상 커지지 않을 때까지의 시간.' },
+    { g: '카티야', key: 'snipeAim', path: 'CONFIG.rangedKits.katja.D.aim', label: '저격(D) 모드 진입 → 첫 발까지', unit: '초', min: 0, max: 2, step: 0.05,
+      how: 'D를 누른 순간부터 첫 발을 쏠 수 있게 될 때까지(D 연타로 처음 나가는 시각).' },
+    { g: '캐시', key: 'bleedTick', path: 'CONFIG.passive.tick', label: '외상 출혈 피해 간격', unit: '초', min: 0.1, max: 2, step: 0.05,
+      how: '허수아비에 스킬 1번 — 외상 출혈 숫자가 뜨는 간격.' },
+    { g: '캐시', key: 'sutureHome', path: 'CONFIG.skills.E.homingRange', label: '수쳐 2인 적중 유도 거리', unit: 'm', min: 0, max: 8, step: 0.1,
+      how: '허수아비 2개를 일직선에서 조금씩 비껴 놓고, 첫 대상을 지나 두 번째에 붙는(유도되는) 최대 거리.' },
+    { g: '시스템', key: 'combat', path: 'CONFIG.rest.combatDur', label: '전투 상태 해제 시간', unit: '초', min: 1, max: 20, step: 0.5,
+      how: '마지막으로 피해를 주고받은 뒤 휴식(X) — 비전투 추가 회복(0.5초마다 2%)이 붙기 시작할 때까지.' },
+    { g: '시스템', key: 'assist', path: 'CONFIG.sphere.boom.assist', label: '처치 관여로 인정되는 시간', unit: '초', min: 1, max: 30, step: 0.5,
+      how: '적에게 피해를 주고 손을 뗀 뒤 몇 초 안에 아군이 처치해야 어시스트(폭발 타이머 +7초)가 되는지 — 커스텀 게임.' },
+    { g: '시스템', key: 'nightRamp', path: 'CONFIG.vision.night.ramp', label: '밤 시야가 회복되는 시간', unit: '초', min: 1, max: 120, step: 1,
+      how: '밤이 된 순간 시야 3.4m에서 6.4m까지 넓어지는 데 걸리는 시간(시야 경계를 녹화).' },
+    { g: '시스템', key: 'noiseSkill', path: 'CONFIG.vision.noise.skill', label: '시야 밖 스킬 소리(!) 들리는 거리', unit: 'm', min: 3, max: 30, step: 0.5,
+      how: '친구가 시야 밖에서 스킬을 쓸 때 「!」 표시가 뜨는 최대 거리.' },
+    { g: '시스템', key: 'noiseAttack', path: 'CONFIG.vision.noise.attack', label: '시야 밖 평타 소리(!) 들리는 거리', unit: 'm', min: 3, max: 30, step: 0.5,
+      how: '친구가 시야 밖에서 평타할 때 「!」가 뜨는 최대 거리.' },
+    { g: '시스템', key: 'noiseStep', path: 'CONFIG.vision.noise.step', label: '발소리 들리는 거리', unit: 'm', min: 1, max: 20, step: 0.5,
+      how: '친구가 시야 밖에서 걸을 때 발자국이 보이는 최대 거리.' },
+    { g: '시스템', key: 'droneR', path: 'CONFIG.vision.drone.r', label: '정찰 드론 시야 반경', unit: 'm', min: 1, max: 15, step: 0.5,
+      how: '드론을 띄운 지점에서 밝혀지는 원의 반지름(화면 자로 환산).' },
+    { g: '시스템', key: 'plasmaShots', path: 'CONFIG.tactical.plasmadash.shots', label: '플라즈마 대시 투사체 수', unit: '개', min: 1, max: 15, step: 1, int: true,
+      how: '플라즈마 대시를 쓰고 녹화를 멈춰 부채꼴로 날아가는 투사체 개수를 셈.' },
+    { g: '시스템', key: 'sphereMove', paths: ['CONFIG.sphere.phases.3.dur', 'CONFIG.sphere.finalPhases.3.dur'], label: '크로노 스피어 이동 시간', unit: '초', min: 1, max: 30, step: 0.5,
+      how: '이동 지점 표시가 끝나고 스피어가 출발해서 목표 지점에 닿을 때까지.' },
+    { g: '아이템', key: 'galeR', path: 'ItemFx.RANGE.gale', label: '돌풍 반경', unit: 'm', min: 0.5, max: 8, step: 0.1, how: '효과가 터지는 원의 반지름(화면 자로 환산).' },
+    { g: '아이템', key: 'masterR', path: 'ItemFx.RANGE.master', label: '달인 반경', unit: 'm', min: 0.5, max: 8, step: 0.1, how: '효과 원의 반지름.' },
+    { g: '아이템', key: 'ruptureR', path: 'ItemFx.RUPTURE.r', label: '파열 폭발 반경', unit: 'm', min: 0.5, max: 8, step: 0.1, how: '스킬 피해 0.8초 뒤 터지는 폭발 원의 반지름.' },
+  ],
+  defaults: {},
+  paths(it) { return it.paths || [it.path]; },
+  root(p) { const a = p.split('.'); return { obj: a[0] === 'CONFIG' ? CONFIG : a[0] === 'ItemFx' ? ItemFx : null, keys: a.slice(1) }; },
+  get(p) { let { obj, keys } = this.root(p); for (const k of keys) { if (obj == null) return undefined; obj = obj[k]; } return obj; },
+  set(p, v) { let { obj, keys } = this.root(p); for (const k of keys.slice(0, -1)) obj = obj[k]; obj[keys[keys.length - 1]] = v; },
+  // 처음 한 번 기본(추정)값을 기억해 두고, 저장된 실측값을 덮어씀
+  apply() {
+    const M = Settings.measured || {};
+    for (const it of this.ITEMS) for (const p of this.paths(it)) {
+      if (!(p in this.defaults)) this.defaults[p] = this.get(p);
+      const v = M[it.key]; this.set(p, typeof v === 'number' && isFinite(v) ? v : this.defaults[p]);
+    }
+  },
+  value(it) { return this.get(this.paths(it)[0]); },
+  base(it) { return this.defaults[this.paths(it)[0]]; },
+  measured(it) { return typeof (Settings.measured || {})[it.key] === 'number'; },
+  put(key, v) {
+    const it = this.ITEMS.find(x => x.key === key); if (!it) return false;
+    const M = Object.assign({}, Settings.measured);
+    if (v === null || v === '' || !isFinite(+v)) delete M[key];
+    else { let n = clamp(+v, it.min, it.max); if (it.int) n = Math.round(n); M[key] = n; }
+    Settings.measured = M; saveSettings(); this.apply(); return true;
+  },
+  count() { return this.ITEMS.filter(it => this.measured(it)).length; },
+};
+Measure.apply();
+
 // ============================== 사이드 패널 ==============================
 const Side = {
   el: null,
@@ -9671,6 +9744,25 @@ const UI = {
     });
   },
 
+  // 실측값 입력 (7_a_measure.js) — 항목별 현재 값 · 기본(추정)값 · 재는 방법 · 입력칸(비우면 기본값)
+  showMeasure(back) {
+    const groups = [...new Set(Measure.ITEMS.map(it => it.g))];
+    const row = it => { const m = Measure.measured(it), b = Measure.base(it), v = Measure.value(it);
+      return `<tr><td><b>${esc(it.label)}</b><div class="sub" style="margin:2px 0 0">${esc(it.how)}</div></td>
+        <td style="white-space:nowrap">${fmt(b, 2)} ${it.unit}<div class="sub" style="margin:0">추정</div></td>
+        <td style="white-space:nowrap"><input type="number" data-in="mv" data-k="${it.key}" min="${it.min}" max="${it.max}" step="${it.step}" value="${m ? v : ''}" placeholder="${fmt(b, 2)}" style="width:76px"> ${it.unit}
+          <div class="sub" style="margin:0" id="mvs-${it.key}">${m ? '<b style="color:#5dff9a">✔ 실측 적용</b>' : '추정값 사용 중'}</div></td></tr>`; };
+    this.show(`<h2>📏 실측값 입력</h2>
+      <div class="sub">공개 자료로 확정하지 못한 수치입니다. 게임(커스텀 게임·연습 모드)에서 재서 넣으면 시뮬레이터에 바로 적용되고 이 브라우저에 저장됩니다. 칸을 비우면 추정값으로 돌아갑니다.<br>
+        재는 요령: 화면 녹화(60fps) 후 프레임 수 ÷ 60 = 초 · 거리는 사거리 표시 원(알고 있는 m)을 자로 삼아 픽셀 비례 · 자세한 순서는 저장소의 docs/measure_guide.md</div>
+      ${groups.map(g => `<h3>${esc(g)}</h3><table><tr><th>항목</th><th>기본</th><th>실측</th></tr>${Measure.ITEMS.filter(it => it.g === g).map(row).join('')}</table>`).join('')}
+      <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기 <kbd>Esc</kbd></button><button class="btn" data-a="mclear">실측값 모두 지우기</button></div>`, {
+      'in:mv': el => { Measure.put(el.dataset.k, el.value === '' ? null : el.value); const it = Measure.ITEMS.find(x => x.key === el.dataset.k), st = document.getElementById('mvs-' + el.dataset.k);
+        if (st) st.innerHTML = Measure.measured(it) ? `<b style="color:#5dff9a">✔ 실측 적용 (${fmt(Measure.value(it), 2)})</b>` : '추정값 사용 중'; },
+      mclear: () => { Settings.measured = {}; saveSettings(); Measure.apply(); this.showMeasure(back); },
+      back: () => back(),
+    }, { Escape: 'back' });
+  },
   showSettings(back) {
     this.settingsBack = back;
     const ch = Settings.character || 'cathy', K = CONFIG.rangedKits[ch], CN = { cathy: '캐시' }[ch] || (CONFIG.rangedMotifs[ch] || {}).name || ch;
@@ -9705,6 +9797,9 @@ const UI = {
       ${cb('showRange', '스킬 사거리·범위 미리보기 표시')}${cb('showHitbox', '히트박스 표시')}${cb('sound', '효과음')}${cb('ambient', '환경음(바람·새·귀뚜라미)')}${cb('reduceShake', '화면 흔들림 끄기')}
       <div class="row"><label>볼륨</label><input type="range" min="0" max="1" step="0.05" value="${Settings.volume}" data-in="volume"></div>
       <div class="row"><label>게임 속도 <b id="spdv">x${fmt(Settings.gameSpeed, 1)}</b> (느린 연습용)</label><input type="range" min="0.5" max="1.5" step="0.1" value="${Settings.gameSpeed}" data-in="gameSpeed"></div>
+      <h3>실측값</h3>
+      <div class="row"><button class="btn" data-a="measure">📏 실측값 입력 — 게임에서 직접 잰 값 (${Measure.count()}/${Measure.ITEMS.length} 입력됨)</button></div>
+      <div class="sub" style="margin:4px 0">위키·패치노트·공식 영상에 수치가 없는 추정값을, 게임 연습 모드에서 재서 넣으면 바로 적용됩니다.</div>
       <h3>키 설정 (버튼 클릭 후 새 키 입력, 겹치면 맞바꿈)</h3>
       <table>${Object.keys(names).map(k => `<tr><td>${names[k]}</td><td><button class="btn" data-a="bind" data-k="${k}">${(Settings.keys[k] || '').toUpperCase()}</button></td></tr>`).join('')}</table>
       <div class="row" style="margin-top:12px"><button class="btn" data-a="back">← 돌아가기</button><button class="btn" data-a="reset">기본값 복원</button></div>`, {
@@ -9713,6 +9808,7 @@ const UI = {
       cmodel: d => { Settings.models3dBy = Object.assign({}, Settings.models3dBy, { [d.k]: d.v }); saveSettings(); Models.ver++; this.showSettings(back); },   // 모델 교체 → Render3D가 다시 만듦
       gfx: d => { Settings.gfx = d.v; saveSettings(); Renderer.setMode(d.v); this.showSettings(back); },
       weather: d => { Settings.weather = d.v; saveSettings(); this.showSettings(back); },
+      measure: () => this.showMeasure(() => this.showSettings(back)),
       gq: d => { Settings.gfxQ = d.v; Gfx.autoLow = false; saveSettings(); Gfx.apply(); this.showSettings(back); },
       'in:cm': el => { if (el.value) Settings.castModes[el.dataset.k] = el.value; else delete Settings.castModes[el.dataset.k]; saveSettings(); },
       'in:showRange': el => { Settings.showRange = el.checked; saveSettings(); },
