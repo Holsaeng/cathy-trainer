@@ -328,6 +328,10 @@ class RangedDuelist extends Duelist {
   think() {
     const p = this.foe; if (!p || p.dead) return;
     const RA = CONFIG.rangedAI, d = V.dist(this.pos, p.pos);
+    // 폭발 타이머: 최종 안전지대 밖에서 타이머가 바닥나기 전에 무조건 안으로 · 타이머가 많은 쪽은 버팀(최대 사거리 유지)
+    const back = Sphere.urgent(this); if (back) { this.moveTarget = back; this.kiteT = 0.5; this.stats.boomBack = (this.stats.boomBack || 0) + 1; return; }
+    // 버팀(타이머가 많은 쪽): 물러나기만 하면 못 쏨 → 평타 사거리 끝을 지키며 계속 쏘기(너무 붙으면 끝 사거리로) · 진입·추격은 팀 AI가 막음
+    if (Sphere.stance(this) === 'stall' && !this.melee && d < this.aaRange() - 0.8 && this.kiteT <= 0 && this.aaCd > 0.15) { this.moveTarget = this.pickSpot(p, this.aaRange() - 0.2, 2.2); this.kiteT = 0.3; this.stats.stall = (this.stats.stall || 0) + 1; }
     // ⑥ 위협(캐시가 붙음 / Q·R 돌진) → 키트별 이탈·반격 (벽 쪽은 피해서)
     // 플레이어 다니엘: 그림자 평타(3m) 상태면 더 멀리서부터 위협, 영감 표식이 걸리면 빠짐 ("표식 = 암살 선언")
     const dan = (p.charKey || p.motifKey) === 'daniel', marked = dan && p.mark && p.mark.target === this && d < 7 && !this.melee;
@@ -396,6 +400,7 @@ class RangedDuelist extends Duelist {
   }
   hunt() {
     const H = CONFIG.rangedAI.hunt, B = this.belief; B.t += H.think;
+    const back = Sphere.urgent(this); if (back) { this.moveTarget = back; this.kiteT = 0; return; }   // 폭발 타이머: 수색 중에도 먼저 안으로
     const est = this.estimate();
     if (this.canAct() && this.useVisionItem(est, B)) return;
     // 일정 시간 안 보이면 스킬로 부쉬 체크(정찰 다트·곡사·연사 등) — 맞히면 피격 노출로 다시 보임
@@ -412,7 +417,7 @@ class RangedDuelist extends Duelist {
       const dq = B && B.bush >= 0 ? Vision.rectDist(q, CONFIG.bushes[B.bush]) + 0.8 : V.dist(q, est);
       let bushPen = 0; (CONFIG.bushes || []).forEach((b, j) => { if (j !== (B && B.bush)) { const d = Vision.rectDist(q, b); if (d < H.bushAvoid) bushPen += (H.bushAvoid - d) * 2; } });
       const da = angDiff(V.ang(V.sub(q, est)), base), sideOk = Math.sign(da) === this.side ? 0.5 : 0;
-      const sc = -Math.abs(dq - safe) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
+      const sc = -Math.abs(dq - safe) * 1.5 - bushPen - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.7) + sideOk + rnd() * 0.3 - Sphere.penalty(q, this) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -424,7 +429,7 @@ class RangedDuelist extends Duelist {
     for (let i = 0; i < 16; i++) {
       const q = Geo.pushOut(V.add(this.pos, V.mul(V.fromAng(base + i * Math.PI / 8), step)), this.r);
       const dq = V.dist(q, p.pos), da = angDiff(V.ang(V.sub(q, p.pos)), base), sideOk = Math.sign(da) === this.side ? 0.4 : 0;
-      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + rnd() * 0.2 - Sphere.penalty(q) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);   // 크로노 스피어 차단벽 근처 회피
+      const sc = -Math.abs(dq - want) * 2 - Math.max(0, RA.wallAvoid - wallClearance(q)) * 3 + Math.min(Math.abs(da), 0.6) + sideOk + rnd() * 0.2 - Sphere.penalty(q, this) - (Game.mode && Game.mode.spotPenalty ? Game.mode.spotPenalty(this, q) : 0);   // 크로노 스피어 차단벽 근처 회피
       if (sc > bs) { bs = sc; best = q; }
     }
     return best;
@@ -501,7 +506,10 @@ const Stats = {
   tick(dt) { this.t += dt; },
   input() { this.inputs++; },
   cast(k) { this.casts[k] = (this.casts[k] || 0) + 1; },
-  hit(k, id) { const key = k + ':' + id; if (this.hitKeys.has(key)) return false; this.hitKeys.add(key); this.hits[k] = (this.hits[k] || 0) + 1; return true; },
+  // 적중은 시전 수를 넘지 않음(적중률 ≤ 100%)
+  hit(k, id) { const key = k + ':' + id; if (this.hitKeys.has(key)) return false; this.hitKeys.add(key); if ((this.hits[k] || 0) < (this.casts[k] || 0)) this.hits[k] = (this.hits[k] || 0) + 1; return true; },
+  // 시전 1회당 적중 1회: 여러 번 때리는 스킬(틱·다단·인형)은 마지막 시전 기준
+  hitCast(k) { return this.hit(k, '#' + (this.casts[k] || 0)); },
   dealt(src, d) { this.dmgBy[src] = (this.dmgBy[src] || 0) + d; this.dealtTotal += d; const i = Math.floor(this.t); this.timeline[i] = (this.timeline[i] || 0) + d; },
   mistake(txt) {
     this.mistakes[txt] = (this.mistakes[txt] || 0) + 1;

@@ -97,7 +97,7 @@ const TeamAI = {
       s -= W.dist * Math.max(0, gap - range);
       if (!easy) {
         if (this.isMelee(u) && carries.some(a => V.dist(a.pos, u.pos) < T.peelDist)) s += W.peel * (ai.role === 'frontline' ? 2 : 1);   // 필: 아군 원딜에 붙은 근접
-        if (est(u) >= u.hp && gap <= range + 0.5) s += W.kill;                                                                          // 킬각
+        if (est(u) >= u.hp && gap <= range + 0.5) s += W.kill * (Sphere.pressing(ai) ? CONFIG.sphere.ai.killMul : 1);   // 폭발 타이머: 처치 관여 +7초                                                                          // 킬각
         if (ai.role !== 'flanker' && efront.some(f => f !== u && V.dist(ai.pos, f.pos) < d && Geo.segDist(f.pos, ai.pos, u.pos) < 3)) s -= W.dive;   // 앞라인 너머 다이브 금지
         if (ai.role === 'flanker' && this.isCarry(u)) s += W.flank + 20 * (1 - u.hp / u.maxHp);                                        // 측면: 체력 낮은 원딜
         if (!melee && this.isMelee(u) && d < T.threatDist + u.r) s += W.threat;                                                          // 원딜에게 붙은 근접 → 그걸 침
@@ -130,7 +130,8 @@ const TeamAI = {
     const back = () => { const away = fc ? V.norm(V.sub(c, fc)) : V.norm(V.sub(c, ai.pos)); return Geo.pushOut(V.add(c, V.mul(away, T.regroupBack)), ai.r); };
     const go = (q, t, why) => { ai.moveTarget = q; ai.kiteT = t; ai.teamMove = why; ai.stats[why] = (ai.stats[why] || 0) + 1; return true; };
     // ① 개인 후퇴: 체력이 낮고 적이 사거리 안 → 아군 쪽(뒤)으로
-    const low = melee ? T.lowHp.melee : T.lowHp.ranged;
+    if (Sphere.stance(ai) === 'push' && hpR > 0.15) return false;   // 타이머가 적은 팀: 물러나면 먼저 터짐 → 끝까지 교전
+    const stall = Sphere.stance(ai) === 'stall', low = (melee ? T.lowHp.melee : T.lowHp.ranged) + (stall ? 0.15 : 0);   // 버팀: 일찍 빠짐
     if (hpR < low && foes.some(f => V.dist(f.pos, ai.pos) < (this.isMelee(f) ? 4 : (f.aaRange ? f.aaRange() : 6)) + 1)) return go(back(), 0.7, 'retreats');
     if (easy) return false;
     // ② 팀 후퇴: 체크리스트 ≤ 1 이고 수적 열세
@@ -144,6 +145,7 @@ const TeamAI = {
     if (nearest > T.spacingMax && foes.filter(f => V.dist(f.pos, ai.pos) < 6).length >= 2) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.7), ai.r), 0.5, 'regroups');
     // ④ 추격 한계: 아군 중심에서 8m 넘게 도망간 적은 쫓지 않음(사거리 밖일 때)
     const fleeing = p && p.vel && V.dot(p.vel, V.sub(p.pos, c)) > 0.5;   // 아군 중심에서 멀어지는 쪽으로 움직이는 중
+    if (p && !p.dead && fleeing && stall && d > (melee ? 3 : ai.aaRange()) + 0.5) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.5), ai.r), 0.5, 'chaseStops');   // 버팀: 도망가는 적은 안 쫓음(시간은 우리 편)
     if (p && !p.dead && fleeing && V.dist(p.pos, c) > T.chaseDist && d > (melee ? 3 : ai.aaRange()) + 1 && p.hp / p.maxHp > 0.2) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.5), ai.r), 0.5, 'chaseStops');
     // ⑤ 재집결: 근처에 적이 없는데 혼자 멀리 떨어짐
     if (V.dist(ai.pos, c) > T.regroup && (!p || p.dead || d > 9)) return go(Geo.pushOut(V.lerp(ai.pos, c, 0.6), ai.r), 0.5, 'regroups');
@@ -159,7 +161,7 @@ const TeamAI = {
   stance(t) { return this.reach(t) < this.reach(1 - t) - CONFIG.teamAI.reachMargin ? 'dive' : 'hold'; },
   // 궁 아끼기: 아군이 대상 근처에 없으면(마무리·위기 아니면) R을 쓰지 않음
   holdUlt(ai, p) {
-    if (ai.diffKey === 'easy' || !p || p.dead) return false;
+    if (ai.diffKey === 'easy' || !p || p.dead || Sphere.stance(ai) === 'push') return false;
     const mates = this.mates(ai); if (!mates.length) return false;
     if (p.hp / p.maxHp < 0.35 || ai.hp / ai.maxHp < 0.4) return false;
     return !mates.some(a => V.dist(a.pos, p.pos) < CONFIG.teamAI.ultHoldDist);
@@ -167,6 +169,7 @@ const TeamAI = {
   // 측면(다니엘) 진입 허락: 아군이 먼저 교전 중 · 수적 우위 · 대상 고립 · 대상 빈사 · 팔이 짧은 팀(dive) (쉬움은 항상)
   mayEngage(ai, p) {
     if (ai.diffKey === 'easy' || !this.mates(ai).length) return true;
+    const ss = Sphere.stance(ai); if (ss === 'push') return true; if (ss === 'stall' && p.hp / p.maxHp > 0.3) return false;   // 폭발 타이머 운영
     const now = Game.time, mates = this.mates(ai), CL = this.checklist(ai.team);
     if (this.stance(ai.team) === 'dive' && CL.score >= CONFIG.teamAI.diveScore) return true;
     if (mates.some(a => now - (a.lastFight || -99) < 2 && V.dist(a.pos, p.pos) < 8)) return true;

@@ -90,7 +90,7 @@ const ChloeCore = {
     Combat.damage(o, u, n.ad * (crit ? 1.75 : 1) * mul, { type: 'normal', source: o.diff ? '적 니나' : 'Nina', crit, pen: n.penPct });
     FX.burst(u.pos, n.color, 4, 3);
     const P = o.ch.K.P;
-    if (u.chloeBy === o && u.chloeMarks >= P.marks && Game.time - u.chloeT < 5) { u.chloeMarks = 0; o.ch.hit(u, lv(P.stab, o.ch.L('P')) + n.ad * P.stabAd, 'P', { pen: n.penPct, hid: 'P:' + Game.time }); FX.text(u.pos, '찌르기', n.color, 12, { bold: true }); }
+    if (u.chloeBy === o && u.chloeMarks >= P.marks && Game.time - u.chloeT < 5) { u.chloeMarks = 0; o.ch.hit(u, lv(P.stab, o.ch.L('P')) + n.ad * P.stabAd, 'P', { pen: n.penPct }); FX.text(u.pos, '찌르기', n.color, 12, { bold: true }); }
   },
   onAAHit(o, u) {
     o.lastAAT = { u, t: Game.time };
@@ -101,49 +101,49 @@ const ChloeCore = {
   // Q 공격 명령: 니나 주변 반경 2.5m 베기 + 둔화 (0.2초 뒤 판정, 클로에 행동은 막지 않음, 니나 평타 초기화)
   q(o) {
     const n = o.nina, Q = o.ch.K.Q; if (!this.up(o)) return false;
-    o.ch.cdStart('Q'); n.swing = null; n.aaCd = 0; const cid = ++o.chSeq, l = o.ch.L('Q');
+    o.ch.cdStart('Q'); n.swing = null; n.aaCd = 0; const l = o.ch.L('Q');
     FX.ring(n.pos, 0.3, Q.radius, n.color, 0.25);
     this.later(o, Q.delay, () => {
       if (n.dead) return; FX.ring(n.pos, Q.radius * 0.6, Q.radius, '#ffffff', 0.25); let hit = false;
-      for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= Q.radius + u.r) { hit = true; o.ch.hit(u, lv(Q.base, l) + n.ad * Q.ninaAd, 'Q', { pen: n.penPct, hid: 'Q:' + cid }); u.addSlow(lv(Q.slow, l), Q.slowDur); }
+      for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= Q.radius + u.r) { hit = true; o.ch.hit(u, lv(Q.base, l) + n.ad * Q.ninaAd, 'Q', { pen: n.penPct }); u.addSlow(lv(Q.slow, l), Q.slowDur); }
       o.ch.S.resolveShot('Q', hit);
     });
     return true;
   },
   // W 1단계: 3초 회전 (주변 고정 피해 · 둔화, 평타 불가 · Q·E만 사용 가능)
-  w1(o) { o.spin = { t: o.ch.K.W.spin, acc: 0, id: ++o.chSeq, t0: Game.time }; FX.text(o.pos, o.ch.K.W.name, o.ch.color, 12, { bold: true }); Sfx.play('click'); },
+  w1(o) { o.spin = { t: o.ch.K.W.spin, acc: 0, t0: Game.time }; FX.text(o.pos, o.ch.K.W.name, o.ch.color, 12, { bold: true }); Sfx.play('click'); },
   // W 2단계: 지점(6.5m)에 칼날 자수 → 니나 순간이동 내려찍기(에어본) → 자수가 클로에 쪽으로 튕김
   w2(o, aim) {
     const W = o.ch.K.W, l = o.ch.L('W'), d = Math.min(W.range, V.dist(o.pos, aim)), dir = d > 0.05 ? V.norm(V.sub(aim, o.pos)) : V.fromAng(o.facing);
-    const pt = Geo.pushOut(V.add(o.pos, V.mul(dir, d)), 0.2), id = o.spin ? o.spin.id : ++o.chSeq; o.spin = null; o.ch.cdStart('W'); Sfx.play('throw'); o.facing = V.ang(dir);
+    const pt = Geo.pushOut(V.add(o.pos, V.mul(dir, d)), 0.2); o.spin = null; o.ch.cdStart('W'); Sfx.play('throw'); o.facing = V.ang(dir);
     FX.text(pt, '칼날 자수', o.ch.color, 12, { bold: true });
     this.later(o, W.throwTime, () => {
       FX.ring(pt, 0.3, W.r, o.ch.color, 0.3); let hit = false;
-      for (const u of o.ch.foes()) if (V.dist(u.pos, pt) <= W.r + u.r) { hit = true; o.ch.hit(u, lv(W.base, l) + o.ad * W.ad, 'W', { hid: 'W2:' + id }); u.addSlow(lv(W.slow, l), W.slowDur); }
+      for (const u of o.ch.foes()) if (V.dist(u.pos, pt) <= W.r + u.r) { hit = true; o.ch.hit(u, lv(W.base, l) + o.ad * W.ad, 'W'); u.addSlow(lv(W.slow, l), W.slowDur); }
       o.ch.S.resolveShot('W', hit);
       const n = o.nina; if (!this.up(o) || n.root > 0 || n.stun > 0) return;   // 니나가 이동 방해를 받았으면 내려찍기 없음
       n.pos = V.copy(pt); n.dash = null; n.swing = null; n.moveTarget = null; n.busyT = W.slamDelay; FX.ring(pt, 0.2, 1, n.color, 0.3);
       this.later(o, W.slamDelay, () => {
         if (n.dead) return; FX.ring(n.pos, 0.5, W.slamR, '#ffffff', 0.35);
-        for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= W.slamR + u.r) { o.ch.hit(u, lv(W.slam, l) + n.ad * W.slamAd, 'W', { pen: n.penPct, hid: 'W3:' + id }); if (u.applyCC('stun', W.airborne)) { u.airborneT = Game.time + W.airborne; FX.text(u.pos, '에어본', '#ffd166', 12, { bold: true }); } }
+        for (const u of n.foes()) if (V.dist(u.pos, n.pos) <= W.slamR + u.r) { o.ch.hit(u, lv(W.slam, l) + n.ad * W.slamAd, 'W', { pen: n.penPct }); if (u.applyCC('stun', W.airborne)) { u.airborneT = Game.time + W.airborne; FX.text(u.pos, '에어본', '#ffd166', 12, { bold: true }); } }
         const back = V.dist(o.pos, n.pos) > 0.1 ? V.norm(V.sub(o.pos, n.pos)) : { x: 1, y: 0 };
         o.chPick = { pos: Geo.pushOut(V.add(n.pos, V.mul(back, Math.min(W.bounce, V.dist(o.pos, n.pos)))), 0.2), t: W.pickLife };
       });
     });
   },
   // E 1단계 경로 피해 (돌진 시작점 → 끝점)
-  e1Hits(o, from, to) { const E = o.ch.K.E, cid = ++o.chSeq; for (const u of o.ch.foes()) if (Geo.segDist(u.pos, from, to) <= u.r + E.width / 2) o.ch.hit(u, lv(E.base, o.ch.L('E')) + o.ad * E.ad, 'E', { hid: 'E:' + cid }); },
+  e1Hits(o, from, to) { const E = o.ch.K.E; for (const u of o.ch.foes()) if (Geo.segDist(u.pos, from, to) <= u.r + E.width / 2) o.ch.hit(u, lv(E.base, o.ch.L('E')) + o.ad * E.ad, 'E'); },
   // E 2단계: 니나가 클로에 쪽으로 최대 7m 돌진 · 적중 시 Q 쿨 초기화
   e2(o) {
     const E = o.ch.K.E, l = o.ch.L('E'), n = o.nina; o.eRe = null; o.ch.cdStart('E');
-    const d = Math.min(E.ninaDist, V.dist(n.pos, o.pos)), dir = d > 0.05 ? V.norm(V.sub(o.pos, n.pos)) : V.fromAng(o.facing), cid = ++o.chSeq; let reset = false;
+    const d = Math.min(E.ninaDist, V.dist(n.pos, o.pos)), dir = d > 0.05 ? V.norm(V.sub(o.pos, n.pos)) : V.fromAng(o.facing); let reset = false;
     n.swing = null; n.dash = { from: V.copy(n.pos), to: V.add(n.pos, V.mul(dir, Math.max(0.5, d))), t: 0, dur: Math.max(0.05, d / E.ninaSpeed), width: E.ninaWidth, hit: new Set(),
-      onHit: u => { o.ch.hit(u, lv(E.ninaBase, l) + n.ad * E.ninaAd, 'E', { pen: n.penPct, hid: 'E2:' + cid }); if (!reset && (isHero(u) || u.kind === 'dummy')) { reset = true; o.ch.cdSet('Q', 0); FX.text(o.pos, 'Q 초기화', '#ffd166', 12, { bold: true }); } } };
+      onHit: u => { o.ch.hit(u, lv(E.ninaBase, l) + n.ad * E.ninaAd, 'E', { pen: n.penPct }); if (!reset && (isHero(u) || u.kind === 'dummy')) { reset = true; o.ch.cdSet('Q', 0); FX.text(o.pos, 'Q 초기화', '#ffd166', 12, { bold: true }); } } };
     FX.text(n.pos, '니나 돌진', n.color, 12, { bold: true });
   },
   // R 생명 공유: 5초 링크 — 피해 분담(맞은 쪽 70% + 다른 쪽 60%) · 둘 다 체력이 다 떨어져야 사망 · 연결선 고정 피해 · W·E 남은 쿨 30% 감소
   r(o) {
-    const R = o.ch.K.R; o.ch.cdStart('R'); o.link = { t: R.dur, acc: 0, contact: {}, id: ++o.chSeq };
+    const R = o.ch.K.R; o.ch.cdStart('R'); o.link = { t: R.dur, acc: 0, contact: {} };
     for (const k of ['W', 'E']) o.ch.cdMul(k, 1 - R.cdCut);
     FX.text(o.pos, R.name, '#ffd166', 14, { bold: true }); Sfx.play('ult');
   },
@@ -173,7 +173,7 @@ const ChloeCore = {
       const W = K.W; S.t -= dt; S.acc += dt; o.ch.noAA(0.15);
       if (S.acc >= W.tickEvery) {
         S.acc -= W.tickEvery; const amt = (lv(W.tick, o.ch.L('W')) + o.ad * W.tickAd) * W.tickEvery;
-        for (const u of o.ch.foes()) if (V.dist(u.pos, o.pos) <= W.spinR + u.r) { o.ch.hit(u, amt, 'W', { type: 'true', hid: 'W:' + S.id, tick: true }); u.addSlow(W.spinSlow, W.tickEvery + 0.1); }
+        for (const u of o.ch.foes()) if (V.dist(u.pos, o.pos) <= W.spinR + u.r) { o.ch.hit(u, amt, 'W', { type: 'true', tick: true }); u.addSlow(W.spinSlow, W.tickEvery + 0.1); }
       }
       if (S.t <= 0 || o.stun > 0 || o.silence > 0 || o.dead) { o.spin = null; o.ch.cdStart('W'); o.ch.cdMul('W', W.refund); }
     }
@@ -191,7 +191,7 @@ const ChloeCore = {
       if (L.acc >= R.tick && n && !n.dead) {
         L.acc -= R.tick;
         for (const u of o.ch.foes()) {
-          if (Geo.segDist(u.pos, o.pos, n.pos) <= u.r + 0.15) { const c = (L.contact[u.id] = (L.contact[u.id] || 0) + R.tick), dps = lerp(lv(R.lineMin, lr), lv(R.lineMax, lr), clamp(c / R.ramp, 0, 1)); o.ch.hit(u, dps * R.tick, 'R', { type: 'true', hid: 'R:' + L.id, tick: true }); }
+          if (Geo.segDist(u.pos, o.pos, n.pos) <= u.r + 0.15) { const c = (L.contact[u.id] = (L.contact[u.id] || 0) + R.tick), dps = lerp(lv(R.lineMin, lr), lv(R.lineMax, lr), clamp(c / R.ramp, 0, 1)); o.ch.hit(u, dps * R.tick, 'R', { type: 'true', tick: true }); }
           else L.contact[u.id] = 0;
         }
       }
@@ -206,7 +206,7 @@ const ChloeCore = {
         if (u.kind === 'ward' || V.dist(u.pos, z.pos) > z.r + u.r * 0.5) continue;
         if (Game.time - (z.last[u.id] ?? -99) < Dk.rehit) continue;
         const cnt = z.n[u.id] || 0; z.n[u.id] = cnt + 1; z.last[u.id] = Game.time;
-        o.ch.hit(u, z.dmg * Math.pow(1 - Dk.decay, cnt), 'D', { hid: 'D:' + z.id }); u.addSlow(lv(Dk.slow, o.ch.L('D')), Dk.slowDur);
+        o.ch.hit(u, z.dmg * Math.pow(1 - Dk.decay, cnt), 'D'); u.addSlow(lv(Dk.slow, o.ch.L('D')), Dk.slowDur);
       }
     }
     o.traps = o.traps.filter(z => z.life > 0);

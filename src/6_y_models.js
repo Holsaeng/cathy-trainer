@@ -46,8 +46,10 @@ const Models = {
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 파일 찾기: local/(이 PC에서 고쳐 보는 개발용, 깃 제외)이 있으면 그것, 없으면 models/(공개판)
+  //   공개 사이트엔 local/이 없으므로 이 PC(localhost)에서만 찾음 — 접속마다 404 18개가 나던 것 방지
   async find(name) {
-    for (const dir of ['local/', this.DIR]) { try { const r = await fetch(dir + name, { method: 'HEAD' }); if (r.ok) return dir + name; } catch (e) { /* file:// 등 */ } }
+    const dev = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    for (const dir of dev ? ['local/', this.DIR] : [this.DIR]) { try { const r = await fetch(dir + name, { method: 'HEAD' }); if (r.ok) return dir + name; } catch (e) { /* file:// 등 */ } }
     return null;
   },
   // 원작풍 설계(models/<키>_ref.json, 이 PC에선 local/이 우선) → 설정에 「원작풍」 선택지가 생김

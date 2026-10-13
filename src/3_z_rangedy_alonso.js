@@ -34,18 +34,18 @@ const AlonsoCore = {
   },
   // ---------- Q 마그네틱 펀치 ----------
   qHit(o, u) {
-    const Q = o.al.K.Q, l = o.al.L('Q'); o.al.hit(u, lv(Q.base, l) + (o.sp || 0) * Q.sp, 'Q', { hid: 'Q:' + Game.time });
+    const Q = o.al.K.Q, l = o.al.L('Q'); o.al.hit(u, lv(Q.base, l) + (o.sp || 0) * Q.sp, 'Q');
     if (isHero(u) || u.kind === 'dummy') { o.alMark = { u, t: Q.markDur }; FX.text(u.pos, '자력 연결', o.al.color, 12, { bold: true }); }
   },
   // 연결된 적을 평타·무기 스킬로 치면: 최대 체력 비례 추가 피해 + 기절
   pop(o, u) {
     const M = o.alMark; if (!M || M.u !== u) return;
     const Q = o.al.K.Q, l = o.al.L('Q'); o.alMark = null;
-    o.al.hit(u, u.maxHp * lv(Q.popPct, l) + o.al.level() * Q.popLv, 'Q', { hid: 'Qp:' + Game.time });
+    o.al.hit(u, u.maxHp * lv(Q.popPct, l) + o.al.level() * Q.popLv, 'Q');
     if (this.cc(o, u, 'stun', Q.stun)) FX.text(u.pos, '기절', '#ffd166', 12, { bold: true });
   },
   // ---------- W 바운싱 실드 ----------
-  wStart(o, dir) { const W = o.al.K.W; o.alW = { t: 0, dir: V.copy(dir), next: 0, id: Game.time }; o.al.cdStart('W'); FX.text(o.pos, W.name, o.al.color, 12, { bold: true }); },
+  wStart(o, dir) { const W = o.al.K.W; o.alW = { t: 0, dir: V.copy(dir), next: 0 }; o.al.cdStart('W'); FX.text(o.pos, W.name, o.al.color, 12, { bold: true }); },
   // 전방(방패 쪽) 피해 60% 감소
   shieldMul(o, src) {
     const S = o.alW; if (!S || !src || !src.pos) return 1;
@@ -55,23 +55,23 @@ const AlonsoCore = {
   wWave(o, fin) {
     const W = o.al.K.W, l = o.al.L('W'), bh = this.bonusHp(o), amt = fin ? lv(W.fin, l) + (o.sp || 0) * W.finSp + bh * W.finHp : lv(W.base, l) + (o.sp || 0) * W.sp + bh * W.bhp;
     FX.slash(V.add(o.pos, V.mul(o.alW.dir, W.near)), V.ang(o.alW.dir), W.len, 0.3, fin ? '#ffb347' : o.al.color, 0.2);
-    for (const u of o.al.foes()) if (this.wBox(o, u)) o.al.hit(u, amt, 'W', { hid: (fin ? 'Wf:' : 'W:') + o.alW.id + ':' + o.alW.next });
+    for (const u of o.al.foes()) if (this.wBox(o, u)) o.al.hit(u, amt, 'W');
   },
   wEnd(o) { if (!o.alW) return; this.wWave(o, true); o.alW = null; },
   // ---------- E 어트랙션 슬램! (0.8초 뒤 돌진) ----------
   eLand(o, u) {
     const E = o.al.K.E, l = o.al.L('E');
-    o.al.hit(u, lv(E.base, l) + o.def * E.defR + o.maxHp * E.hpR, 'E', { hid: 'E:' + Game.time });
+    o.al.hit(u, lv(E.base, l) + o.def * E.defR + o.maxHp * E.hpR, 'E');
     this.cc(o, u, 'root', lv(E.root, l)); FX.text(u.pos, '속박', '#ffd166', 12, { bold: true });
   },
   eValid(o, u) { return u && !u.dead && !(u.untargetable > 0) && V.dist(o.pos, u.pos) <= o.al.K.E.cancel && Vision.visible(o, u); },
   // ---------- R 게더링 필드 ----------
   rStart(o) {
-    const R = o.al.K.R, l = o.al.L('R'); o.alR = { t: 0, acc: 0, c: V.copy(o.pos), id: Game.time };
+    const R = o.al.K.R, l = o.al.L('R'); o.alR = { t: 0, acc: 0, c: V.copy(o.pos) };
     FX.ring(o.pos, 0.5, R.r, o.al.color, 0.4); FX.text(o.pos, R.name, o.al.color, 14, { bold: true }); Sfx.play('ult');
     for (const u of o.al.foes()) {
       if (V.dist(u.pos, o.pos) > R.r + u.r) continue;
-      o.al.hit(u, lv(R.base, l) + (o.sp || 0) * R.sp, 'R', { hid: 'R:' + o.alR.id });
+      o.al.hit(u, lv(R.base, l) + (o.sp || 0) * R.sp, 'R');
       if (u.dead || u.unstoppable > 0) continue;
       const dir = V.norm(V.sub(o.pos, u.pos)), dd = Math.max(0, Math.min(R.pull, V.dist(u.pos, o.pos) - o.r - u.r - 0.1));
       if (dd > 0.05) u.forced = { from: V.copy(u.pos), to: Geo.pushOut(V.add(u.pos, V.mul(dir, dd)), u.r), t: 0, dur: R.pullTime };
@@ -86,7 +86,7 @@ const AlonsoCore = {
     }
     if (S.acc >= R.tick) {
       S.acc -= R.tick; o.heal(R.heal + o.maxHp * lv(R.healPct, l), true);
-      for (const u of o.al.foes()) if (V.dist(u.pos, S.c) <= R.r + u.r) o.al.hit(u, lv(R.dot, l) + (o.sp || 0) * R.dotSp, 'R', { hid: 'R:' + S.id, tick: true });
+      for (const u of o.al.foes()) if (V.dist(u.pos, S.c) <= R.r + u.r) o.al.hit(u, lv(R.dot, l) + (o.sp || 0) * R.dotSp, 'R', { tick: true });
     }
     return S.t >= R.dur;
   },
@@ -95,12 +95,12 @@ const AlonsoCore = {
     const R = o.al.K.R, l = o.al.L('R'), k = clamp(S.t / R.dur, 0, 1), bh = this.bonusHp(o);
     const amt = lerp(lv(R.minF, l) + (o.sp || 0) * R.minSp + bh * R.minHp, lv(R.maxF, l) + (o.sp || 0) * R.maxSp + bh * R.maxHp, k);
     FX.ring(S.c, 0.5, R.r, '#ffb347', 0.35);
-    for (const u of o.al.foes()) if (V.dist(u.pos, S.c) <= R.r + u.r) o.al.hit(u, amt, 'R', { hid: 'Rf:' + S.id });
+    for (const u of o.al.foes()) if (V.dist(u.pos, S.c) <= R.r + u.r) o.al.hit(u, amt, 'R');
   },
   // ---------- D 어퍼컷 (무기 스킬) ----------
   dHit(o, u) {
     const D = o.al.K.D, l = o.al.L('D'), base = (o.bonusAd || 0) * D.bad * (1 + (o.aaAmp || 0)) + (o.sp || 0) * D.sp;
-    o.al.hit(u, base, 'D', { type: 'normal', hid: 'D:' + Game.time }); o.al.hit(u, base * lv(D.extra, l), 'D', { hid: 'Dx:' + Game.time }); o.al.hit(u, lv(D.fixed, l), 'D', { type: 'true', hid: 'Df:' + Game.time });
+    o.al.hit(u, base, 'D', { type: 'normal' }); o.al.hit(u, base * lv(D.extra, l), 'D'); o.al.hit(u, lv(D.fixed, l), 'D', { type: 'true' });
     FX.burst(u.pos, '#ffb347', 10, 5); this.pop(o, u);
   },
   // ---------- 매 스텝 ----------

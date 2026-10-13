@@ -43,7 +43,7 @@ class RangedPlayer extends Cathy {
   hitS(u, amt, k, o = {}) {
     if (!u || u.dead) return 0;
     const dmg = Combat.damage(this, u, amt, Object.assign({ type: 'skill', source: k, pen: this.penNow() }, o));
-    if (u.kind !== 'animal') this.S.hit(k, o.hid || (k + ':' + this.castSeq));
+    if (u.kind !== 'animal') this.S.hitCast(k);
     if (this.kit.onHit) this.kit.onHit(this, u, o, dmg);
     Events.emit('skillHit', { k, target: u });
     return dmg;

@@ -80,7 +80,7 @@ class DanielPlayer extends Cathy {
     for (const u of Game.enemies(this).concat(Game.units.filter(x => x.kind === 'animal' && !x.dead))) {
       if (u.dead || u.untargetable > 0 || !Geo.inSector(apex, V.ang(o.dir), K.len, K.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
       const center = V.dist(u.pos, o.pos) <= K.centerR + u.r;
-      if (u.kind !== 'animal') { hit = true; this.S.hit('Q', 'dq' + o.id); }
+      if (u.kind !== 'animal') { hit = true; this.S.hitCast('Q'); }
       Combat.damage(this, u, this.calc(center ? K.center : K, 'Q'), { type: 'skill', source: center ? 'Q 중앙' : 'Q' });
       if (center) u.addSlow(K.slow, K.slowDur);
       Events.emit('skillHit', { k: 'Q', target: u });
@@ -117,7 +117,7 @@ class DanielPlayer extends Cathy {
       if (!tgt.dead) Combat.damage(this, tgt, this.calc(W, 'W'), { type: 'skill', source: 'W 폭발', markPop: true });
       tgt.addSlow(W.slow, W.slowDur);
       FX.burst(tgt.pos, '#d9a8ff', 24, 7, 0.6); FX.ring(tgt.pos, 0.3, 1.8, '#d9a8ff', 0.4); FX.text(tgt.pos, '영감 폭발 ' + Math.round(acc), '#d9a8ff', 14, { bold: true });
-      this.S.hit('W', 'pop' + Game.time);
+      this.S.hitCast('W');
     } else M.acc += dmg * (lv(W.acc, this.L('W')) + this.bonusAd * W.accBad) / 100;
   }
   // ---------- 평타: 단검 / 그림자 돌진 중이면 대상 건너편으로 순간이동 + 추가 스킬 피해 ----------
@@ -130,7 +130,7 @@ class DanielPlayer extends Cathy {
       this.shadowT = 0; this.breakStealth();
       Combat.damage(this, t, this.ad * (crit ? cfg.critMul : 1) * (1 + this.aaAmp), { type: 'normal', source: 'AA', crit });
       if (!t.dead) Combat.damage(this, t, this.calc(this.K.E, 'E'), { type: 'skill', source: 'E 그림자 평타' });
-      this.S.hit('E', 'aa' + Game.time);
+      this.S.hitCast('E');
     } else Combat.damage(this, t, this.ad * (crit ? cfg.critMul : 1) * (1 + this.aaAmp), { type: 'normal', source: 'AA', crit });
     if (this.qShots > 0 && --this.qShots <= 0) this.as = this.baseAs;
     this.S.aaHits++; this.lastAA = { time: Game.time }; Vision.act(this, 'attack');
@@ -226,7 +226,7 @@ const DImpl = {
       const every = K.dur / K.ticks;
       while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); }
       if (S.t >= K.dur || S.exit || u.dead) {
-        if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); p.S.hit('R', 'r' + Game.time); }
+        if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); p.S.hitCast('R'); }
         const cur = p.cursor, dir = cur && V.dist(cur, u.pos) > 0.1 ? V.norm(V.sub(cur, u.pos)) : V.fromAng(p.facing);   // 커서 쪽으로 빠져나옴 (커서 = 마지막 명령 좌표·걸작 중 커서 명령 — 재생해도 같게)
         S.phase = 'out'; S.outT = S.t; S.from = V.copy(p.pos); S.to = V.add(p.pos, V.mul(dir, Geo.clampDash(p.pos, dir, K.exit, p.r)));
         p.untargetable = p.invuln = K.exitTime;

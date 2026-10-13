@@ -109,8 +109,31 @@ const Sphere = {
       { size: low ? 17 : 14, bold: true, align: 'center', color: low && dr && Math.floor(Game.time * 4) % 2 ? '#ffffff' : dr ? '#ff5d5d' : '#ffd27a', stroke: true });
   },
   name() { return this.kind === 'final' ? '최종 안전지대' : '크로노 스피어'; },
+  // AI 이동 후보 점수용: 차단벽 근처·밖은 감점 — 최종 안전지대(벽 없음)는 타이머가 적을수록 밖을 더 피함 · 소멸 뒤(전 지역 금지구역)는 감점 없음
+  penalty(q, u) {
+    if (!this.active || this.done) return 0; const d = V.dist(q, this.c), m = this.r - 1.2; if (d <= m) return 0;
+    const w = this.wall || !u || u.boom == null ? 4 : 4 * clamp((25 - u.boom) / 10, 0.4, 3);
+    return (d - m) * w;
+  },
+  // ---------- AI 운영 (폭발 타이머) ----------
+  // 급히 복귀: 밖(최종 안전지대)에서 남은 타이머가 돌아오는 시간 + 여유보다 적으면 안쪽 지점
+  urgent(u) {
+    if (!this.active || this.done || this.wall || u.boom == null || u.dead) return null;
+    const d = V.dist(u.pos, this.c); if (d <= this.r - 0.3) return null;
+    const eta = (d - this.r + 0.8) / Math.max(1, u.speed ? u.speed() : 3.5);
+    if (u.boom > eta + CONFIG.sphere.ai.safe) return null;
+    return Geo.pushOut(V.add(this.c, V.mul(V.norm(V.sub(u.pos, this.c)), Math.max(0, this.r * 0.55))), u.r);
+  },
+  teamBoom(t) { const a = Game.units.filter(u => isHero(u) && u.team === t && !u.dead && u.boom != null); return a.length ? a.reduce((s, u) => s + u.boom, 0) / a.length : null; },
+  // 타이머가 승부를 가르는 때인가 (소멸 뒤 · 또는 내 타이머가 적음)
+  pressing(u) { return this.active && u && u.boom != null && (this.done || u.boom < CONFIG.sphere.ai.press); },
+  // 팀 자세: push = 타이머가 적은 쪽(교전을 걸어야 함) · stall = 많은 쪽(버팀) · null = 상관없음
+  stance(u) {
+    if (!this.pressing(u)) return null;
+    const me = this.teamBoom(u.team), them = this.teamBoom(1 - u.team); if (me == null || them == null) return null;
+    const e = me - them, E = CONFIG.sphere.ai.edge; return e < -E ? 'push' : e > E ? 'stall' : null;
+  },
   // AI 이동 후보 점수용: 차단벽 근처·밖은 감점
-  penalty(q) { if (!this.active) return 0; const d = V.dist(q, this.c), m = this.r - 1.2; return d > m ? (d - m) * 4 : 0; },
   label() {
     if (!this.active) return '';
     const P = this.phase(); if (!P || this.done) return `${this.name()} 소멸 · 전 지역 금지구역 — 폭발 타이머가 많이 남은 쪽이 승리`;

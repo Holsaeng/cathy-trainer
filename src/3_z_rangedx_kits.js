@@ -43,10 +43,10 @@ PKits.aya = {
     W(p, aim) {
       if (p.ayaW) { p.ayaW.stop = true; FX.text(p.pos, '사격 중단', '#aaa', 11); return true; }
       const W = p.K.W, dir = p.dirTo(aim), n = clamp(Math.round(W.shots + (p.atkSpd() - 1) * 5), W.shots, W.maxShots); let fired = 0;
-      p.startCd('W'); p.noAA = W.dur; p.instantUsed('W'); const cid = ++p.castSeq;
+      p.startCd('W'); p.noAA = W.dur; p.instantUsed('W');
       FX.text(p.pos, W.name, p.color, 12, { bold: true });
       p.ayaW = { t: 0, dur: W.dur, dir, onTick: (dt, c) => { while (fired < n && c.t >= (fired / n) * W.dur) { fired++; Sfx.play('aa');
-        p.shot({ dir: c.dir, speed: W.speed, range: W.range, width: W.width, len: 0.45, onHit: u => { p.hitS(u, p.calc(W, 'W'), 'W', { hid: 'W:' + cid }); } }); } },
+        p.shot({ dir: c.dir, speed: W.speed, range: W.range, width: W.width, len: 0.45, onHit: u => { p.hitS(u, p.calc(W, 'W'), 'W'); } }); } },
         onEnd: () => { p.ayaW = null; p.noAA = 0; } };
       p.chans.push(p.ayaW); return true;
     },
@@ -128,7 +128,7 @@ PKits.rio = {
       if (z.type === 'wind') for (const u of foes) if (V.dist(u.pos, z.pos) <= z.r + u.r * 0.5) u.addSlow(z.slow, 0.1);
       if (z.type === 'arc' && !z.hit && z.t >= z.delay) {
         z.hit = true; const D = p.K.D;
-        for (const u of foes) { const dd = V.dist(u.pos, z.pos); if (dd <= D.radius + u.r * 0.5) { const inner = dd <= D.innerR; p.hitS(u, p.calc(inner ? { base: D.inner, bad: D.innerBad, sp: D.innerSp } : D, 'D'), 'D', { aoe: true, hid: 'D:' + z.id }); u.addSlow(D.slow, D.slowDur); } }
+        for (const u of foes) { const dd = V.dist(u.pos, z.pos); if (dd <= D.radius + u.r * 0.5) { const inner = dd <= D.innerR; p.hitS(u, p.calc(inner ? { base: D.inner, bad: D.innerBad, sp: D.innerSp } : D, 'D'), 'D', { aoe: true }); u.addSlow(D.slow, D.slowDur); } }
         Vision.reveals.push({ team: p.team, pos: V.copy(z.pos), r: D.radius, t: 1 });   // 착탄 지점 시야
         FX.ring(z.pos, 0.5, D.radius, p.color, 0.35, 0.12); FX.burst(z.pos, p.color, 16, 5);
       }
@@ -149,12 +149,12 @@ PKits.rio = {
       const W = p.K.W, short = p.stance === 'short';
       p.beginCast('W', aim, { windup: () => 0.2, recovery: () => 0.05,
         fire(q, c) {
-          q.startCd('W'); Sfx.play('throw'); const dir = c.dir, cid = c.id;
+          q.startCd('W'); Sfx.play('throw'); const dir = c.dir;
           if (!short) {
             let first = null;
             q.shot({ dir, speed: W.long.speed, range: W.long.range, width: W.long.width, len: 1.4, pierce: true, onHit: u => {
-              if (!first) { first = u; q.hitS(u, q.calc(W.long, 'W'), 'W', { hanare: true, hid: 'W:' + cid }); }
-              else q.hitS(u, q.calc(W.long.behind, 'W'), 'W', { kc: false, hid: 'W:' + cid });
+              if (!first) { first = u; q.hitS(u, q.calc(W.long, 'W'), 'W', { hanare: true }); }
+              else q.hitS(u, q.calc(W.long.behind, 'W'), 'W', { kc: false });
               u.addSlow(W.long.slow, W.long.slowDur);
             } });
           } else {
@@ -163,7 +163,7 @@ PKits.rio = {
               const a = V.ang(dir) + ((i / (W.short.arrows - 1)) - 0.5) * W.short.spread * Math.PI / 180;
               q.after(i * 0.06, () => q.shot({ dir: V.fromAng(a), speed: 30, range: W.short.range, width: W.short.width, len: 0.6, onHit: u => {
                 const n = landed[u.id] = (landed[u.id] || 0) + 1, first = n === 1;
-                q.hitS(u, q.calc(W.short, 'W') * (first ? 1 : W.short.repeat), 'W', { hanare: first && Object.keys(landed).length === 1, kc: first && Object.keys(landed).length === 1, hid: 'W:' + cid });
+                q.hitS(u, q.calc(W.short, 'W') * (first ? 1 : W.short.repeat), 'W', { hanare: first && Object.keys(landed).length === 1, kc: first && Object.keys(landed).length === 1 });
                 if (first) q.zones.push({ type: 'wind', pos: V.copy(u.pos), r: W.short.zoneR, t: 0, dur: W.short.zoneDur, slow: W.short.slow });
               } }));
             }
@@ -175,11 +175,11 @@ PKits.rio = {
     E(p, aim) {
       const E = p.K.E; p.startCd('E'); FX.text(p.pos, E.name, p.color, 12, { bold: true }); Sfx.play('blink');
       p.dash('E', p.dirTo(aim), E.leap, E.leapTime, 0, q => {
-        const S = q.stance === 'short' ? E.short : E.long, n = q.stance === 'short' ? E.short.arrows : 1, cid = q.castSeq;
+        const S = q.stance === 'short' ? E.short : E.long, n = q.stance === 'short' ? E.short.arrows : 1;
         const ts = q.foes().filter(u => isHero(u) || u.kind === 'dummy').filter(u => V.dist(q.pos, u.pos) - u.r <= PKits.rio.aaRange(q) + 0.5 && Vision.visible(q, u)).sort((a, b) => V.dist(a.pos, aim) - V.dist(b.pos, aim)).slice(0, 3);
         for (const t of ts) for (let i = 0; i < n; i++) q.shot({ dir: V.fromAng(V.ang(V.sub(t.pos, q.pos)) + (i - (n - 1) / 2) * 0.05), speed: 28, home: t, only: t, len: 0.6, onHit: u => {
-          q.hitS(u, q.calc(S, 'E'), 'E', { kc: false, hid: 'E:' + cid });
-          if (q.stance === 'long') for (const v of q.foes()) if (V.dist(v.pos, u.pos) <= 2 + v.r) q.hitS(v, q.calc({ base: E.long.aoe, ad: E.long.aoeAd }, 'E'), 'E', { kc: false, aoe: true, hid: 'E:' + cid });
+          q.hitS(u, q.calc(S, 'E'), 'E', { kc: false });
+          if (q.stance === 'long') for (const v of q.foes()) if (V.dist(v.pos, u.pos) <= 2 + v.r) q.hitS(v, q.calc({ base: E.long.aoe, ad: E.long.aoeAd }, 'E'), 'E', { kc: false, aoe: true });
         } });
         PKits.rio.fullKc(q);
       });
@@ -193,8 +193,8 @@ PKits.rio = {
         const S = R.short;
         p.beginCast('R', aim, { windup: () => 0.15, recovery: () => 0.05,
           fire(q, c) {
-            q.startCd('R'); PKits.rio.fullKc(q); FX.text(q.pos, '연사', q.color, 13, { bold: true }); const dir = c.dir, cid = c.id;
-            for (let i = 0; i < S.arrows; i++) q.after(i * 0.1, () => q.shot({ dir, speed: 32, range: S.range, width: S.width, len: 0.8, onHit: u => { q.hitS(u, q.calc(S, 'R'), 'R', { hid: 'R:' + cid }); KU.knock(u, dir, S.push, 0.08); } }));
+            q.startCd('R'); PKits.rio.fullKc(q); FX.text(q.pos, '연사', q.color, 13, { bold: true }); const dir = c.dir;
+            for (let i = 0; i < S.arrows; i++) q.after(i * 0.1, () => q.shot({ dir, speed: 32, range: S.range, width: S.width, len: 0.8, onHit: u => { q.hitS(u, q.calc(S, 'R'), 'R'); KU.knock(u, dir, S.push, 0.08); } }));
             q.rRecast = { t: S.recast.grace, dir, ready: Game.time + 0.15 + S.arrows * 0.1 + 0.1 };   // 3연발이 다 나간 뒤부터 강한 화살
           } }, {});
       } else {
@@ -202,10 +202,10 @@ PKits.rio = {
         p.beginCast('R', aim, { windup: () => L.windup, recovery: () => 0.1,
           start(q) { FX.text(q.pos, '정사필중', q.color, 13, { bold: true }); },
           fire(q, c) {
-            q.startCd('R'); PKits.rio.fullKc(q); Sfx.play('ult'); const cid = c.id;
+            q.startCd('R'); PKits.rio.fullKc(q); Sfx.play('ult');
             q.shot({ dir: c.dir, speed: L.speed, range: 60, width: L.width, len: 2, color: '#ffffff', heroOnly: true, onHit: (u, pr) => {
               const boosted = pr.traveled > L.speed * L.boostAfter;
-              q.hitS(u, q.calc(L, 'R') * (boosted ? 1 + L.boost : 1), 'R', { hid: 'R:' + cid }); u.addSlow(L.slow, L.slowDur * (boosted ? 2 : 1));
+              q.hitS(u, q.calc(L, 'R') * (boosted ? 1 + L.boost : 1), 'R'); u.addSlow(L.slow, L.slowDur * (boosted ? 2 : 1));
               if (boosted) FX.text(u.pos, '강화!', '#ffffff', 13, { bold: true });
             } });
           } }, {});
@@ -226,10 +226,10 @@ PKits.rio = {
     if (Game.time < rr.ready) { if (!rr.queued) { rr.queued = true; p.after(rr.ready - Game.time, () => { rr.ready = 0; this.strong(p, aim); }); } return; }   // 3연발 중 재입력 → 다 쏜 뒤 발사
     p.rRecast = null;
     const t = Game.nearestEnemy(p.pos, p.K.R.short.range + 1, p), dir = aim ? p.dirTo(aim) : t ? V.norm(V.sub(t.pos, p.pos)) : rr.dir;
-    Sfx.play('ult'); FX.text(p.pos, '강한 화살', '#ffffff', 12, { bold: true }); const cid = ++p.castSeq;
+    Sfx.play('ult'); FX.text(p.pos, '강한 화살', '#ffffff', 12, { bold: true });
     p.shot({ dir, speed: 34, range: p.K.R.short.range, width: p.K.R.short.width, len: 1.3, color: '#ffffff', onHit: u => {
-      p.hitS(u, p.calc(RC, 'R'), 'R', { hid: 'R:' + cid });
-      KU.knock(u, dir, RC.knock, 0.25, () => { p.hitS(u, p.calc({ base: RC.wallBase, ad: RC.wallAd }, 'R'), 'R', { hid: 'Rw:' + cid }); u.applyCC('stun', RC.stun); FX.text(u.pos, '벽꿍 기절!', '#ffffff', 16, { bold: true }); FX.addShake(8); });
+      p.hitS(u, p.calc(RC, 'R'), 'R');
+      KU.knock(u, dir, RC.knock, 0.25, () => { p.hitS(u, p.calc({ base: RC.wallBase, ad: RC.wallAd }, 'R'), 'R'); u.applyCC('stun', RC.stun); FX.text(u.pos, '벽꿍 기절!', '#ffffff', 16, { bold: true }); FX.addShake(8); });
     } });
   },
   shape(p, k) {
@@ -263,7 +263,7 @@ PKits.nadine = {
   wireAs(p, dur) { const E = p.K.E; p.addAs(lv(E.as, p.L('E')) + p.sp * 0.0005, dur, 'wire'); },
   // R 늑대: 평타 3번마다 대상에게 늑대 (시작 즉시 2중첩 → 첫 평타에도) + 야성
   onAAHit(p, u) {
-    if (p.wolfT > 0 && ++p.wolfN >= p.K.R.every) { p.wolfN = 0; const R = p.K.R; p.hitS(u, p.calc(R, 'R') + p.stacks, 'R', { hid: 'R:' + Game.time }); u.addSlow(R.slow, R.slowDur); FX.burst(u.pos, '#c9c9c9', 14, 6); FX.text(u.pos, '늑대!', '#e0e0e0', 13, { bold: true }); }
+    if (p.wolfT > 0 && ++p.wolfN >= p.K.R.every) { p.wolfN = 0; const R = p.K.R; p.hitS(u, p.calc(R, 'R') + p.stacks, 'R'); u.addSlow(R.slow, R.slowDur); FX.burst(u.pos, '#c9c9c9', 14, 6); FX.text(u.pos, '늑대!', '#e0e0e0', 13, { bold: true }); }
     this.markHit(p, u);
   },
   onHit(p, u, o) { if (!o.mark) this.markHit(p, u); },
@@ -285,7 +285,7 @@ PKits.nadine = {
     for (const u of foes) { const lp = p.lastP[u.id]; if (lp) for (const tr of p.traps) {
       if (tr.used || !(KU.segCross(lp, u.pos, tr.a, tr.b) || Geo.segDist(u.pos, tr.a, tr.b) < u.r * 0.5)) continue;
       tr.used = true; const W = K.W, again = u.trapSlowT > Game.time;
-      p.hitS(u, p.calc(W, 'W') * (again ? 0.3 : 1), 'W', { hid: 'W:' + tr.id }); u.addSlow(lv(W.slow, p.L('W')), W.slowDur); u.trapSlowT = Game.time + W.slowDur;
+      p.hitS(u, p.calc(W, 'W') * (again ? 0.3 : 1), 'W'); u.addSlow(lv(W.slow, p.L('W')), W.slowDur); u.trapSlowT = Game.time + W.slowDur;
       u.revealT = Math.max(u.revealT || 0, 5);
       FX.text(u.pos, '덫!', p.color, 15, { bold: true });
     } }
@@ -294,14 +294,14 @@ PKits.nadine = {
     // E 와이어: 7초 · 11m 넘게 멀어지거나 CC를 받으면 끊김
     if (p.wire && ((p.wire.t -= dt) <= 0 || V.dist(p.pos, p.wire.pos) > K.E.breakDist || p.stun > 0 || p.root > 0 || p.fear > 0)) { p.wire = null; p.asBuffs = p.asBuffs.filter(a => a.tag !== 'wire'); }
     // 강노 표식 폭발
-    if (p.mark && (p.mark.t -= dt) <= 0) { const M = K.D.mark, m = p.mark, u = m.u; p.mark = null; if (!u.dead) { p.hitS(u, p.calc(M, 'D') + m.bonus, 'D', { mark: true, hid: 'Dm:' + Game.time }); FX.burst(u.pos, p.color, 18, 6); } }
+    if (p.mark && (p.mark.t -= dt) <= 0) { const M = K.D.mark, m = p.mark, u = m.u; p.mark = null; if (!u.dead) { p.hitS(u, p.calc(M, 'D') + m.bonus, 'D', { mark: true }); FX.burst(u.pos, p.color, 18, 6); } }
   },
   fireQ(p, aim) {
     const Q = p.K.Q, C = p.charge; if (!C) return; p.charge = null;
     const k = clamp(C.t / Q.charge, 0, 1), rng = lerp(Q.range[0], Q.range[1], k), dir = p.dirTo(aim);
-    const base = lv(Q.min, p.L('Q')) + p.bonusAd * Q.minBad + p.sp * Q.minSp, amt = base * lerp(1, Q.maxMul, k) + p.stacks, cid = ++p.castSeq;
+    const base = lv(Q.min, p.L('Q')) + p.bonusAd * Q.minBad + p.sp * Q.minSp, amt = base * lerp(1, Q.maxMul, k) + p.stacks;
     p.startCd('Q'); p.S.cast('Q'); Vision.act(p, 'skill'); Sfx.play('throw'); Events.emit('action', { k: 'Q' }); p.facing = V.ang(dir);
-    let hit = false; const pr = p.shot({ dir, speed: Q.speed, range: rng, width: Q.width, len: 1.2 + k, onHit: u => { hit = true; p.hitS(u, amt, 'Q', { hid: 'Q:' + cid }); } });
+    let hit = false; const pr = p.shot({ dir, speed: Q.speed, range: rng, width: Q.width, len: 1.2 + k, onHit: u => { hit = true; p.hitS(u, amt, 'Q'); } });
     pr.onDone = () => p.S.resolveShot('Q', hit);
     FX.text(p.pos, `${Q.name} ${Math.round(k * 100)}%`, p.color, 12, { bold: true });
   },
@@ -341,7 +341,7 @@ PKits.nadine = {
         fire(q, c) {
           q.startCd('D'); Sfx.play('throw'); FX.slash(q.pos, c.ang, D.range, D.angle / 2 * Math.PI / 180, q.color, 0.25); let hit = false;
           for (const u of q.foes()) if (Geo.inSector(q.pos, c.ang, D.range, D.angle / 2 * Math.PI / 180, u.pos, u.r)) {
-            q.hitS(u, q.calc(D, 'D'), 'D', { mark: true, hid: 'D:' + c.id }); u.addSlow(D.slow, D.slowDur);
+            q.hitS(u, q.calc(D, 'D'), 'D', { mark: true }); u.addSlow(D.slow, D.slowDur);
             if (!hit && (isHero(u) || u.kind === 'dummy')) { hit = true; q.mark = { u, t: D.mark.time, bonus: 0 }; }
           }
           q.S.resolveShot('D', hit);
@@ -382,18 +382,18 @@ PKits.katja = {
   init(p) { p.psT = 0; p.snipe = null; },
   update(p, dt) { if (p.psT > 0) p.psT -= dt; },
   // P 잿빛 사신: Q·E 사용 후 5초 안의 다음 평타에 추가 스킬 피해
-  onAAHit(p, u) { if (p.psT <= 0) return; p.psT = 0; const P = p.K.P; p.hitS(u, lv(P.base, p.plv) + p.ad * lv(P.ad, p.plv), 'P', { hid: 'P:' + Game.time }); FX.text(u.pos, P.name, p.color, 11, { bold: true }); },
+  onAAHit(p, u) { if (p.psT <= 0) return; p.psT = 0; const P = p.K.P; p.hitS(u, lv(P.base, p.plv) + p.ad * lv(P.ad, p.plv), 'P'); FX.text(u.pos, P.name, p.color, 11, { bold: true }); },
   recast(p, k) { return k === 'D' && !!p.snipe; },
   // 저격 모드 중 D = 즉시 발사(시전 중이라도)
   instant(p, k, aim) { if (k !== 'D' || !p.snipe) return false; PKits.katja.snipeShot(p, aim); return true; },
   snipeShot(p, aim) {
     const S = p.snipe, K = p.K.D; if (!S || S.t < K.aim || Game.time - S.last < K.gap || S.fired >= K.shots) return;
-    const dead = S.fired === K.shots - 1, SS = dead ? K.dead : K.shot, dir = p.dirTo(aim), cid = ++p.castSeq; S.fired++; S.last = Game.time; p.facing = V.ang(dir);
+    const dead = S.fired === K.shots - 1, SS = dead ? K.dead : K.shot, dir = p.dirTo(aim); S.fired++; S.last = Game.time; p.facing = V.ang(dir);
     Sfx.play(dead ? 'ult' : 'throw'); p.S.cast('D'); Events.emit('action', { k: 'D' });
     let hit = false;
     const pr = p.shot({ dir, speed: K.speed, range: K.range, width: K.width, len: 1.6, color: dead ? '#ff4d4d' : p.color, onHit: u => {
       hit = true; let amt = p.calc(SS, 'D'); if (dead) amt *= 1 + clamp(1 - u.hp / u.maxHp, 0, 1) * (K.dead.missMax - 1);   // 데드아이: 잃은 체력 비례 최대 2배
-      p.hitS(u, amt, 'D', { hid: 'D:' + cid }); if (!dead) u.addSlow(K.shot.slow, K.shot.slowDur);
+      p.hitS(u, amt, 'D'); if (!dead) u.addSlow(K.shot.slow, K.shot.slowDur);
       Vision.reveals.push({ team: p.team, pos: V.copy(u.pos), r: 3, t: 2 });
     } });
     pr.onDone = () => p.S.resolveShot('D', hit);
@@ -408,7 +408,7 @@ PKits.katja = {
           q.startCd('Q'); q.psT = q.K.P.window; Sfx.play('throw'); let hit = false;
           const pr = q.shot({ dir: c.dir, speed: Q.speed, range: Q.range, width: Q.width, len: 1.1, onHit: (u, pr) => {
             hit = true; const k = clamp(pr.traveled / Q.range, 0, 1), L = q.L('Q'), amt = lerp(lv(Q.min, L) + q.ad * Q.minAd, lv(Q.max, L) + q.ad * Q.maxAd, k);
-            q.hitS(u, amt, 'Q', { hid: 'Q:' + c.id }); q.addAs(lv(Q.asBuff, L), Q.asDur, 'katjaQ'); FX.burst(u.pos, q.color, 10, 5);
+            q.hitS(u, amt, 'Q'); q.addAs(lv(Q.asBuff, L), Q.asDur, 'katjaQ'); FX.burst(u.pos, q.color, 10, 5);
           } });
           pr.onDone = () => q.S.resolveShot('Q', hit);
         } }, {});
@@ -430,7 +430,7 @@ PKits.katja = {
         start(q) { q.unstoppable = E.windup + 0.05; },
         fire(q, c) {
           q.startCd('E'); q.psT = q.K.P.window; Sfx.play('throw'); FX.slash(q.pos, c.ang, E.range, E.angle / 2 * Math.PI / 180, q.color, 0.25); let hit = false;
-          for (const u of q.foes()) if (Geo.inSector(q.pos, c.ang, E.range, E.angle / 2 * Math.PI / 180, u.pos, u.r)) { hit = true; q.hitS(u, q.calc(E, 'E'), 'E', { hid: 'E:' + c.id }); u.addSlow(lv(E.slow, q.L('E')), E.slowDur); }
+          for (const u of q.foes()) if (Geo.inSector(q.pos, c.ang, E.range, E.angle / 2 * Math.PI / 180, u.pos, u.r)) { hit = true; q.hitS(u, q.calc(E, 'E'), 'E'); u.addSlow(lv(E.slow, q.L('E')), E.slowDur); }
           if (hit) q.addMsBuff(E.msBuff, E.msDur, false, 'katjaE');
           q.S.resolveShot('E', hit);
           const back = V.mul(c.dir, -1), len = Geo.passDash(q.pos, back, E.leap, q.r, 0.5); c.data.from = V.copy(q.pos); c.data.to = Geo.pushOut(V.add(q.pos, V.mul(back, len)), q.r);
@@ -450,7 +450,7 @@ PKits.katja = {
           if (!ts.length) { q.skills.R.cd *= 1 - R.refund; FX.text(q.pos, '스캔 실패', '#8a93a6', 12); return; }
           Sfx.play('ult');
           ts.forEach((u, i) => q.after(i * 0.15, () => { const S = R.shots[i] || R.shots[0];
-            q.shot({ dir: V.norm(V.sub(u.pos, q.pos)), speed: R.speed, home: u, only: u, width: 0.5, len: 1.8, color: '#ff4d4d', onHit: v => { q.hitS(v, q.calc(S, 'R'), 'R', { hid: 'R:' + c.id + ':' + i }); FX.burst(v.pos, '#ff4d4d', 18, 7); FX.addShake(6); } }); }));
+            q.shot({ dir: V.norm(V.sub(u.pos, q.pos)), speed: R.speed, home: u, only: u, width: 0.5, len: 1.8, color: '#ff4d4d', onHit: v => { q.hitS(v, q.calc(S, 'R'), 'R'); FX.burst(v.pos, '#ff4d4d', 18, 7); FX.addShake(6); } }); }));
         } }, {});
       return true;
     },

@@ -183,6 +183,28 @@
       T.ok('활성화 순간 차단벽 밖 실험체는 즉사', far.dead && M.alive(0).length === kept);
       Renderer.frame(); T.ok('폭발 타이머 HUD 표시 오류 없음', true);
     }
+    // 팀 AI 폭발 타이머 운영: 밖 감점 가중 · 급히 복귀 · 소멸 뒤 push/stall · 킬각 가중
+    { Game.start('team', { diff: 'normal', map: 'arena', rounds: 1, seed: 22, sphere: 'final' }); run(200);
+      const M = Game.mode, [a] = M.allies, [x] = M.enemies, heroes = t => Game.units.filter(u => isHero(u) && u.team === t && !u.dead);
+      Sphere.start('final'); Sphere.r = 8; const out = V.add(Sphere.c, { x: 12, y: 0 });
+      a.boom = 5; const pLow = Sphere.penalty(out, a); a.boom = 30; const pHigh = Sphere.penalty(out, a);
+      T.ok('최종 안전지대: 타이머가 적을수록 밖 지점 감점이 큼', pLow > pHigh * 2 && pHigh > 0, fmt(pLow, 1) + '/' + fmt(pHigh, 1));
+      T.ok('안쪽 지점은 감점 없음', Sphere.penalty(Sphere.c, a) === 0);
+      a.pos = V.copy(out); a.boom = 3; const back = Sphere.urgent(a);
+      T.ok('밖에서 타이머가 바닥나기 직전 → 안쪽 복귀 지점', !!back && V.dist(back, Sphere.c) < Sphere.r, back && fmt(V.dist(back, Sphere.c), 1));
+      a.boom = 30; T.ok('타이머 넉넉하면 급히 복귀 안 함', Sphere.urgent(a) === null);
+      a.boom = 3; Sphere.start('temp'); T.ok('임시 안전지대(차단벽)에선 급히 복귀 판단 없음', Sphere.urgent(a) === null);
+      Sphere.start('final'); Sphere.done = true;
+      for (const u of heroes(0)) u.boom = 5; for (const u of heroes(1)) u.boom = 25;
+      T.ok('소멸 뒤 타이머 적은 팀 = push · 많은 팀 = stall', Sphere.stance(a) === 'push' && Sphere.stance(x) === 'stall');
+      T.ok('소멸 뒤엔 밖 감점 없음(전 지역 금지구역)', Sphere.penalty(out, a) === 0);
+      x.hp = x.maxHp; a.hp = a.maxHp;
+      T.ok('push 팀: 진입 허락 · 궁 아끼지 않음', TeamAI.mayEngage(a, x) === true && TeamAI.holdUlt(a, x) === false);
+      T.ok('stall 팀: 멀쩡한 적에겐 진입 안 함', TeamAI.mayEngage(x, a) === false);
+      a.hp = a.maxHp * 0.2; T.ok('stall 팀: 빈사(30% 미만) 적은 진입', TeamAI.mayEngage(x, a) === true); a.hp = a.maxHp;
+      for (const u of heroes(1)) u.boom = 5.5; T.ok('타이머 차이가 작으면 자세 없음', Sphere.stance(a) === null);
+      Sphere.done = false; for (const u of heroes(0)) u.boom = 25; T.ok('소멸 전·타이머 넉넉하면 운영 판단 없음', !Sphere.pressing(a) && Sphere.stance(a) === null);
+    }
   });
 
   // ---------------- 입력 ----------------
@@ -230,6 +252,18 @@
   });
 
   // ---------------- 결과 화면 코칭 ----------------
+  // 여러 번 때리는 스킬(알론소 D 3타·W 파동·R 틱, 클로에 W 회전 등)도 시전 1회당 적중 1회
+  G('스킬 적중률', () => {
+    for (const ch of ['alonso', 'chloe', 'rio', 'aya', 'nadine', 'daniel']) {
+      reset(); Settings.character = ch; Game.start('dummy', { count: 1, hp: 20000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+      const p = Game.player, d = Game.units.find(u => u.team !== p.team && !u.dead); d.pos = V.add(p.pos, { x: 2, y: 0 });
+      for (let i = 0; i < 40; i++) { for (const k of ['D', 'W', 'Q', 'E', 'R']) if (p.skills[k].lv > 0 && p.skills[k].cd <= 0 && !p.cast) { p.cmdSkill(k, d.pos); Input.aiming = null; break; } run(30); d.pos = V.add(p.pos, { x: 2, y: 0 }); }
+      const { c, h } = Stats.totalCasts(), over = SKILL_KEYS.filter(k => (Stats.hits[k] || 0) > (Stats.casts[k] || 0));
+      T.ok(`${ch}: 적중 ≤ 시전 (스킬별)`, c > 3 && h > 0 && !over.length, `${h}/${c} ${over.join('')}`);
+    }
+    Settings.character = 'cathy';
+  });
+
   G('코칭', () => {
     reset(); Settings.character = 'cathy'; Game.start('dummy', { count: 1, hp: 9000, def: 50, infinite: true }); run(5);
     Object.assign(Stats, { t: 40, mistakes: { '강화 평타를 쓰지 않고 다음 스킬 연계': 5, 'Q 선딜 중 이동 입력으로 캔슬됨': 2, '평타 선딜 중 이동 → 평타 취소': 4 }, casts: { Q: 8, W: 5, E: 6 }, hits: { Q: 7, W: 5, E: 2 }, waste: { Q: 6, W: 9 }, aaHits: 20, enhAA: 4, criticals: 4 });
