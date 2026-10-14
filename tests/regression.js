@@ -327,13 +327,13 @@
   // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
   G('실측값 입력', () => {
     reset(); const K = CONFIG.rangedKits;
-    T.ok('실측 항목 21개 · 경로가 모두 숫자', Measure.ITEMS.length === 21 && Measure.ITEMS.every(it => typeof Measure.value(it) === 'number'));
+    T.ok('실측 항목 23개 · 경로가 모두 숫자', Measure.ITEMS.length === 23 && Measure.ITEMS.every(it => typeof Measure.value(it) === 'number'));
     Measure.put('alonsoLink', 3.2); T.ok('입력 → 바로 적용', K.alonso.Q.markDur === 3.2 && Measure.measured(Measure.ITEMS[0]) && Measure.count() === 1);
     Measure.put('sphereMove', 9); T.ok('여러 경로 항목(임시·최종 스피어 이동)', CONFIG.sphere.phases[3].dur === 9 && CONFIG.sphere.finalPhases[3].dur === 9);
     Measure.put('plasmaShots', 7.6); T.ok('정수 항목은 반올림', CONFIG.tactical.plasmadash.shots === 8);
     Measure.put('ninaRange', 99); T.ok('범위 밖은 최대값으로', K.chloe.P.range === 4);
     Measure.put('ruptureR', 3); T.ok('아이템 효과(ItemFx)도 적용', ItemFx.RUPTURE.r === 3);
-    UI.showSettings(() => UI.showMenu()); click('[data-a="measure"]'); T.ok('설정 → 실측값 화면', document.querySelectorAll('[data-in="mv"]').length === 21 && document.getElementById('card').innerText.includes('✔ 실측 적용'));
+    UI.showSettings(() => UI.showMenu()); click('[data-a="measure"]'); T.ok('설정 → 실측값 화면', document.querySelectorAll('[data-in="mv"]').length === 23 && document.getElementById('card').innerText.includes('✔ 실측 적용'));
     click('[data-a="mclear"]'); T.ok('모두 지우기 → 추정값 복원', K.alonso.Q.markDur === 4 && CONFIG.sphere.phases[3].dur === 6 && CONFIG.tactical.plasmadash.shots === 5 && K.chloe.P.range === 1 && ItemFx.RUPTURE.r === 2.5 && Measure.count() === 0);
     UI.showMenu();
   });
@@ -778,6 +778,49 @@
     let g2 = 0; while (Game.state === 'play' && g2 < 120 * 120) { step(); g2++; if (g2 % 12 === 0) { const q = Game.player; if (!q.dead && Game.freeze <= 0) { const t = Game.nearestEnemy(q.pos, 9, q); if (t && q.attackTarget !== t) q.cmdAttack(t); else if (!t && !q.moveTarget) q.cmdMove({ x: 18, y: 18 }); } } }
     T.ok('팀 대전: 알론소 2명 오류 없이 끝남', Game.state === 'result' && errs.length === e0, `${(g2 / 120).toFixed(0)}s`);
     Renderer.frame(); T.ok('그리기 오류 없음', errs.length === e0, errs.slice(e0).join('/'));
+    Settings.character = 'cathy';
+  });
+
+  // 비형(방망이 브루저): 나무위키 수치 + 공식 영상 실측 · 랭크 영상 HUD 단계별 능력치 — docs/er_notes_playables.md 14장
+  G('비형', () => {
+    const K = CONFIG.rangedKits.bihyung, M = CONFIG.rangedMotifs.bihyung, e0 = errs.length;
+    const setup = (hp = 30000) => { reset(); Settings.character = 'bihyung'; Settings.castMode = 'smart'; Game.start('dummy', { count: 1, hp, def: 50, infinite: true, seed: 4 }); Game.freeze = 0; run(10); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 9.6, y: 9 }; p.cmdStop(); return { p, d }; };
+    T.ok('수치: 나무위키(W 7m·2.75m·1.5초 · E 2.5~5.3m 10m/s · R 5m·4.5m/2m) + 영상(E 선딜 0.13 · R 1.2초 · Q2 0.2초 · 밀치기 2.4m)',
+      K.W.range === 7 && K.W.r === 2.75 && K.W.delay === 1.5 && K.E.min === 2.5 && K.E.max === 5.3 && K.E.speed === 10 && K.R.range === 5 && K.R.r === 4.5 && K.R.core === 2 && K.E.windup === 0.13 && K.R.leap === 1.2 && K.Q.gap === 0.2 && K.D.knock === 2.4 && K.D.windup === 0.42);
+    T.ok('능력치: HUD 실측(Lv18 체력 3662 · 방어 151 · 공 260 · 쿨감 50)', M.hp[2] === 3662 && M.def[2] === 151 && M.ad[2] === 260 && M.cdr[2] === 0.5 && M.melee && M.aaRange === 1.4);
+    let { p, d } = setup();
+    T.ok('플레이어블: 근접 브루저(평타 1.4m · 팀 AI 근접)', p instanceof RangedPlayer && p.charKey === 'bihyung' && p.melee && TeamAI.isMelee(p) && p.aaCfg().range === 1.4);
+    // 평타 → 신력 10 · 신력 100 → 장판
+    p.cmdAttack(d); run(120); T.ok('평타: 신력 +10', p.bhG >= 10 && (Stats.dmgBy.AA || 0) > 0, p.bhG);
+    p.bhG = 95; run(400); T.ok('신력 100 → 도깨비 불 장판(초당 피해 · 둔화 저항)', p.bhAura > 0 && (Stats.dmgBy.P || 0) > 0 && p.slowRes > 0, `${fmt(p.bhAura, 1)}초`);
+    // Q1 → 강화 평타 + 회복 → 1.5초 뒤 Q2 → 3연타 → 쿨
+    ({ p, d } = setup()); p.hp = p.maxHp * 0.5; const h0 = p.hp; p.cmdAttack(d); p.cmdSkill('Q', d.pos); run(120);
+    T.ok('Q1: 다음 평타 강화 + 회복 · 쿨 잠금', (Stats.dmgBy.Q || 0) > 0 && p.hp > h0 && !!p.bhQ2 && p.skills.Q.cd > 100);
+    run(Math.round(1.5 * 120)); T.ok('Q2: 1.5초 뒤 재사용 가능', BihyungCore.qReady2(p));
+    const q1 = Stats.dmgBy.Q || 0; let qHits = 0; const hk = Events.emit; p.cmdSkill('Q', d.pos); run(200);
+    T.ok('Q2: 강화 평타 + 2회 추가 → 쿨 시작', (Stats.dmgBy.Q || 0) - q1 > 0 && !p.bhQ && !p.bhQ2 && p.skills.Q.cd > 0 && p.skills.Q.cd < 10, fmt(p.skills.Q.cd, 1));
+    // W: 1.5초 뒤 폭발 · 내가 범위 안이면 보호막
+    ({ p, d } = setup()); p.cmdSkill('W', V.lerp(p.pos, d.pos, 0.5)); run(Math.round(1.2 * 120)); const wEarly = Stats.dmgBy.W || 0; run(Math.round(0.6 * 120));
+    T.ok('W: 1.5초 뒤 폭발(피해·둔화) · 내가 안이면 보호막', wEarly === 0 && (Stats.dmgBy.W || 0) > 0 && d.slows.length > 0 && p.shield > 0);
+    // E: 돌진 → 처음 부딪힌 적 도발
+    ({ p, d } = setup()); d.pos = { x: 12, y: 9 }; p.cmdSkill('E', d.pos); run(120);
+    T.ok('E: 2.5~5.3m 돌진 → 적에게 부딪혀 피해 + 도발', (Stats.dmgBy.E || 0) > 0 && d.taunt > 0 && d.tauntBy === p && V.dist(p.pos, d.pos) < 2, fmt(V.dist(p.pos, d.pos), 2));
+    // R: 약 1.2초 도약 · 추가 체력 · 착지 피해(가운데 30% 더)
+    ({ p, d } = setup()); d.pos = { x: 12, y: 9 }; const mh = p.maxHp; p.cmdSkill('R', d.pos); run(Math.round(0.6 * 120)); const midAir = !!p.bhR && p.unstoppable > 0; run(Math.round(0.8 * 120));
+    T.ok('R: 도약 중 저지 불가 → 1.2초 뒤 착지 피해 · 15초 추가 체력', midAir && !p.bhR && (Stats.dmgBy.R || 0) > 0 && p.maxHp === mh + lv(K.R.bonusHp, p.L('R')));
+    // D 풀스윙: 밀치기 · 벽에 부딪히면 기절
+    ({ p, d } = setup()); const wall = CONFIG.walls.find(w => w.w > 1 && w.h > 1) || CONFIG.walls[0];
+    p.pos = { x: 8, y: 9 }; d.pos = { x: 9.6, y: 9 }; const x0 = d.pos.x; p.cmdSkill('D', d.pos); run(Math.round(0.8 * 120));
+    T.ok('D 풀스윙: 피해 + 바라보는 방향으로 밀침', (Stats.dmgBy.D || 0) > 0 && d.pos.x - x0 > 1.2, fmt(d.pos.x - x0, 2));
+    // 도발(공통 CC): 플레이어가 도발되면 조작 불가 · 도발한 적을 평타
+    ({ p, d } = setup()); p.applyTaunt(1, d); p.cmdMove({ x: 2, y: 2 }); run(10); T.ok('도발: 이동 명령 무시 · 도발한 적을 공격 대상으로', p.attackTarget === d && !p.moveTarget);
+    // AI 비형: 결투에서 스킬을 씀
+    reset(); Settings.character = 'cathy'; Game.start('duel', { diff: 'normal', motif: 'bihyung', enemyBuild: 'mid', map: 'basic', rounds: 1, seed: 3 }); Game.freeze = 0; Modes.duel.banner = null;
+    const e = Modes.duel.enemy, pc = Game.player; pc.invuln = 1e9; pc.pos = { x: 10, y: 9 }; e.pos = { x: 14, y: 9 };
+    const used = new Set(); for (let i = 0; i < 120 * 20 && Game.state === 'play'; i++) { pc.invuln = 1e9; step(); for (const k of ['Q', 'W', 'E', 'R', 'D']) if (e.cds[k] > 0) used.add(k); }
+    T.ok('AI 비형: 결투에서 Q·W·E 사용', ['Q', 'W', 'E'].every(k => used.has(k)), [...used].join(''));
+    T.ok('결투 팁: 비형 전용(다니엘 팁 아님)', Modes.duel.side().includes('도깨비 불') && !Modes.duel.side().includes('다니엘은'));
+    T.ok('비형 오류 없음', errs.length === e0, errs.slice(e0).join(' | '));
     Settings.character = 'cathy';
   });
 

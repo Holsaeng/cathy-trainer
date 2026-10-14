@@ -232,6 +232,13 @@ class RangedDuelist extends Duelist {
       if (!this.act) { if (this.fearFrom) this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(V.norm(V.sub(this.pos, this.fearFrom)), 2)), this.r); this.moveStep(dt); } else this.updateAct(dt);
       return;
     }
+    if (this.taunt > 0 && this.tauntBy && !this.tauntBy.dead) {   // 도발: 시전 취소, 도발한 적에게 다가가 평타만
+      if (this.act && this.act.type !== 'dash' && this.act.type !== 'aa') { if (this.act.onEnd) this.act.onEnd(this.act, true); this.act = null; }
+      if (this.act) { this.updateAct(dt); return; }
+      const t = this.tauntBy; this.foe = t;
+      if (this.aaCd <= 0 && this.noAA <= 0 && V.dist(this.pos, t.pos) - t.r - this.r <= this.aaRange()) { this.moveTarget = null; this.act = { type: 'aa', t: 0, dur: CONFIG.rangedAI.aaWindup / Math.max(1, this.curAs()), target: t }; return; }
+      this.moveTarget = Geo.pushOut(V.copy(t.pos), this.r); this.moveStep(dt); return;
+    }
     this.watchThreats(dt);
     this.watchCathyCast(dt);
     if (this.act) { this.updateAct(dt); return; }
@@ -446,7 +453,7 @@ class RangedDuelist extends Duelist {
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { if ((p.charKey || p.motifKey) === 'alonso') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.range + 0.5 : 2.2; } const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { if ((p.charKey || p.motifKey) === 'bihyung') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.max + 0.5 : 2.4; } if ((p.charKey || p.motifKey) === 'alonso') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.range + 0.5 : 2.2; } const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {

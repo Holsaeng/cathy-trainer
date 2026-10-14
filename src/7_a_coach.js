@@ -53,7 +53,7 @@ const Coach = {
       drill: { mode: 'dummy', label: '허수아비에서 W 표식 연습' } },
   ],
   // 조준이 필요한 스킬(빗나갈 수 있는 스킬샷·범위기) — 버프·이동기·대상 지정기는 적중률 코칭에서 뺌
-  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], daniel: ['Q'] },
+  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], bihyung: ['W', 'E', 'R'], daniel: ['Q'] },
   // 지금 판의 실험체: cathy / daniel / 키트 실험체(원거리·근접)
   who() {
     const p = Game.player, ch = (p && p.charKey) || Settings.character || 'cathy';

@@ -517,6 +517,79 @@
         "https://namu.wiki/w/알론소(이터널%20리턴)",
         "https://namu.wiki/w/이터널%20리턴/무기%20스킬"
       ]
+    },
+    "bihyung": {
+      "name": "비형",
+      "weapon": "bat",
+      "base": {
+        "hp": [
+          930,
+          88
+        ],
+        "ad": [
+          30,
+          4.6
+        ],
+        "def": [
+          50,
+          2.9
+        ],
+        "asBonus": 0.14,
+        "ms": 3.55,
+        "regen": [
+          1.2,
+          0.135
+        ]
+      },
+      "weaponAs": 0.56,
+      "mastery": {
+        "as": 0.035,
+        "sp": 0,
+        "baAmp": 0.015,
+        "other": "기본 공격 증폭 +1.5%/레벨 (dak.gg IncreaseBasicAttackDamageRatio, 스킬 증폭 숙련도 없음 → sp 0)"
+      },
+      "builds": [
+        {
+          "label": "완성 1위: 시체매 / 미스릴 갑옷 / 야생의 허기 / 토템 / 택티컬 슈즈",
+          "pick": "n=885 (dak.gg itemBuildStats, Bat 21242게임 중 4.2%), TOP3 76.6%, 승률 30.5%",
+          "gear": {
+            "weapon": 108505,
+            "chest": 202407,
+            "head": 201537,
+            "arm": 705607,
+            "leg": 204514
+          }
+        },
+        {
+          "label": "완성 2위: 시체매 / 흑염룡의 갑주 / 야생의 허기 / 토템 / 택티컬 슈즈",
+          "pick": "n=359 (dak.gg itemBuildStats, Bat 21242게임 중 1.7%), TOP3 86.9%, 승률 48.2%",
+          "gear": {
+            "weapon": 108505,
+            "chest": 202527,
+            "head": 201537,
+            "arm": 705607,
+            "leg": 204514
+          }
+        },
+        {
+          "label": "시작(영웅): 타구봉 / 방화복 / 전술-OPS 헬멧 / 스마트 밴드 / 매버릭 러너",
+          "pick": "n=498 (dak.gg itemBuildStats, Bat 21242게임 중 2.3%), TOP3 0.0%, 승률 0.0%",
+          "gear": {
+            "weapon": 108404,
+            "chest": 202422,
+            "head": 201406,
+            "arm": 203414,
+            "leg": 204403
+          }
+        }
+      ],
+      "src": [
+        "https://dak.gg/er/characters/Bihyung",
+        "https://dak.gg/er/characters/Bihyung/items",
+        "https://er.dakgg.io/api/v1/data/items?hl=ko",
+        "https://namu.wiki/w/비형(이터널%20리턴)",
+        "https://namu.wiki/w/이터널%20리턴/무기%20스킬"
+      ]
     }
   },
   "items": {
@@ -558,6 +631,29 @@
         "penPct": 10
       },
       "pas": ""
+    },
+    "108404": {
+      "name": "타구봉",
+      "slot": "weapon",
+      "grade": "epic",
+      "weapon": "bat",
+      "stats": {
+        "ad": 72,
+        "as": 40
+      },
+      "pas": "치유 감소"
+    },
+    "108505": {
+      "name": "시체매",
+      "slot": "weapon",
+      "grade": "legend",
+      "weapon": "bat",
+      "stats": {
+        "ad": 78,
+        "as": 25,
+        "cdr": 10
+      },
+      "pas": "열정"
     },
     "110406": {
       "name": "디바인 피스트",
@@ -757,6 +853,17 @@
       },
       "pas": "포톤 런처"
     },
+    "201406": {
+      "name": "전술-OPS 헬멧",
+      "slot": "head",
+      "grade": "epic",
+      "stats": {
+        "hp": 120,
+        "as": 30,
+        "cdr": 15
+      },
+      "pas": "전자기 충격"
+    },
     "201413": {
       "name": "비질란테",
       "slot": "head",
@@ -878,6 +985,16 @@
       },
       "pas": "예열 / 치유 감소"
     },
+    "201537": {
+      "name": "야생의 허기",
+      "slot": "head",
+      "grade": "legend",
+      "stats": {
+        "def": 12,
+        "hpLv": 25
+      },
+      "pas": "포식"
+    },
     "202307": {
       "name": "고위 사제복",
       "slot": "chest",
@@ -900,6 +1017,17 @@
         "crit": 24
       },
       "pas": ""
+    },
+    "202407": {
+      "name": "미스릴 갑옷",
+      "slot": "chest",
+      "grade": "legend",
+      "stats": {
+        "def": 35,
+        "hpLv": 24,
+        "cdr": 15
+      },
+      "pas": "예열 - 인내"
     },
     "202417": {
       "name": "EOD 슈트",
@@ -934,6 +1062,18 @@
         "adLv": 3,
         "def": 15,
         "as": 38
+      },
+      "pas": ""
+    },
+    "202422": {
+      "name": "방화복",
+      "slot": "chest",
+      "grade": "epic",
+      "stats": {
+        "def": 25,
+        "hpLv": 16,
+        "as": 30,
+        "cdr": 10
       },
       "pas": ""
     },
@@ -1032,6 +1172,17 @@
       },
       "pas": "각성"
     },
+    "202527": {
+      "name": "흑염룡의 갑주",
+      "slot": "chest",
+      "grade": "mythic",
+      "stats": {
+        "def": 41,
+        "hpLv": 25,
+        "cdr": 10
+      },
+      "pas": "겁화의 심장 / 치유 감소"
+    },
     "203306": {
       "name": "포이즌드",
       "slot": "arm",
@@ -1112,6 +1263,17 @@
       "grade": "epic",
       "stats": {
         "def": 8,
+        "ms": 0.22,
+        "tenacity": 20
+      },
+      "pas": ""
+    },
+    "204403": {
+      "name": "매버릭 러너",
+      "slot": "leg",
+      "grade": "epic",
+      "stats": {
+        "ad": 20,
         "ms": 0.22,
         "tenacity": 20
       },
@@ -1219,6 +1381,18 @@
       },
       "pas": ""
     },
+    "204514": {
+      "name": "택티컬 슈즈",
+      "slot": "leg",
+      "grade": "legend",
+      "stats": {
+        "ad": 20,
+        "hp": 150,
+        "ms": 0.25,
+        "cdr": 15
+      },
+      "pas": "순풍"
+    },
     "205305": {
       "name": "월왕구천",
       "slot": "arm",
@@ -1263,6 +1437,17 @@
         "cdr": 10
       },
       "pas": "불꽃 결계"
+    },
+    "705607": {
+      "name": "토템",
+      "slot": "arm",
+      "grade": "legend",
+      "stats": {
+        "def": 11,
+        "hpLv": 17,
+        "cdr": 15
+      },
+      "pas": "파쇄타"
     }
   }
 }

@@ -16,7 +16,7 @@ class Unit {
     this.hp = this.maxHp; this.dead = false; this.deathT = 0;
     this.moveTarget = null; this.vel = { x: 0, y: 0 }; this.root = 0; this.stun = 0; this.slows = []; this.msBuffs = [];
     this.unstoppable = 0; this.forced = null; this.shield = 0; this.shieldT = 0; this.trauma = 0; this.traumaT = 0;
-    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.revealT = 0; this.bleeds = []; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
+    this.crit = 0; this.healRed = 0; this.flash = 0; this.invuln = 0; this.rMaxMark = -99; this.fear = 0; this.fearFrom = null; this.taunt = 0; this.tauntBy = null; this.revealT = 0; this.bleeds = []; this.stealthT = 0; this.silence = 0; this.blindT = 0; this.untargetable = 0;
   }
   revive() { this.resetState(); this.pos = V.copy(this.spawn); FX.ring(this.pos, 0.2, 1.2, '#8a93a6', 0.4); }
   msMul() {
@@ -32,10 +32,12 @@ class Unit {
     if (type === 'stun') this.moveTarget = null;
     return true;
   }
-  addSlow(p, dur) { if (this.unstoppable > 0) return; this.slows.push({ p, t: dur }); }
+  addSlow(p, dur) { if (this.unstoppable > 0) return; this.slows.push({ p: p * (1 - (this.slowRes || 0)), t: dur }); }   // slowRes: 둔화 저항(비형 도깨비 불)
   addMsBuff(p, dur, decay, tag) { if (tag) this.msBuffs = this.msBuffs.filter(m => m.tag !== tag); this.msBuffs.push({ p, t: dur, dur, decay, tag }); }
   canMove() { return !this.dead && this.stun <= 0 && this.root <= 0 && !this.forced && this.baseMs > 0; }
   canAct() { return !this.dead && this.stun <= 0 && this.fear <= 0 && !this.forced; }
+  // 도발(비형 E 등): 시전 취소·스킬·이동 불가, 도발한 적을 계속 평타 — 이동 불가 효과는 아님(알론소 배리어로 못 막음)
+  applyTaunt(dur, by) { if (this.dead || this.unstoppable > 0 || !by || (this.ccGuard && this.ccGuard('taunt'))) return false; this.taunt = Math.max(this.taunt, dur); this.tauntBy = by; this.rest = null; return true; }
   // 공포: 시전자 반대 방향으로 걸어서 도망, 평타·스킬 불가
   applyFear(dur, from) { if (this.dead || this.unstoppable > 0 || (this.ccGuard && this.ccGuard('fear'))) return false; this.fear = Math.max(this.fear, dur); this.fearFrom = V.copy(from); return true; }
   heal(a, silent) {
@@ -47,7 +49,7 @@ class Unit {
   }
   tickStatus(dt) {
     const dec = k => { if (this[k] > 0) this[k] = Math.max(0, this[k] - dt); };
-    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
+    ['root', 'stun', 'unstoppable', 'invuln', 'flash', 'healRed', 'crit', 'fear', 'taunt', 'revealT', 'stealthT', 'silence', 'blindT', 'untargetable'].forEach(dec);
     Passive.tickBleeds(this, dt);   // 외상·치명적 외상 출혈
     if (this.regen > 0 && !this.dead && this.hp < this.maxHp) this.heal(this.regen * dt, true);   // 체력 재생(초당, 치유 감소 적용)
     ItemFx.tick(this, dt);   // 장비 고유 효과(부패 틱·파열 폭발·의념 타이머)
@@ -119,7 +121,7 @@ class Cathy extends Unit {
 
   // ---------- 명령 (Input에서 호출) ----------
   cmdMove(pt) {
-    this.S.input(); FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); if (this.taunt > 0) return;   // 도발 중엔 조작 불가 FX.mark(pt, '#5dff9a'); if (this.rest) Rest.stop(this, null, true);
     this.attackTarget = null; this.attackMove = null;
     const dest = Geo.pushOut(V.copy(pt), this.r);
     if (this.cast) {
@@ -138,26 +140,26 @@ class Cathy extends Unit {
     this.moveTarget = dest;
   }
   cmdAttack(t) {
-    this.S.input(); FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); if (this.taunt > 0) return; FX.mark(t.pos, '#ff5d5d'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     if (this.attackTarget !== t && this.aa.phase === 'windup') this.aa.phase = 'none';
     this.attackTarget = t; this.attackMove = null; this.moveTarget = null;
   }
   cmdAttackMove(pt) {
-    this.S.input(); FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this, null, true);
+    this.S.input(); if (this.taunt > 0) return; FX.mark(pt, '#ffb347'); if (this.rest) Rest.stop(this, null, true);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
     this.breakAA(false);
     this.attackTarget = null; this.attackMove = Geo.pushOut(V.copy(pt), this.r); this.moveTarget = V.copy(this.attackMove);
   }
   cmdStop() {
-    this.S.input();
+    this.S.input(); if (this.taunt > 0) return;
     this.moveTarget = null; this.attackTarget = null; this.attackMove = null;
     this.breakAA(false);
     if (this.cast && this.cast.phase === 'recovery') this.endCast();
   }
   cmdSkill(k, aim) {
     this.S.input();
-    if (this.dead) return;
+    if (this.dead || this.taunt > 0) return;
     if (this.rest) Rest.stop(this, null, true);
     const busy = (this.cast && this.cast.phase !== 'recovery') || this.forced || this.stun > 0;
     if (busy) { this.buffer = { k, aim: V.copy(aim), time: Game.time }; return; }
@@ -346,6 +348,10 @@ class Cathy extends Unit {
       this.aa.phase = 'none'; this.attackTarget = null; this.buffer = null;
       if (this.fearFrom) this.moveTarget = Geo.pushOut(V.add(this.pos, V.mul(V.norm(V.sub(this.pos, this.fearFrom)), 2)), this.r);
       this.moveStep(dt); return;
+    }
+    if (this.taunt > 0 && this.tauntBy && !this.tauntBy.dead) {   // 도발: 시전 취소·입력 무시, 도발한 적을 계속 평타
+      if (this.cast && this.cast.phase === 'windup') this.cancelCast(false);
+      this.buffer = null; this.attackTarget = this.tauntBy; this.attackMove = null; this.moveTarget = null;
     }
     if (this.cast) { this.updateCast(dt); if (this.cast) return; }
     if (this.buffer) {   // 선입력 처리

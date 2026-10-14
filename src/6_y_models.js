@@ -20,6 +20,7 @@ const Models = {
     nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
     chloe:  { file: 'ranged', tint: true },
     alonso: { file: 'male', colors: { White: '#6b5a48', Purple: '#3c3a3e', LightBlue: '#c9853e', Hair: '#b9b4ad', Eyebrows: '#b9b4ad' } },   // 고철상: 낡은 겉옷·주황 포인트
+    bihyung: { file: 'male', colors: { White: '#1d1f26', Purple: '#2a2c33', LightBlue: '#c8344a', Hair: '#3fbf9f', Eyebrows: '#2c6f60' } },   // 청록 머리 · 검은 한복풍 겉옷 · 빨간 띠
     nina:   { file: 'cathy', h: 0.64, colors: { Red: '#f2f0ec', Brown: '#cdc1b4', LimeGreen: '#f7f5f1', Gold: '#2b2d33' } },   // 클로에의 인형 니나(아이 크기)
   },
   TINT_MATS: ['Green', 'LightGreen', 'Purple', 'White', 'LightBlue'],   // tint: 옷 재질만 실험체 색으로
@@ -42,7 +43,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso', 'bihyung'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 복제(SkeletonUtils.clone)는 부위(메시)마다 뼈대를 따로 복제함 → 같은 뼈·같은 바인드 자세면 하나로 묶음
@@ -204,6 +205,10 @@ const Models = {
       const st = M('#c9cfd6', { metalness: 0.7, roughness: 0.3 });
       for (const a of [0, Math.PI / 2]) add('WristR', new T3.BoxGeometry(0.012, 0.2, 0.05), st, 0, -G - 0.06, 0.03, a, 0, 0);
       add('WristR', new T3.TorusGeometry(0.03, 0.008, 4, 10), M('#c9a24a'), 0, -G - 0.06, 0.03, 0, Math.PI / 2, 0);
+    } else if (w === '방망이') {   // 나무 몽둥이: 손잡이 감개 → 끝으로 갈수록 굵어짐 + 쇠 징
+      add('WristR', new T3.CylinderGeometry(0.02, 0.022, 0.14, 8), M('#2b2b30'), 0, -G, 0);
+      const club = add('WristR', new T3.CylinderGeometry(0.065, 0.03, 0.62, 10), wood, 0, -G - 0.38, 0); if (club) blades.push({ mesh: club, len: 0.62 });
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; add('WristR', new T3.ConeGeometry(0.014, 0.04, 4), steel, Math.cos(a) * 0.06, -G - 0.58, Math.sin(a) * 0.06, 0, 0, a > Math.PI ? -1.4 : 1.4); }
     } else if (w === '활') {
       add('WristR', new T3.TorusGeometry(0.42, 0.016, 4, 16, Math.PI * 0.75), wood, 0, -G + 0.3, 0, 0, Math.PI / 2, -Math.PI * 0.875);   // 세로 활대
     }

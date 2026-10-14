@@ -271,6 +271,12 @@ Modes.dodge = {
 // ---------- 4. 1:1 결투 ----------
 const SPHERE_KIND = s => s === 'final' ? 'final' : s ? 'temp' : null;   // 크로노 스피어 옵션: 'final' 최종 안전지대 · 'temp'(true) 임시 안전지대
 Modes.duel = {
+  // 결투 상대별 대응 팁 (정보 패널)
+  TIPS: {
+    ranged: '원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.',
+    alonso: '알론소는 탱커 — <b>E(대상 지정 4.75m)</b> 고리가 보이면 0.8초 안에 8.25m 밖으로 빠지면 취소됩니다. <b>Q(직선 펀치)</b>에 맞으면 연결 — 그 상태에서 평타·어퍼컷을 맞으면 기절이니 붙지 마세요. W 방패는 앞만 막으니 옆·뒤로 돌아 치세요. R(게더링 필드) 중엔 원 밖으로 걸어 나가면 둔화 — 짧은 이동기로 빠지세요.',
+    bihyung: '비형은 브루저 — <b>W(1.5초 뒤 폭발하는 원)</b>은 예고를 보고 원 밖으로 피하세요(맞으면 둔화 → E 도발 연계). <b>E 돌진(2.5~5.3m)</b>에 부딪히면 도발로 끌려가 Q 강화 평타·풀스윙을 다 맞으니 옆으로 비켜서세요. 몸에 청록 장판(도깨비 불)이 생기면 최대 체력 비례 피해 — 4초 동안 거리를 벌리면 끝납니다. 벽을 등지면 풀스윙 벽꿍 기절, R 착지 중앙(2m)은 더 아픕니다.',
+  },
   name: '1:1 결투',
   start(o) {
     this.diff = o.diff || 'normal'; this.need = o.rounds === 1 ? 1 : 2;
@@ -344,7 +350,7 @@ Modes.duel = {
   side() {
     const e = this.enemy; if (!e) return '';
     const M = this.motif;
-    if (e.melee) {   // 근거리 암살자(다니엘): 상태·표식 + 대응 팁
+    if (e.melee && this.motifKey === 'daniel') {   // 근거리 암살자(다니엘): 상태·표식 + 대응 팁 (알론소·비형은 아래 공통 패널)
       const st = { stalk: '서성이며 각 재는 중', engage: '진입!', retreat: '후퇴' }[e.mode] + (e.stealthT > 0 ? ' · 은신' : '') + (e.shadow ? ' · 걸작(대상 지정 불가)' : '');
       const mk = e.mark ? kv('영감 표식', e.mark.t >= e.kitCfg.W.ready ? `<b style="color:#ffd1ff">활성 — 공격받으면 폭발 ${Math.round(e.mark.acc)}</b>` : `${fmt(e.kitCfg.W.ready - e.mark.t, 1)}s 후 활성 (축적 ${Math.round(e.mark.acc)})`) : '';
       const gi2 = e.gearInfo ? `<div style="color:#9fd8ff;margin:4px 0">🛠 ${esc(e.gearInfo.label)}</div>` : '';
@@ -353,7 +359,7 @@ Modes.duel = {
     }
     const gi = e.gearInfo ? `<div style="color:#9fd8ff;margin:4px 0">🛠 ${esc(e.gearInfo.label)}</div>` : '';
     return `<h4>⚔ vs ${M.name} Lv${e.level} (${M.weapon})</h4>${gi}${kv('적 체력', `${Math.round(Math.max(0, e.hp))} / ${e.maxHp}`)}${kv('공격력 / 스킬 증폭', `${e.ad} / ${e.sp}`)}${kv('공속 / 치명 / 방관', `${e.as} / ${Math.round(e.critChance * 100)}% / ${Math.round(e.pen * 100)}%`)}${kv('방어력', e.def)}${kv('평타 사거리', fmt(e.aaRange(), 2) + 'm' + (e.stance ? (e.stance === 'short' ? ' (단궁)' : ' (화궁)') : ''))}${['Q', 'W', 'E', 'R', 'D'].filter(k => e.kitCfg[k]).map(k => kv(`${k === 'D' ? '무기' : k} ${e.kitCfg[k].name}`, e.cds[k] > 0 ? fmt(e.cds[k], 1) + 's' : '준비')).join('')}
-      <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.</div>`;
+      <h5>팁</h5><div style="color:#8a93a6;line-height:1.5">${this.TIPS[this.motifKey] || this.TIPS.ranged}</div>`;
   },
   result() {
     const t = this.wins.p + this.wins.e;
