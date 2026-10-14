@@ -281,13 +281,25 @@ const Render3D = {
       let m = this.projMeshes.get(pr);
       if (!m) {
         const col = pr.kind === 'needle' ? CONFIG.theme.accent2 : (pr.color || '#c79bff'), len = pr.kind === 'needle' ? 0.6 : (pr.len || 1.2);
-        m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
+        if (pr.look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
+        else m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
         this.scene.add(m); this.projMeshes.set(pr, m);
       }
       m.visible = pr.team === myTeam() || Vision.pointVisible(pr.pos);
       m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
+      if (pr.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
     }
-    for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.geometry.dispose(); this.projMeshes.delete(pr); }
+    for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material && c.userData.own) c.material.dispose(); }); this.projMeshes.delete(pr); }
+  },
+  fistMesh(col, w) {
+    const T3 = THREE, g = new T3.Group(), r = Math.max(0.25, w * 0.3), add = { transparent: true, depthWrite: false, blending: T3.AdditiveBlending };
+    const M = (c, op) => { const m = new T3.MeshBasicMaterial(Object.assign({ color: new T3.Color(c).convertSRGBToLinear(), opacity: op }, add)); this.noLine && this.noLine(m); return m; };
+    const mk = (geo, mat) => { const x = new T3.Mesh(geo, mat); x.userData.own = true; g.add(x); return x; };
+    mk(new T3.SphereGeometry(r, 16, 12), M(col, 0.55));                               // 0 빛 공
+    mk(new T3.SphereGeometry(r * 0.5, 12, 8), M('#ffffff', 0.95));                     // 1 흰 심
+    const ring = mk(new T3.TorusGeometry(r * 1.25, r * 0.12, 6, 20), M(col, 0.8)); ring.rotation.y = Math.PI / 2;   // 2 진행 방향 고리(회전)
+    const tail = mk(new T3.ConeGeometry(r * 0.8, r * 4, 12, 1, true), M(col, 0.28)); tail.rotation.z = Math.PI / 2; tail.position.x = -r * 2.2;   // 3 꼬리
+    return g;
   },
   // ---------- 부쉬 반투명·흔들림 ----------
   syncBushes() {

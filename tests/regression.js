@@ -324,6 +324,24 @@
     Settings.character = 'cathy';
   });
 
+  // 알론소 가시성: Q 자력 주먹 모양 · E 준비 선 · 어퍼컷 동작 신호 · W 마무리 파동 · 그리기 오류 없음
+  G('알론소 가시성', () => {
+    reset(); Settings.character = 'alonso'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 5, y: d.pos.y };
+    p.cmdSkill('Q', d.pos); Input.aiming = null; run(40);
+    T.ok('Q 투사체 = 자력 주먹(look fist)', Game.projectiles.some(pr => pr.look === 'fist'));
+    run(120); p.pos = { x: d.pos.x - 4.3, y: d.pos.y }; p.skills.E.cd = 0; p.cmdSkill('E', d.pos); Input.aiming = null; run(48);
+    const aiming = !!(p.alE && p.alE.u === d && p.alE.t > 0.3); run(120);
+    T.ok('E 준비 중 대상 선(alE) → 돌진 후 사라짐', aiming && !p.alE);
+    const up0 = p.alUpper; p.skills.D.cd = 0; p.cmdSkill('D', d.pos); Input.aiming = null; run(30);
+    T.ok('어퍼컷: 동작 신호(alUpper) 증가', p.alUpper === up0 + 1);
+    p.skills.W.cd = 0; p.cmdSkill('W', d.pos); Input.aiming = null; run(10); p.cmdSkill('W', d.pos); run(2);
+    T.ok('W 재입력 → 마무리 파동 표시(fin)', p.alWaves.some(w => w.fin));
+    let ok = true; try { const c = document.createElement('canvas').getContext('2d'); p.skills.R.cd = 0; p.cmdSkill('R', p.pos); run(60); p.alMark = { u: d, t: 2 }; p.alE = { u: d, t: 0.4 }; AlonsoCore.draw(p, c); } catch (e) { ok = false; }
+    T.ok('알론소 그리기(W·R·E·Q 연결 동시) 오류 없음', ok);
+    Settings.character = 'cathy';
+  });
+
   // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
   G('실측값 입력', () => {
     reset(); const K = CONFIG.rangedKits;

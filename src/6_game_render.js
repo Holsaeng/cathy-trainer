@@ -586,6 +586,11 @@ const Render = {
       if (pr.owner && !pr.owner.dead) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(pr.owner.pos.x, pr.owner.pos.y); ctx.lineTo(pr.pos.x, pr.pos.y); ctx.stroke(); }   // 실
       ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = T.accent2; ctx.shadowBlur = 10; ctx.fillStyle = T.accent2; ctx.fillRect(-0.45, -0.05, 0.6, 0.1);
       ctx.beginPath(); ctx.moveTo(0.15, -0.09); ctx.lineTo(0.35, 0); ctx.lineTo(0.15, 0.09); ctx.fill();
+    } else if (pr.look === 'fist') {   // 알론소 Q: 빛나는 자력 주먹 + 꼬리
+      const col = pr.color || '#7fd7ff', r = Math.max(0.25, pr.width * 0.3); ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 16;
+      ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(-r * 4, 0); ctx.lineTo(0, r); ctx.fill();
+      ctx.globalAlpha = 0.8; Draw.circle(ctx, 0, 0, r); ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; Draw.circle(ctx, 0, 0, r * 0.45); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.35, r * 1.3, 0, 0, Math.PI * 2); ctx.stroke();
     } else {
       const col = pr.color || '#c79bff', ln = pr.len || 1.2; ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.fillStyle = col; ctx.fillRect(-ln / 2, -pr.width / 2, ln, pr.width);
     }

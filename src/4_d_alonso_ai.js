@@ -17,7 +17,7 @@ Kits.alonso = {
   // 근접 평타: 투사체 없이 즉시 · 연결된 적이면 기절
   fireAA(ai, p) { ai.aaLand(p); return true; },
   aaDamage(ai) { return { amount: ai.ad * ai.diff.dmgMul, crit: false }; },
-  onAAHit(ai, u) { AlonsoCore.pop(ai, u); },
+  onAAHit(ai, u) { AlonsoCore.aaHit(ai, u); },
   onDamaged(ai) { AlonsoCore.onDamaged(ai); },
   update(ai, dt) {
     AlonsoCore.update(ai, dt);
@@ -37,20 +37,20 @@ Kits.alonso = {
     }
     // E: 4.75m 안 → 0.8초 뒤 돌진 + 속박 (바로 다음에 Q → 평타 기절)
     if (ai.cds.E <= 0 && d <= K.E.range + p.r && !(p.unstoppable > 0)) {
-      const E = K.E; ai.cds.E = ai.pick(E.cd, 'E'); FX.text(p.pos, E.name, ai.motif.color, 13, { bold: true });
+      const E = K.E; ai.cds.E = ai.pick(E.cd, 'E'); FX.text(p.pos, E.name, ai.motif.color, 13, { bold: true }); AlonsoCore.eAim(ai, p);
       ai.startCast(E.windup, () => {
-        if (!AlonsoCore.eValid(ai, p)) { ai.cds.E *= 1 - E.refund; FX.text(ai.pos, '슬램 취소', '#aaa', 11); return; }
+        if (!AlonsoCore.eValid(ai, p)) { ai.cds.E *= 1 - E.refund; FX.text(ai.pos, '슬램 취소', '#aaa', 11); ai.alE = null; return; }
         const to = V.sub(p.pos, ai.pos), dd = V.len(to), reach = ai.r + p.r + 0.05;
         ai.unstoppable = Math.max(ai.unstoppable, 0.35);
         ai.act = { type: 'dash', t: 0, dur: Math.max(0.05, (dd - reach) / E.dashSpeed), from: V.copy(ai.pos), to: Geo.pushOut(V.sub(p.pos, V.mul(V.norm(to), reach)), ai.r) };
-        AlonsoCore.eLand(ai, p);
+        AlonsoCore.eGo(ai, ai.pos, ai.act.to); AlonsoCore.eLand(ai, p);
       }, { kind: 'circle', pos: V.copy(ai.pos), r: E.cancel, color: ai.motif.color });
       return true;
     }
     // Q: 견제·추격 (속박·기절 중인 적엔 거의 확정)
     if (ai.cds.Q <= 0 && d <= K.Q.range - 0.3 && !ai.alMark) {
       const Q = K.Q, dir = ai.aimDir(p, Q.windup, Q.speed); ai.cds.Q = ai.pick(Q.cd, 'Q');
-      ai.startCast(Q.windup, () => { Sfx.play('throw'); ai.shoot({ dir, speed: Q.speed, range: Q.range, width: Q.width, len: 0.8, color: '#7fd7ff', onHit: u => AlonsoCore.qHit(ai, u) }); }, { kind: 'line', dir, len: Q.range, width: Q.width });
+      ai.startCast(Q.windup, () => { Sfx.play('throw'); ai.shoot({ dir, speed: Q.speed, range: Q.range, width: Q.width, len: 0.8, color: '#7fd7ff', onHit: u => AlonsoCore.qHit(ai, u) }).look = 'fist'; }, { kind: 'line', dir, len: Q.range, width: Q.width });
       return true;
     }
     // W: 앞에서 맞고 있을 때 (원거리 상대에게 다가가는 중이거나 체력이 깎일 때)
