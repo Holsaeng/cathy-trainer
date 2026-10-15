@@ -20,9 +20,10 @@ Kits.bihyung = {
   wallBehind(p, dir, dist) { const t = Geo.rayHit(p.pos, dir, dist, p.r); return t !== Infinity; },
   think(ai, p, d) {
     const K = ai.kitCfg, hpR = ai.hp / ai.maxHp, pHp = p.hp / p.maxHp, gap = d - ai.r - p.r;
-    const foes = ai.bh.foes().filter(u => isHero(u)), taunted = p.taunt > 0 && p.tauntBy === ai;
+    const foes = ai.bh.foes().filter(u => isHero(u)), taunted = p.taunt > 0 && p.tauntBy === ai, easy = ai.diffKey === 'easy';
+    // 쉬움: 수치는 그대로 두고 연계만 줄임 — Q 2단계 안 씀 · W 예측 없이 지금 위치 · E 가끔(40%) · 도발 뒤 풀스윙은 벽꿍 각일 때만 (2026-10-16 점검: 쉬움인데 보통과 거의 같은 세기)
     // Q2: 재사용 창이 열리면 바로(다음 평타 3연타)
-    if (BihyungCore.qReady2(ai) && gap <= ai.aaRange() + 0.6) { BihyungCore.qCast(ai); return false; }
+    if (!easy && BihyungCore.qReady2(ai) && gap <= ai.aaRange() + 0.6) { BihyungCore.qCast(ai); return false; }
     // R: 착지 지점 주변 적 2명 이상 · 결투 마무리(상대 빈사) · 내가 몰릴 때(추가 체력·피해 감소)
     if (ai.cds.R <= 0 && d <= K.R.range + K.R.core) {
       const land = V.copy(p.pos), around = foes.filter(u => V.dist(u.pos, land) <= K.R.r + u.r).length;
@@ -34,13 +35,13 @@ Kits.bihyung = {
     }
     // W: 사거리 7m — 상대 예측 위치에, 가까우면 내 쪽까지 덮어 보호막도 (도발·속박 중이면 확정)
     if (ai.cds.W <= 0 && d <= K.W.range + 0.5) {
-      const pred = taunted || p.root > 0 || p.stun > 0 ? V.copy(p.pos) : ai.predict(p, K.W.delay * 0.6);
+      const pred = easy || taunted || p.root > 0 || p.stun > 0 ? V.copy(p.pos) : ai.predict(p, K.W.delay * 0.6);
       const pt = gap < 2 ? V.lerp(ai.pos, pred, 0.6) : pred;   // 붙어 있으면 둘 다 범위 안
       ai.startCast(K.W.windup, () => { BihyungCore.wCast(ai, Geo.pushOut(pt, 0.2)); Sfx.play('throw'); }, { kind: 'circle', pos: pt, r: K.W.r, color: ai.motif.color });
       return true;
     }
     // E: 2.5~5.3m 안 — 돌진해 처음 부딪힌 적 도발 (W 둔화 뒤면 거의 확정)
-    if (ai.cds.E <= 0 && gap >= K.E.min - 0.8 && gap <= K.E.max - 0.3 && !(p.unstoppable > 0)) {
+    if (ai.cds.E <= 0 && gap >= K.E.min - 0.8 && gap <= K.E.max - 0.3 && !(p.unstoppable > 0) && (!easy || rnd() < 0.4)) {
       const E = K.E, dir = ai.aimDir(p, E.windup, E.speed); ai.cds.E = ai.pick(E.cd, 'E');
       ai.startCast(E.windup, () => {
         const st = BihyungCore.eStart(ai, dir, d + 0.6); Sfx.play('dash');
@@ -51,7 +52,7 @@ Kits.bihyung = {
     // 풀스윙: 도발·속박 중이거나 뒤에 벽(벽꿍) · 붙어 있을 때
     if (ai.cds.D <= 0 && gap <= K.D.range + 0.2) {
       const dir = V.norm(V.sub(p.pos, ai.pos));
-      if (taunted || p.root > 0 || this.wallBehind(p, dir, K.D.knock) || (hpR < 0.4 && ai.diffKey !== 'easy')) {
+      if ((!easy && (taunted || p.root > 0)) || this.wallBehind(p, dir, K.D.knock) || (hpR < 0.4 && !easy)) {
         ai.cds.D = K.D.cd[0]; BihyungCore.dAim(ai, dir);   // 쿨 고정
         ai.startCast(K.D.windup, () => { ai.facing = V.ang(dir); BihyungCore.dSwing(ai, V.norm(V.sub(p.pos, ai.pos))); }, { kind: 'cone', dir, len: K.D.range + ai.r, angle: K.D.angle });
         return true;
