@@ -138,7 +138,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso', bat: u.charKey === 'bihyung', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso' || u.motifKey === 'alonso', bat: u.charKey === 'bihyung' || u.motifKey === 'bihyung', aiMelee: u.kind !== 'player' && !!(u.motif && u.motif.melee), dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -394,6 +394,26 @@ const Models = {
     rig.aaPh = ph; rig.aaT = a.t;
     return ph === 'windup' || ph === 'back' || rig.recov > 0;
   },
+  // AI 근접(알론소·비형·다니엘): 평타·시전 준비(act) 동안 「휘두르기 시작 → 타격 프레임」을 재생해 피해가 들어가는 순간 주먹·방망이·단검이 닿게 함
+  //   평타 = 주먹 좌우 번갈아 / 방망이 휘두르기 / 단검 베기·찌르기 번갈아 · 시전 = 같은 동작을 준비 시간에 맞춤 · 정신 집중(R) = 들어 올린 자세 유지
+  aiMeleeAnim(rig, u, moving) {
+    const a = u.act;
+    if (a && a !== rig.aiAct && (a.type === 'aa' || a.type === 'cast')) {
+      rig.aiAct = a; const name = rig.bat ? 'slash' : rig.glove ? (rig.swing++ % 2 ? 'stabL' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
+      const M = this.MELEE[name], W = Math.max(0.05, a.dur - a.t);
+      this.playSeg(rig, name, M.s, clamp((M.hit - M.s) / W, 0.3, 14), 0.06); rig.segEnd = M.hit; rig.swingName = name; rig.aiHit = true; rig.combat = 2.5; rig.recov = W + 0.3;
+    } else if (a && a !== rig.aiAct && a.type === 'channel') {
+      rig.aiAct = a; this.seg(rig, 'slash', 0.10, 0.26, 0.15); rig.aiHit = false; rig.combat = 2.5; rig.recov = a.dur + 0.1;
+    }
+    if (rig.aiAct && u.act !== rig.aiAct) {   // 타격(발사) 순간 → 남은 동작을 빠르게 회수 · 정신 집중 끝 → 바로 기본 자세로
+      const was = rig.aiAct; rig.aiAct = null;
+      if (rig.aiHit && rig.swingName && was.type !== 'channel') { const M = this.MELEE[rig.swingName]; rig.segEnd = M.end; rig.cur.paused = false; rig.cur.timeScale = clamp((M.end - M.hit) / 0.25, 0.8, 5); rig.recov = 0.25; }
+      else rig.recov = 0;
+      rig.aiHit = false;
+    }
+    if (moving && !u.act) rig.recov = 0;   // 움직이면 회수 동작을 끊고 바로 달리기
+    return !!u.act && u.act.type !== 'dash' || rig.recov > 0;
+  },
   // 상태 → 동작. 공격·피격은 한 번 재생 후 원래 동작으로
   animate(rig, u, dt, moving) {
     dt *= Game.state === 'play' ? (Settings.gameSpeed || 1) : 0;   // 게임 속도·일시정지 반영 (판정 시간과 맞춤)
@@ -411,6 +431,7 @@ const Models = {
     if (rig.glove) {   // 알론소 어퍼컷(시전 시간 없음): 아래에서 위로 주먹
       if (u.alUpper !== rig.alUpper) { if (rig.alUpper !== undefined) { this.seg(rig, 'stabR', 0.46, 0.96, 0.32, 0.04); rig.recov = 0.32; rig.combat = 2.5; rig.aaPh = 'none'; } rig.alUpper = u.alUpper; }
     }
+    if (rig.aiMelee && this.aiMeleeAnim(rig, u, moving)) { rig.wasAtk = false; this.step(rig, dt); return; }
     if (rig.melee && u.cast && this.skillAnim(rig, u)) { rig.wasAtk = false; this.step(rig, dt); return; }
     if (rig.melee && u.cast === null && rig.castId !== undefined && rig.castPh !== 'done') { rig.castPh = 'done'; rig.leanTo = 0; rig.recov = 0.12; }   // 스킬 끝 → 잠깐 자세 유지 후 전투 자세
     if (rig.melee && u.aa && !(u.cast && u.cast.phase !== 'recovery')) {
