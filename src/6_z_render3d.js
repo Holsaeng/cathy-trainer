@@ -281,15 +281,53 @@ const Render3D = {
       let m = this.projMeshes.get(pr);
       if (!m) {
         const col = pr.kind === 'needle' ? CONFIG.theme.accent2 : (pr.color || '#c79bff'), len = pr.kind === 'needle' ? 0.6 : (pr.len || 1.2);
-        if (pr.look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
+        const look = pr.look || Render3D.projLook(pr);
+        if (look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
+        else if (look) m = this.shotMesh(look, col, len, pr.width || 0.3);   // 원딜: 무기별 총알·화살·볼트·저격탄·암기
         else m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
-        this.scene.add(m); this.projMeshes.set(pr, m);
+        m.userData.look = look; this.scene.add(m); this.projMeshes.set(pr, m);
       }
       m.visible = pr.team === myTeam() || Vision.pointVisible(pr.pos);
       m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
-      if (pr.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
+      if (m.userData.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
+      else if (m.userData.look === 'blade') m.children[0].rotation.y = Game.time * 30;   // 암기: 납작하게 돌며 날아감
     }
     for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material && c.userData.own) c.material.dispose(); }); this.projMeshes.delete(pr); }
+  },
+  // 무기별 투사체 모양 (주인의 무기로 정함 — 스킬 탄도 같은 무기 모양, 길이·굵기는 판정 값에 비례)
+  PROJ_LOOK: { '권총': 'bullet', '활': 'arrow', '석궁': 'bolt', '저격총': 'sniper', '암기': 'blade' },
+  projLook(pr) { const w = pr.owner && pr.owner.motif && pr.owner.motif.weapon; return (w && this.PROJ_LOOK[w]) || null; },
+  shotMesh(look, col, len, w) {
+    const T3 = THREE, g = new T3.Group(), add = { transparent: true, depthWrite: false, blending: T3.AdditiveBlending };
+    const glow = (c, op) => this.noLine(new T3.MeshBasicMaterial(Object.assign({ color: new T3.Color(c).convertSRGBToLinear(), opacity: op }, add)));
+    const solid = c => this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color(c).convertSRGBToLinear() }));
+    const mk = (geo, mat, x = 0) => { const o = new T3.Mesh(geo, mat); o.userData.own = true; o.position.x = x; g.add(o); return o; };
+    const alongX = geo => { geo.rotateZ(-Math.PI / 2); return geo; };   // 원기둥·원뿔(+Y) → 진행 방향(+X)
+    const tail = (r, L, c, op) => mk(alongX(new T3.ConeGeometry(r, L, 8, 1, true)).rotateZ(Math.PI), glow(c, op), -L / 2);   // 뒤로 가늘어지는 빛 꼬리
+    const big = clamp(len / 0.6, 1, 3.5);   // 스킬 탄(길이 큼)은 더 굵고 길게
+    if (look === 'bullet') {   // 권총탄: 흰 심 + 색 빛 + 꼬리
+      mk(new T3.SphereGeometry(0.07 * big, 8, 6), solid('#fffbe8'));
+      mk(new T3.SphereGeometry(0.15 * big, 10, 8), glow(col, 0.55));
+      tail(0.09 * big, 0.9 * big, col, 0.45);
+    } else if (look === 'sniper') {   // 저격탄: 길고 가는 빛줄기
+      mk(alongX(new T3.CylinderGeometry(0.05 * big, 0.05 * big, 0.5, 6)), solid('#ffffff'));
+      tail(0.11 * big, 2.2 * big, col, 0.5);
+      mk(new T3.SphereGeometry(0.16 * big, 10, 8), glow(col, 0.5), 0.2);
+    } else if (look === 'arrow' || look === 'bolt') {   // 화살·볼트: 나무 대 + 쇠 촉 + 깃 + 옅은 꼬리
+      const L = look === 'arrow' ? 0.9 * Math.min(big, 2) : 0.6 * Math.min(big, 2), r = look === 'arrow' ? 0.022 : 0.035, s2 = Math.min(big, 2);
+      mk(alongX(new T3.CylinderGeometry(r * s2, r * s2, L, 6)), solid(look === 'arrow' ? '#d8c39a' : '#8a6a48'));
+      mk(alongX(new T3.ConeGeometry(r * 3 * s2, 0.16 * s2, 6)), solid('#e8eef5'), L / 2 + 0.08 * s2);
+      for (const a of [0, Math.PI / 2]) { const f = mk(new T3.PlaneGeometry(0.18 * s2, 0.08 * s2), this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear(), side: T3.DoubleSide })), -L / 2 + 0.1); f.rotation.x = a; }
+      tail(0.06 * s2, 0.7 * s2, col, 0.3).position.x -= L / 2;
+    } else if (look === 'blade') {   // 암기: 납작한 네 갈래 표창(돌며 날아감)
+      const sh = new T3.Shape(), R = 0.2 * Math.min(big, 2), r0 = R * 0.3;
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r0 : R; i ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(rr, 0); }
+      const geo = new T3.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
+      const star = mk(geo, this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color('#e8eef5').convertSRGBToLinear(), side: T3.DoubleSide })));
+      const halo = new T3.Mesh(new T3.CircleGeometry(R * 1.3, 16).rotateX(-Math.PI / 2), glow(col, 0.35)); halo.userData.own = true; star.add(halo);
+      tail(0.08, 0.6, col, 0.3);
+    }
+    return g;
   },
   fistMesh(col, w) {
     const T3 = THREE, g = new T3.Group(), r = Math.max(0.25, w * 0.3), add = { transparent: true, depthWrite: false, blending: T3.AdditiveBlending };

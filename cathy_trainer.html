@@ -988,7 +988,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'dff93b5f';
+const BUILD_ID = 'ffa1eac9';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -2755,6 +2755,7 @@ class RangedPlayer extends Cathy {
     const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.color, len: o.len || 0.6, pos: V.copy(o.from || this.pos), dir: o.dir, speed: o.speed, range: o.range, width: o.width || 0.3, wallPad: o.wallPad,
       onUnit: (pr, u) => { if (o.only && u !== o.only) return 'continue'; if (o.heroOnly && !isHero(u) && u.kind !== 'dummy') return 'continue'; const r = o.onHit(u, pr); return r === 'continue' || o.pierce ? 'continue' : 'stop'; } });
     if (o.onWall) pr.onWall = o.onWall;
+    FX.burst(V.add(pr.pos, V.mul(o.dir, this.r + 0.25)), pr.color, 3, 2.5, 0.12, 0.06);   // 발사 섬광(보이는 것만)
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.ignoreWalls = true; pr.range = o.range || V.dist(this.pos, o.home.pos) + 8; }   // 대상 지정: 벽에 막히지 않음(AI와 같음)
     Game.projectiles.push(pr); return pr;
   }
@@ -2829,7 +2830,7 @@ class RangedPlayer extends Cathy {
   aaLand(u, ratio = 1, extra = {}) {
     const crit = this.kit.noCrit ? false : rnd() < this.critChance, mul = this.kit.aaMul ? this.kit.aaMul(this, u) : (crit ? 1.75 + (this.critDmg || 0) : 1);
     const dmg = Combat.damage(this, u, this.ad * ratio * mul * (1 + this.aaAmp), Object.assign({ type: 'normal', source: 'AA', crit, pen: this.penNow() }, extra));
-    FX.burst(u.pos, crit ? '#ff9f9f' : '#ffffff', 5, 3);
+    FX.burst(u.pos, crit ? '#ff9f9f' : '#ffffff', crit ? 9 : 5, crit ? 4.5 : 3); if (crit) FX.ring(u.pos, 0.1, 0.9, '#ff9f9f', 0.22, 0.08);   // 치명타는 크게
     if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
     return dmg;
   }
@@ -2854,7 +2855,15 @@ class RangedPlayer extends Cathy {
     super.update(dt);
   }
   // ---------- 그리기 ----------
-  drawExtra(ctx) { if (this.kit.draw) this.kit.draw(this, ctx); }
+  drawExtra(ctx) {
+    // 준비 시간이 0.25초 이상인 스킬: 준비 동안 범위가 차오름(아야 공포탄 · 리오 정사필중 · 나딘 강노 등) — 대상 지정·도약·카티야 정밀 조준(키트가 그림)은 제외
+    const c = this.cast;
+    if (c && c.phase === 'windup' && c.windup >= 0.25) { const S = this.kit.shape && this.kit.shape(this, c.k); if (S && !['target', 'trap', 'dash', 'back'].includes(S.kind)) this.drawShape(ctx, c.k, c.aim, 0.12 + 0.3 * clamp(c.t / c.windup, 0, 1)); }
+    // 강화 평타 준비: 발밑 고리(맥동) — 키트가 알려 줌 { color }
+    const ready = this.kit.empowered && this.kit.empowered(this);
+    if (ready) KU.ring(ctx, this.pos, this.r + 0.22, ready, 0.55 + 0.35 * Math.sin(Game.time * 10), false);
+    if (this.kit.draw) this.kit.draw(this, ctx);
+  }
   hudBuffs() { return this.kit.hud ? this.kit.hud(this) : []; }
   // 조준 미리보기: 키트의 모양 정의 {kind: line|cone|circle|target|self|dash|back|trap, ...}
   drawShape(ctx, k, aim, alpha) {
@@ -2898,6 +2907,7 @@ PKits.aya = {
     if (p.reload > 0 && --p.reload === 0) p.asBuffs = p.asBuffs.filter(a => a.tag !== 'reload');   // 무빙 리로드: 평타 2회 공속 +70%
   },
   recast(p, k) { return k === 'W' && !!p.ayaW; },
+  empowered(p) { return p.reload > 0 ? '#ffd166' : null; },   // 무빙 리로드: 다음 평타 공속↑
   cast: {
     // Q 2연발: 대상 지정 6.5m(밖이면 다가감) — 1발 = 기본 공격(공 110%, 치명 가능) · 2발 = 스킬 피해, 1발이 나가면 2발은 반드시 발사. 시전 중 이동 불가, 공속 1 이상이면 빨라짐
     Q(p, aim) {
@@ -2955,7 +2965,7 @@ PKits.aya = {
     const K = p.K;
     return { Q: { kind: 'target', range: K.Q.range + p.r }, W: { kind: 'line', len: K.W.range, width: K.W.width }, E: { kind: 'dash', len: K.E.dist }, R: { kind: 'self', r: K.R.radius } }[k] || null;
   },
-  draw(p, ctx) { if (p.ayaW) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(p.ayaW.dir), p.K.W.range, p.K.W.width); ctx.restore(); } },
+  draw(p, ctx) { if (p.ayaW) { const W = p.K.W, a = V.ang(p.ayaW.dir); ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = p.color; ctx.strokeStyle = p.color; ctx.lineWidth = 0.06; Draw.oRect(ctx, p.pos, a, W.range, W.width); ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(0,0,0,0)'; Draw.oRect(ctx, p.pos, a, W.range * clamp(1 - p.ayaW.t / p.ayaW.dur, 0, 1), 0.08); ctx.restore(); } },   // 고정 사격: 범위 + 남은 시간 줄
   hud(p) {
     const b = []; if (p.pCd > 0) b.push([`정의 ${Math.ceil(p.pCd)}`, '#8a93a6']); else b.push(['정의 준비', '#5aa9ff']);
     if (p.ayaW) b.push(['고정 사격 (W: 중단)', p.color]); if (p.reload > 0) b.push([`리로드 ×${p.reload}`, '#ffd166']);
@@ -2993,6 +3003,7 @@ PKits.rio = {
     return true;
   },
   onAAHit() {},
+  empowered(p) { return p.kcReady ? '#ffd166' : null; },   // 카이츄: 다음 평타 강화
   onHit(p, u, o) {
     if (o.kc !== false && isHero(u)) this.gainKc(p);
     if (o.hanare) for (const k of ['Q', 'E', 'R', 'D']) p.skills[k].cd = Math.max(0, p.skills[k].cd - p.K.W.cdReduce);   // 하나레 적중: 다른 스킬 쿨 1초 감소
@@ -3117,6 +3128,7 @@ PKits.rio = {
     return null;
   },
   draw(p, ctx) {
+    if (p.rRecast) { const RC = p.K.R.short.recast; KU.ring(ctx, p.pos, p.r + 0.4, '#ffffff', 0.4, true); ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.1; ctx.lineCap = 'round'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(p.rRecast.t / RC.grace, 0, 1)); ctx.stroke(); ctx.restore(); }   // 강한 화살(R) 대기 시간
     for (const z of p.zones) {
       if (z.type === 'wind') KU.fill(ctx, z.pos, z.r, '#9fe3b0', 0.25 * (1 - z.t / z.dur));
       else { const k = clamp(z.t / z.delay, 0, 1), D = p.K.D; KU.fill(ctx, z.pos, D.radius, p.color, 0.12 + 0.15 * k); KU.ring(ctx, z.pos, D.radius, p.color, 0.9); KU.fill(ctx, z.pos, D.innerR, '#ffffff', 0.15 + 0.2 * k); }
@@ -3234,12 +3246,12 @@ PKits.nadine = {
     return null;
   },
   draw(p, ctx) {
-    for (const tr of p.traps) { ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.07; ctx.setLineDash([0.25, 0.15]); ctx.beginPath(); ctx.moveTo(tr.a.x, tr.a.y); ctx.lineTo(tr.b.x, tr.b.y); ctx.stroke(); ctx.restore(); KU.fill(ctx, tr.a, 0.25, p.color, 0.8); KU.fill(ctx, tr.b, 0.25, p.color, 0.8); }
+    for (const tr of p.traps) { ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.1; ctx.globalAlpha = 0.7 + 0.25 * Math.sin(Game.time * 6); ctx.setLineDash([0.25, 0.12]); ctx.beginPath(); ctx.moveTo(tr.a.x, tr.a.y); ctx.lineTo(tr.b.x, tr.b.y); ctx.stroke(); ctx.restore(); KU.fill(ctx, tr.a, 0.25, p.color, 0.8); KU.fill(ctx, tr.b, 0.25, p.color, 0.8); }
     if (p.trapA) { KU.fill(ctx, p.trapA.pos, 0.25, p.color, 0.8); KU.ring(ctx, p.trapA.pos, p.K.W.link, p.color, 0.35, true); }
-    if (p.wire) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.wire.pos.x, p.wire.pos.y); ctx.stroke(); ctx.restore(); KU.ring(ctx, p.wire.pos, 0.35, '#ffffff', 0.8); }
-    if (p.mark && !p.mark.u.dead) { const u = p.mark.u, k = clamp(p.mark.t / p.K.D.mark.time, 0, 1); ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
+    if (p.wire) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.wire.pos.x, p.wire.pos.y); ctx.stroke(); ctx.restore(); KU.ring(ctx, p.wire.pos, 0.35, '#ffffff', 0.8); }
+    if (p.mark && !p.mark.u.dead) { const u = p.mark.u, k = clamp(p.mark.t / p.K.D.mark.time, 0, 1); KU.ring(ctx, u.pos, u.r + 0.4, p.color, 0.3, false); ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.13; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
     if (p.charge) { const Q = p.K.Q, k = clamp(p.charge.t / Q.charge, 0, 1), dir = p.dirTo(p.aimPt()); ctx.save(); ctx.globalAlpha = 0.2 + 0.3 * k; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(dir), lerp(Q.range[0], Q.range[1], k), Q.width); ctx.restore(); }
-    if (p.wolfT > 0) KU.ring(ctx, p.pos, p.r + 0.3, '#d0d0d0', 0.5, true);
+    if (p.wolfT > 0) { KU.ring(ctx, p.pos, p.r + 0.3, '#d0d0d0', 0.6, true); for (let i = 0; i < p.K.R.every; i++) KU.fill(ctx, V.add(p.pos, V.mul(V.fromAng(-Math.PI / 2 + (i - 1) * 0.5), p.r + 0.3)), 0.08, '#e0e0e0', i < p.wolfN ? 0.95 : 0.25); }   // 늑대: 평타 3번째마다 — 점으로 표시
   },
   hud(p) {
     const b = [[`야성 ${p.stacks}`, '#e0a35a']];
@@ -3257,6 +3269,7 @@ PKits.katja = {
   label(p, k) { if (k === 'D' && p.snipe) return `발사 ${p.snipe.fired + 1}/3`; return this.short[k]; },
   init(p) { p.psT = 0; p.snipe = null; },
   update(p, dt) { if (p.psT > 0) p.psT -= dt; },
+  empowered(p) { return p.psT > 0 ? p.color : null; },   // 잿빛 사신: 다음 평타 추가 피해
   // P 잿빛 사신: Q·E 사용 후 5초 안의 다음 평타에 추가 스킬 피해
   onAAHit(p, u) { if (p.psT <= 0) return; p.psT = 0; const P = p.K.P; p.hitS(u, lv(P.base, p.plv) + p.ad * lv(P.ad, p.plv), 'P'); FX.text(u.pos, P.name, p.color, 11, { bold: true }); },
   recast(p, k) { return k === 'D' && !!p.snipe; },
@@ -4162,7 +4175,7 @@ const ChloeCore = {
       if (this.e2Ready(o) && o === Game.player) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = n.color; Draw.oRect(ctx, n.pos, V.ang(V.sub(o.pos, n.pos)), Math.min(K.E.ninaDist, V.dist(n.pos, o.pos)), K.E.ninaWidth); ctx.restore(); }
       if (n.mode === 'point' && n.goal && o === Game.player) KU.ring(ctx, n.goal, 0.3, n.color, 0.6);
     }
-    for (const u of Game.units) if (u.chloeBy === o && u.chloeMarks > 0 && !u.dead && Game.time - u.chloeT < 5) for (let i = 0; i < Math.min(K.P.marks, u.chloeMarks); i++) KU.fill(ctx, V.add(u.pos, { x: -0.15 + i * 0.3, y: -u.r - 0.25 }), 0.08, '#ff8ab8', 0.95);   // 2타 표식
+    for (const u of Game.units) if (u.chloeBy === o && u.chloeMarks > 0 && !u.dead && Game.time - u.chloeT < 5) for (let i = 0; i < Math.min(K.P.marks, u.chloeMarks); i++) { const at = V.add(u.pos, { x: -0.18 + i * 0.36, y: -u.r - 0.3 }); KU.fill(ctx, at, 0.13, '#ff8ab8', 0.95); KU.ring(ctx, at, 0.17, '#ffffff', 0.7, false); }   // 2타 표식
   },
 };
 
@@ -4669,6 +4682,7 @@ class RangedDuelist extends Duelist {
   shoot(o) {
     const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.motif.color, len: o.len || 1, pos: V.copy(o.from || this.pos), dir: o.dir,
       speed: o.speed, range: o.range, width: o.width, onUnit: (pr, u) => { o.onHit(u, pr); return o.pierce ? 'continue' : 'stop'; } });
+    if (this.team === myTeam() || Vision.visible(Game.player, this)) FX.burst(V.add(pr.pos, V.mul(o.dir, this.r + 0.25)), pr.color, 3, 2.5, 0.12, 0.06);   // 발사 섬광(보이는 것만)
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.ignoreWalls = true; pr.range = 999; }   // 대상 지정(회피 불가 · 벽에 막히지 않음)
     Game.projectiles.push(pr); return pr;
   }
@@ -7754,6 +7768,15 @@ const Render = {
       ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(-r * 4, 0); ctx.lineTo(0, r); ctx.fill();
       ctx.globalAlpha = 0.8; Draw.circle(ctx, 0, 0, r); ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; Draw.circle(ctx, 0, 0, r * 0.45); ctx.fill();
       ctx.strokeStyle = col; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.35, r * 1.3, 0, 0, Math.PI * 2); ctx.stroke();
+    } else if (Render3D.projLook(pr)) {   // 원딜: 무기별 모양(빛 꼬리 + 머리) — 3D와 같은 구분
+      const look = Render3D.projLook(pr), col = pr.color || '#c79bff', ln = pr.len || 0.6, big = clamp(ln / 0.6, 1, 3.5);
+      ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 10;
+      const tl = look === 'sniper' ? 2.2 * big : look === 'blade' ? 0.6 : 0.9 * big, tw = (look === 'sniper' ? 0.11 : 0.09) * big;
+      const gr = ctx.createLinearGradient(-tl, 0, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, col);
+      ctx.globalAlpha = 0.6; ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, -tw); ctx.lineTo(-tl, 0); ctx.lineTo(0, tw); ctx.fill(); ctx.globalAlpha = 1;
+      if (look === 'arrow' || look === 'bolt') { const L = (look === 'arrow' ? 0.9 : 0.6) * Math.min(big, 2); ctx.strokeStyle = look === 'arrow' ? '#d8c39a' : '#8a6a48'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(-L / 2, 0); ctx.lineTo(L / 2, 0); ctx.stroke(); ctx.fillStyle = '#e8eef5'; ctx.beginPath(); ctx.moveTo(L / 2 + 0.16, 0); ctx.lineTo(L / 2, -0.07); ctx.lineTo(L / 2, 0.07); ctx.fill(); }
+      else if (look === 'blade') { ctx.rotate(Game.time * 30); ctx.fillStyle = '#e8eef5'; ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? 0.06 : 0.2; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.fill(); }
+      else { ctx.fillStyle = '#fffbe8'; Draw.circle(ctx, 0, 0, (look === 'sniper' ? 0.08 : 0.08) * big); ctx.fill(); }
     } else {
       const col = pr.color || '#c79bff', ln = pr.len || 1.2; ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.fillStyle = col; ctx.fillRect(-ln / 2, -pr.width / 2, ln, pr.width);
     }
@@ -9602,15 +9625,53 @@ const Render3D = {
       let m = this.projMeshes.get(pr);
       if (!m) {
         const col = pr.kind === 'needle' ? CONFIG.theme.accent2 : (pr.color || '#c79bff'), len = pr.kind === 'needle' ? 0.6 : (pr.len || 1.2);
-        if (pr.look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
+        const look = pr.look || Render3D.projLook(pr);
+        if (look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
+        else if (look) m = this.shotMesh(look, col, len, pr.width || 0.3);   // 원딜: 무기별 총알·화살·볼트·저격탄·암기
         else m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
-        this.scene.add(m); this.projMeshes.set(pr, m);
+        m.userData.look = look; this.scene.add(m); this.projMeshes.set(pr, m);
       }
       m.visible = pr.team === myTeam() || Vision.pointVisible(pr.pos);
       m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
-      if (pr.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
+      if (m.userData.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
+      else if (m.userData.look === 'blade') m.children[0].rotation.y = Game.time * 30;   // 암기: 납작하게 돌며 날아감
     }
     for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material && c.userData.own) c.material.dispose(); }); this.projMeshes.delete(pr); }
+  },
+  // 무기별 투사체 모양 (주인의 무기로 정함 — 스킬 탄도 같은 무기 모양, 길이·굵기는 판정 값에 비례)
+  PROJ_LOOK: { '권총': 'bullet', '활': 'arrow', '석궁': 'bolt', '저격총': 'sniper', '암기': 'blade' },
+  projLook(pr) { const w = pr.owner && pr.owner.motif && pr.owner.motif.weapon; return (w && this.PROJ_LOOK[w]) || null; },
+  shotMesh(look, col, len, w) {
+    const T3 = THREE, g = new T3.Group(), add = { transparent: true, depthWrite: false, blending: T3.AdditiveBlending };
+    const glow = (c, op) => this.noLine(new T3.MeshBasicMaterial(Object.assign({ color: new T3.Color(c).convertSRGBToLinear(), opacity: op }, add)));
+    const solid = c => this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color(c).convertSRGBToLinear() }));
+    const mk = (geo, mat, x = 0) => { const o = new T3.Mesh(geo, mat); o.userData.own = true; o.position.x = x; g.add(o); return o; };
+    const alongX = geo => { geo.rotateZ(-Math.PI / 2); return geo; };   // 원기둥·원뿔(+Y) → 진행 방향(+X)
+    const tail = (r, L, c, op) => mk(alongX(new T3.ConeGeometry(r, L, 8, 1, true)).rotateZ(Math.PI), glow(c, op), -L / 2);   // 뒤로 가늘어지는 빛 꼬리
+    const big = clamp(len / 0.6, 1, 3.5);   // 스킬 탄(길이 큼)은 더 굵고 길게
+    if (look === 'bullet') {   // 권총탄: 흰 심 + 색 빛 + 꼬리
+      mk(new T3.SphereGeometry(0.07 * big, 8, 6), solid('#fffbe8'));
+      mk(new T3.SphereGeometry(0.15 * big, 10, 8), glow(col, 0.55));
+      tail(0.09 * big, 0.9 * big, col, 0.45);
+    } else if (look === 'sniper') {   // 저격탄: 길고 가는 빛줄기
+      mk(alongX(new T3.CylinderGeometry(0.05 * big, 0.05 * big, 0.5, 6)), solid('#ffffff'));
+      tail(0.11 * big, 2.2 * big, col, 0.5);
+      mk(new T3.SphereGeometry(0.16 * big, 10, 8), glow(col, 0.5), 0.2);
+    } else if (look === 'arrow' || look === 'bolt') {   // 화살·볼트: 나무 대 + 쇠 촉 + 깃 + 옅은 꼬리
+      const L = look === 'arrow' ? 0.9 * Math.min(big, 2) : 0.6 * Math.min(big, 2), r = look === 'arrow' ? 0.022 : 0.035, s2 = Math.min(big, 2);
+      mk(alongX(new T3.CylinderGeometry(r * s2, r * s2, L, 6)), solid(look === 'arrow' ? '#d8c39a' : '#8a6a48'));
+      mk(alongX(new T3.ConeGeometry(r * 3 * s2, 0.16 * s2, 6)), solid('#e8eef5'), L / 2 + 0.08 * s2);
+      for (const a of [0, Math.PI / 2]) { const f = mk(new T3.PlaneGeometry(0.18 * s2, 0.08 * s2), this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear(), side: T3.DoubleSide })), -L / 2 + 0.1); f.rotation.x = a; }
+      tail(0.06 * s2, 0.7 * s2, col, 0.3).position.x -= L / 2;
+    } else if (look === 'blade') {   // 암기: 납작한 네 갈래 표창(돌며 날아감)
+      const sh = new T3.Shape(), R = 0.2 * Math.min(big, 2), r0 = R * 0.3;
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r0 : R; i ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(rr, 0); }
+      const geo = new T3.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
+      const star = mk(geo, this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color('#e8eef5').convertSRGBToLinear(), side: T3.DoubleSide })));
+      const halo = new T3.Mesh(new T3.CircleGeometry(R * 1.3, 16).rotateX(-Math.PI / 2), glow(col, 0.35)); halo.userData.own = true; star.add(halo);
+      tail(0.08, 0.6, col, 0.3);
+    }
+    return g;
   },
   fistMesh(col, w) {
     const T3 = THREE, g = new T3.Group(), r = Math.max(0.25, w * 0.3), add = { transparent: true, depthWrite: false, blending: T3.AdditiveBlending };

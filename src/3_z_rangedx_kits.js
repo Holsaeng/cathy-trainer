@@ -22,6 +22,7 @@ PKits.aya = {
     if (p.reload > 0 && --p.reload === 0) p.asBuffs = p.asBuffs.filter(a => a.tag !== 'reload');   // 무빙 리로드: 평타 2회 공속 +70%
   },
   recast(p, k) { return k === 'W' && !!p.ayaW; },
+  empowered(p) { return p.reload > 0 ? '#ffd166' : null; },   // 무빙 리로드: 다음 평타 공속↑
   cast: {
     // Q 2연발: 대상 지정 6.5m(밖이면 다가감) — 1발 = 기본 공격(공 110%, 치명 가능) · 2발 = 스킬 피해, 1발이 나가면 2발은 반드시 발사. 시전 중 이동 불가, 공속 1 이상이면 빨라짐
     Q(p, aim) {
@@ -79,7 +80,7 @@ PKits.aya = {
     const K = p.K;
     return { Q: { kind: 'target', range: K.Q.range + p.r }, W: { kind: 'line', len: K.W.range, width: K.W.width }, E: { kind: 'dash', len: K.E.dist }, R: { kind: 'self', r: K.R.radius } }[k] || null;
   },
-  draw(p, ctx) { if (p.ayaW) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(p.ayaW.dir), p.K.W.range, p.K.W.width); ctx.restore(); } },
+  draw(p, ctx) { if (p.ayaW) { const W = p.K.W, a = V.ang(p.ayaW.dir); ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = p.color; ctx.strokeStyle = p.color; ctx.lineWidth = 0.06; Draw.oRect(ctx, p.pos, a, W.range, W.width); ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(0,0,0,0)'; Draw.oRect(ctx, p.pos, a, W.range * clamp(1 - p.ayaW.t / p.ayaW.dur, 0, 1), 0.08); ctx.restore(); } },   // 고정 사격: 범위 + 남은 시간 줄
   hud(p) {
     const b = []; if (p.pCd > 0) b.push([`정의 ${Math.ceil(p.pCd)}`, '#8a93a6']); else b.push(['정의 준비', '#5aa9ff']);
     if (p.ayaW) b.push(['고정 사격 (W: 중단)', p.color]); if (p.reload > 0) b.push([`리로드 ×${p.reload}`, '#ffd166']);
@@ -117,6 +118,7 @@ PKits.rio = {
     return true;
   },
   onAAHit() {},
+  empowered(p) { return p.kcReady ? '#ffd166' : null; },   // 카이츄: 다음 평타 강화
   onHit(p, u, o) {
     if (o.kc !== false && isHero(u)) this.gainKc(p);
     if (o.hanare) for (const k of ['Q', 'E', 'R', 'D']) p.skills[k].cd = Math.max(0, p.skills[k].cd - p.K.W.cdReduce);   // 하나레 적중: 다른 스킬 쿨 1초 감소
@@ -241,6 +243,7 @@ PKits.rio = {
     return null;
   },
   draw(p, ctx) {
+    if (p.rRecast) { const RC = p.K.R.short.recast; KU.ring(ctx, p.pos, p.r + 0.4, '#ffffff', 0.4, true); ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 0.1; ctx.lineCap = 'round'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(p.rRecast.t / RC.grace, 0, 1)); ctx.stroke(); ctx.restore(); }   // 강한 화살(R) 대기 시간
     for (const z of p.zones) {
       if (z.type === 'wind') KU.fill(ctx, z.pos, z.r, '#9fe3b0', 0.25 * (1 - z.t / z.dur));
       else { const k = clamp(z.t / z.delay, 0, 1), D = p.K.D; KU.fill(ctx, z.pos, D.radius, p.color, 0.12 + 0.15 * k); KU.ring(ctx, z.pos, D.radius, p.color, 0.9); KU.fill(ctx, z.pos, D.innerR, '#ffffff', 0.15 + 0.2 * k); }
@@ -358,12 +361,12 @@ PKits.nadine = {
     return null;
   },
   draw(p, ctx) {
-    for (const tr of p.traps) { ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.07; ctx.setLineDash([0.25, 0.15]); ctx.beginPath(); ctx.moveTo(tr.a.x, tr.a.y); ctx.lineTo(tr.b.x, tr.b.y); ctx.stroke(); ctx.restore(); KU.fill(ctx, tr.a, 0.25, p.color, 0.8); KU.fill(ctx, tr.b, 0.25, p.color, 0.8); }
+    for (const tr of p.traps) { ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.1; ctx.globalAlpha = 0.7 + 0.25 * Math.sin(Game.time * 6); ctx.setLineDash([0.25, 0.12]); ctx.beginPath(); ctx.moveTo(tr.a.x, tr.a.y); ctx.lineTo(tr.b.x, tr.b.y); ctx.stroke(); ctx.restore(); KU.fill(ctx, tr.a, 0.25, p.color, 0.8); KU.fill(ctx, tr.b, 0.25, p.color, 0.8); }
     if (p.trapA) { KU.fill(ctx, p.trapA.pos, 0.25, p.color, 0.8); KU.ring(ctx, p.trapA.pos, p.K.W.link, p.color, 0.35, true); }
-    if (p.wire) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.wire.pos.x, p.wire.pos.y); ctx.stroke(); ctx.restore(); KU.ring(ctx, p.wire.pos, 0.35, '#ffffff', 0.8); }
-    if (p.mark && !p.mark.u.dead) { const u = p.mark.u, k = clamp(p.mark.t / p.K.D.mark.time, 0, 1); ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
+    if (p.wire) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.moveTo(p.pos.x, p.pos.y); ctx.lineTo(p.wire.pos.x, p.wire.pos.y); ctx.stroke(); ctx.restore(); KU.ring(ctx, p.wire.pos, 0.35, '#ffffff', 0.8); }
+    if (p.mark && !p.mark.u.dead) { const u = p.mark.u, k = clamp(p.mark.t / p.K.D.mark.time, 0, 1); KU.ring(ctx, u.pos, u.r + 0.4, p.color, 0.3, false); ctx.save(); ctx.strokeStyle = p.color; ctx.lineWidth = 0.13; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); }
     if (p.charge) { const Q = p.K.Q, k = clamp(p.charge.t / Q.charge, 0, 1), dir = p.dirTo(p.aimPt()); ctx.save(); ctx.globalAlpha = 0.2 + 0.3 * k; ctx.fillStyle = p.color; Draw.oRect(ctx, p.pos, V.ang(dir), lerp(Q.range[0], Q.range[1], k), Q.width); ctx.restore(); }
-    if (p.wolfT > 0) KU.ring(ctx, p.pos, p.r + 0.3, '#d0d0d0', 0.5, true);
+    if (p.wolfT > 0) { KU.ring(ctx, p.pos, p.r + 0.3, '#d0d0d0', 0.6, true); for (let i = 0; i < p.K.R.every; i++) KU.fill(ctx, V.add(p.pos, V.mul(V.fromAng(-Math.PI / 2 + (i - 1) * 0.5), p.r + 0.3)), 0.08, '#e0e0e0', i < p.wolfN ? 0.95 : 0.25); }   // 늑대: 평타 3번째마다 — 점으로 표시
   },
   hud(p) {
     const b = [[`야성 ${p.stacks}`, '#e0a35a']];
@@ -381,6 +384,7 @@ PKits.katja = {
   label(p, k) { if (k === 'D' && p.snipe) return `발사 ${p.snipe.fired + 1}/3`; return this.short[k]; },
   init(p) { p.psT = 0; p.snipe = null; },
   update(p, dt) { if (p.psT > 0) p.psT -= dt; },
+  empowered(p) { return p.psT > 0 ? p.color : null; },   // 잿빛 사신: 다음 평타 추가 피해
   // P 잿빛 사신: Q·E 사용 후 5초 안의 다음 평타에 추가 스킬 피해
   onAAHit(p, u) { if (p.psT <= 0) return; p.psT = 0; const P = p.K.P; p.hitS(u, lv(P.base, p.plv) + p.ad * lv(P.ad, p.plv), 'P'); FX.text(u.pos, P.name, p.color, 11, { bold: true }); },
   recast(p, k) { return k === 'D' && !!p.snipe; },

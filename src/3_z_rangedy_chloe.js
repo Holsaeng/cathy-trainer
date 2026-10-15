@@ -223,7 +223,7 @@ const ChloeCore = {
       if (this.e2Ready(o) && o === Game.player) { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = n.color; Draw.oRect(ctx, n.pos, V.ang(V.sub(o.pos, n.pos)), Math.min(K.E.ninaDist, V.dist(n.pos, o.pos)), K.E.ninaWidth); ctx.restore(); }
       if (n.mode === 'point' && n.goal && o === Game.player) KU.ring(ctx, n.goal, 0.3, n.color, 0.6);
     }
-    for (const u of Game.units) if (u.chloeBy === o && u.chloeMarks > 0 && !u.dead && Game.time - u.chloeT < 5) for (let i = 0; i < Math.min(K.P.marks, u.chloeMarks); i++) KU.fill(ctx, V.add(u.pos, { x: -0.15 + i * 0.3, y: -u.r - 0.25 }), 0.08, '#ff8ab8', 0.95);   // 2타 표식
+    for (const u of Game.units) if (u.chloeBy === o && u.chloeMarks > 0 && !u.dead && Game.time - u.chloeT < 5) for (let i = 0; i < Math.min(K.P.marks, u.chloeMarks); i++) { const at = V.add(u.pos, { x: -0.18 + i * 0.36, y: -u.r - 0.3 }); KU.fill(ctx, at, 0.13, '#ff8ab8', 0.95); KU.ring(ctx, at, 0.17, '#ffffff', 0.7, false); }   // 2타 표식
   },
 };
 

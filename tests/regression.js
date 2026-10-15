@@ -363,6 +363,22 @@
     Settings.character = 'cathy';
   });
 
+  // 원딜 가시성: 무기별 투사체 모양 · 강화 평타 준비 고리 · 긴 준비 스킬의 범위 표시
+  G('원딜 가시성', () => {
+    const want = { aya: 'bullet', rio: 'arrow', nadine: 'bolt', katja: 'sniper', chloe: 'blade' };
+    T.ok('무기별 투사체 모양(권총·활·석궁·저격총·암기)', Object.entries(want).every(([k, l]) => Render3D.projLook({ owner: { motif: CONFIG.rangedMotifs[k] } }) === l) && Render3D.projLook({ owner: {} }) === null);
+    reset(); Settings.character = 'katja'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    let p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 5, y: d.pos.y };
+    p.cmdSkill('Q', d.pos); Input.aiming = null; run(60);
+    T.ok('카티야 Q 뒤 잿빛 사신 준비 고리', !!PKits.katja.empowered(p));
+    reset(); Settings.character = 'aya'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    p = Game.player; d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 3, y: d.pos.y };
+    let drew = 0; const keep = p.drawShape.bind(p); p.drawShape = (...a) => { drew++; return keep(...a); };
+    p.cmdSkill('R', d.pos); Input.aiming = null; run(30); const c = document.createElement('canvas').getContext('2d'); p.drawExtra(c);
+    T.ok('아야 R(0.66초 준비): 준비 동안 범위 표시', p.cast && p.cast.phase === 'windup' && drew === 1);
+    Settings.character = 'cathy';
+  });
+
   // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
   G('실측값 입력', () => {
     reset(); const K = CONFIG.rangedKits;

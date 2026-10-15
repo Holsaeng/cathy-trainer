@@ -53,6 +53,7 @@ class RangedPlayer extends Cathy {
     const pr = new Projectile({ team: this.team, owner: this, kind: 'shot', color: o.color || this.color, len: o.len || 0.6, pos: V.copy(o.from || this.pos), dir: o.dir, speed: o.speed, range: o.range, width: o.width || 0.3, wallPad: o.wallPad,
       onUnit: (pr, u) => { if (o.only && u !== o.only) return 'continue'; if (o.heroOnly && !isHero(u) && u.kind !== 'dummy') return 'continue'; const r = o.onHit(u, pr); return r === 'continue' || o.pierce ? 'continue' : 'stop'; } });
     if (o.onWall) pr.onWall = o.onWall;
+    FX.burst(V.add(pr.pos, V.mul(o.dir, this.r + 0.25)), pr.color, 3, 2.5, 0.12, 0.06);   // 발사 섬광(보이는 것만)
     if (o.home) { pr.homeTarget = o.home; pr.homeTurn = 80; pr.ignoreWalls = true; pr.range = o.range || V.dist(this.pos, o.home.pos) + 8; }   // 대상 지정: 벽에 막히지 않음(AI와 같음)
     Game.projectiles.push(pr); return pr;
   }
@@ -127,7 +128,7 @@ class RangedPlayer extends Cathy {
   aaLand(u, ratio = 1, extra = {}) {
     const crit = this.kit.noCrit ? false : rnd() < this.critChance, mul = this.kit.aaMul ? this.kit.aaMul(this, u) : (crit ? 1.75 + (this.critDmg || 0) : 1);
     const dmg = Combat.damage(this, u, this.ad * ratio * mul * (1 + this.aaAmp), Object.assign({ type: 'normal', source: 'AA', crit, pen: this.penNow() }, extra));
-    FX.burst(u.pos, crit ? '#ff9f9f' : '#ffffff', 5, 3);
+    FX.burst(u.pos, crit ? '#ff9f9f' : '#ffffff', crit ? 9 : 5, crit ? 4.5 : 3); if (crit) FX.ring(u.pos, 0.1, 0.9, '#ff9f9f', 0.22, 0.08);   // 치명타는 크게
     if (this.kit.onAAHit) this.kit.onAAHit(this, u, dmg);
     return dmg;
   }
@@ -152,7 +153,15 @@ class RangedPlayer extends Cathy {
     super.update(dt);
   }
   // ---------- 그리기 ----------
-  drawExtra(ctx) { if (this.kit.draw) this.kit.draw(this, ctx); }
+  drawExtra(ctx) {
+    // 준비 시간이 0.25초 이상인 스킬: 준비 동안 범위가 차오름(아야 공포탄 · 리오 정사필중 · 나딘 강노 등) — 대상 지정·도약·카티야 정밀 조준(키트가 그림)은 제외
+    const c = this.cast;
+    if (c && c.phase === 'windup' && c.windup >= 0.25) { const S = this.kit.shape && this.kit.shape(this, c.k); if (S && !['target', 'trap', 'dash', 'back'].includes(S.kind)) this.drawShape(ctx, c.k, c.aim, 0.12 + 0.3 * clamp(c.t / c.windup, 0, 1)); }
+    // 강화 평타 준비: 발밑 고리(맥동) — 키트가 알려 줌 { color }
+    const ready = this.kit.empowered && this.kit.empowered(this);
+    if (ready) KU.ring(ctx, this.pos, this.r + 0.22, ready, 0.55 + 0.35 * Math.sin(Game.time * 10), false);
+    if (this.kit.draw) this.kit.draw(this, ctx);
+  }
   hudBuffs() { return this.kit.hud ? this.kit.hud(this) : []; }
   // 조준 미리보기: 키트의 모양 정의 {kind: line|cone|circle|target|self|dash|back|trap, ...}
   drawShape(ctx, k, aim, alpha) {
