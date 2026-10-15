@@ -297,6 +297,10 @@ const CONFIG = {
     bihyung: { name: '비형', weapon: '방망이', build: '브루저', color: '#3fbf9f', melee: true, aaRange: 1.4, ad: [173, 190, 260], sp: [0, 0, 0], as: [1.7, 1.28, 1.3], crit: [0.46, 0.22, 0], pen: [0, 0, 0],
               hp: [1720, 2702, 3662], def: [81, 128, 151], ms: [3.8, 3.82, 3.97], cdr: [0.15, 0.25, 0.5], baseAd: [53, 81, 108], aaAmp: [0.045, 0.12, 0.195],
               skillLv: [{ P: 1, Q: 2, W: 1, E: 1, R: 1, D: 1 }, { P: 2, Q: 5, W: 1, E: 2, R: 2, D: 2 }, { P: 3, Q: 5, W: 3, E: 5, R: 3, D: 3 }] },
+    // 쇼이치 — 단계별 능력치 = 12.6 다이아+ 인기 빌드 장비 계산(Lv6 시작 빌드 · Lv12·18 완성 1위) ⚠ 랭크 영상 HUD 미확인 · 스킬 순서 W→E→Q→W→W→R→W→P→W→P→R→E… (dak.gg 71.6%)
+    shoichi: { name: '쇼이치', weapon: '단검', build: '스킬 증폭', color: '#c9463d', melee: true, aaRange: 1.25, ad: [79, 129, 159], sp: [281, 525, 653], as: [0.76, 0.85, 0.95], crit: [0, 0, 0], pen: [0, 0, 0],
+              hp: [1440, 1992, 2544], def: [95, 139, 160], ms: [3.85, 3.88, 3.88], cdr: [0.6, 0.7, 0.7], baseAd: [54, 84, 114], aaAmp: [0, 0, 0],
+              skillLv: [{ P: 1, Q: 1, W: 3, E: 1, R: 1, D: 1 }, { P: 3, Q: 1, W: 5, E: 2, R: 2, D: 2 }, { P: 3, Q: 3, W: 5, E: 5, R: 3, D: 3 }] },
     // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
     daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
               cdr: [0.18, 0.33, 0.33],   // 쿨감 수치: HUD 실측 실제 감소 15%(Lv6)·25%(Lv11~20) → 수치 18·33 (HUD는 「수치 (감소%)」 표기)
@@ -330,6 +334,18 @@ const CONFIG = {
            bonusHp: [150, 300, 450], bonusDur: 15, leap: 1.2, immune: 0.5, unstop: 0.9, reduce: 0.3 },   // 도약 약 1.2초(공식 영상) · 오를 때 방해 효과 면역 → 공중 저지 불가 → 내려찍기 · 쓰는 동안 받는 피해 30% 감소
       D: { name: '풀스윙', cd: [25, 25, 25], range: 2, angle: 180, windup: 0.42, base: [100, 200, 300], bad: 1.1, sp: [0.2, 0.35, 0.5],
            knock: 2.4, knockTime: 0.25, wallBase: [50, 100, 150], wallBad: 0.6, wallSp: 0.3, stun: [0.8, 0.9, 1.0] },   // 무기 스킬(방망이) · 밀치기 약 2.4m/0.25초(공식 영상, ±20%) · 바라보는 방향으로 밀어냄(12시즌)
+    },
+    // 쇼이치 — 나무위키(2026-10 수정판) 스킬 수치 + 닥지지 공식 스킬 영상 프레임 실측(Q·E 선딜 · W 순간 이동 · E 단검 낙하 · R 휘두르기·단검 배치·줍는 원) · 근거 docs/er_notes_playables.md 15장 · ⚠ = 출처 없는 추정
+    shoichi: {
+      dagger: { pickR: 0.9, life: 8, throwR: 5, throwSpeed: 30 },   // 바닥 단검: 줍는 원 반지름 약 0.9m(영상, W 사거리 원 5.5m를 자로) · 수명 8초 ⚠(영상에서 5.6초 넘게 남음) · 주우면 5m 안 적에게 투척
+      P: { name: '부당거래', max: 5, stackDur: 5, base: [10, 20, 30], sp: 0.35, hpPct: [0.02, 0.03, 0.04], dagger: [60, 90, 120], daggerSp: 0.3, behind: 1.5, fall: 0.75 },   // 12.1 스증 35% · 12.3 단검 60/90/120 · 강화 평타 단검은 공중에서 돌다 떨어짐(낙하 0.75초 · 대상 뒤 1.5m ⚠)
+      Q: { name: '표리', base: [50, 85, 120, 155, 190], sp: 0.65, cd: 8, cut: 3, len: 3, width: 1.5, len2: 3.5, angle2: 90, enhDur: 10, windup: 0.13, front: 3.5 },   // 선딜 약 0.13초(영상) · 강화 Q 단검 = 정면 3.5m(부채꼴 끝, 영상)·바로 깔림
+      W: { name: '비약', base: [30, 50, 70, 90, 110], sp: 0.6, cd: [16, 15, 14, 13, 12], range: 5.5, width: 1.8, travel: 0.05, behind: 0.7, pickAim: 1.2 },   // 순간 이동(영상: 0.04초 안) · 적 지정 = 등 뒤 · 커서 1.2m 안 단검 우선
+      E: { name: '협상', base: [60, 100, 140, 180, 220], sp: 0.75, cd: [13, 12, 11, 10, 9], slow: [0.3, 0.35, 0.4, 0.45, 0.5], slowDur: 1.5, range: 5.8, width: 1.1, speed: 45, windup: 0.12,
+           back: 1.2, backTime: 0.25, lock: 0.3, markDur: 5, markAmp: 0.25, markCut: 1, killCut: 0.9, fall: 0.75, behind: 1.5 },   // 선딜 약 0.12초 · 투사체 매우 빠름(45m/s ⚠) · 뒤로 약 1.2m ⚠ · 0.3초 뒤 캔슬 · 단검은 맞고 약 0.75초 뒤 대상 뒤에(영상)
+      R: { name: '무자비', base: [50, 150, 250], sp: 0.7, cd: [80, 70, 60], windup: 0.3, r: 2.5, slow: 0.5, slowDur: 1, dBase: [10, 40, 70], dSp: 0.25, dRange: 3.9, dWidth: 0.8,
+           angles: [30, 120, 210, 300], gap: 0.08 },   // 휘두르기 0.3초(영상) → 단검 4개를 고정 방향(살짝 돌린 사각형 꼭짓점, 영상)으로 하나씩 · 벽에 막히면 발밑
+      D: { name: '망토와 단검', cd: [30, 25, 20], ms: [0.3, 0.35, 0.4], msDur: 1, window: 3, range: 2.5, behind: 1.5, dmg: [10, 30, 50], bad: 0.5, sp: 0.25, curHp: 0.08, slow: [0.2, 0.25, 0.3], slowDur: 1, windup: 0.2 },   // 단검 무기 스킬(캐시 D_dagger와 같은 수치) — 1차 이속 → 3초 안 2차 대상 뒤로 · 패시브 중첩도 쌓음(12.0)
     },
     // 클로에 — 나무위키(2026-10-05 수정판) + 12.2 버프(니나 추가 방어력 20/35/50 · Q 니나 공격력 80%) · 근거 docs/er_notes_playables.md 10장. ⚠ = 출처 없는 추정값
     chloe: {
@@ -468,6 +484,12 @@ const CONFIG = {
       tip: '도발이 길어서(0.8~1초) Q 강화 평타와 풀스윙까지 확정. 벽 쪽으로 밀면 벽꿍 기절.' },
     { id: 'bh3', char: 'bihyung', name: '[나무위키] W → E → Q → 평 → D → R → Q2 (극딜)', steps: ['W', 'E', 'Q', 'AA', 'D', 'R', 'Q', 'AA'],
       tip: '벽 근처에서 풀스윙 벽꿍 → 기절 중 R 착지 → Q2 3연타와 도깨비 불로 마무리. R이 확정타는 아니니 기절·도발에 맞춰서.' },
+    { id: 'sh1', char: 'shoichi', name: '[가이드] E → W (단검 줍기)', steps: ['E', 'W', 'W'],
+      tip: 'E가 맞으면 대상 뒤에 단검이 0.75초 뒤 떨어집니다. 첫 W로 적을 지나 들어가고, 떨어진 단검에 두 번째 W(주우면 쿨 초기화).' },
+    { id: 'sh2', char: 'shoichi', name: '[가이드] E → W → R → W (궁 단검 타기)', steps: ['E', 'W', 'R', 'W'],
+      tip: 'E 표식 → W로 등 뒤에 붙으면 E 단검이 발밑에 떨어져 주워짐(W 초기화) → R로 사방 단검 4개 → 적을 긁는 방향의 단검부터 W(V자 타기). 단검을 주울 때마다 근처 적에게 투척.' },
+    { id: 'sh3', char: 'shoichi', name: '[가이드] E → W → Q → Q2 → W → 평 (예열)', steps: ['E', 'W', 'Q', 'Q', 'W', 'AA'],
+      tip: 'Q를 맞히면 쿨이 3초 줄고 다음 Q가 강화(정면에 단검). 강화 Q 단검에 W → 부당거래 5중첩 강화 평타로 단검 하나 더.' },
   ],
   // 영상 콤보 (YouTube 「이터널리턴] 캐시 콤보가이드 2」 — 부멍이) · 단검 기준, "D1" = 단검 1차(유틸), "D" = 단검 2차(대상 뒤 이동)
   videoCombos: [
@@ -554,9 +576,17 @@ CONFIG.aiGear = {
         { label: '완성 2위: 시체매 / 흑염룡의 갑주 / 야생의 허기 / 토템 / 택티컬 슈즈', gear: {weapon: 108505, chest: 202527, head: 201537, arm: 705607, leg: 204514} },
         { label: '시작(영웅): 타구봉 / 방화복 / 전술-OPS 헬멧 / 스마트 밴드 / 매버릭 러너', gear: {weapon: 108404, chest: 202422, head: 201406, arm: 203414, leg: 204403} },
       ] },
+    shoichi: { name: '쇼이치', weapon: 'dagger', base: {hp: [980,92], ad: [29,5], def: [52,3.5], asBonus: 0.12, ms: 3.55, regen: [1.8,0.09]}, weaponAs: 0.58, mastery: {as: 0.027, sp: 0.045},
+      builds: [
+        { label: '완성 1위: 월식 / 성법의 / 앙 가르드 / 틴달로스의 군주 / 와일드 워커', gear: {weapon: 101501, chest: 202503, head: 201526, arm: 203507, leg: 204506} },
+        { label: '완성 2위: 비색 단검 / 성법의 / 앙 가르드 / 틴달로스의 군주 / 와일드 워커', gear: {weapon: 101503, chest: 202503, head: 201526, arm: 203507, leg: 204506} },
+        { label: '시작(영웅): 파산검 / 어사의 / 제국 왕관 / 틴달로스의 팔찌 / 풍화륜', gear: {weapon: 101402, chest: 202404, head: 201409, arm: 203410, leg: 204406} },
+      ] },
   },
   items: {
+    101402: {name: '파산검', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: {ad: 25, sp: 68, msPct: 2, cdr: 10}},
     101407: {name: '마하라자', slot: 'weapon', grade: 'epic', weapon: 'dagger', stats: {ad: 60, as: 15}, pas: '신속 - 루드라의 단검'},
+    101501: {name: '월식', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: {ad: 45, sp: 77, msPct: 2, cdr: 15}, pas: '의념'},
     101502: {name: '소울 리퍼', slot: 'weapon', grade: 'legend', weapon: 'dagger', stats: {ad: 66, as: 20, cdr: 10}, pas: '신속 - 루드라의 단검'},
     101503: {name: '비색 단검', slot: 'weapon', grade: 'mythic', weapon: 'dagger', stats: {ad: 20, adaptAd: 57, adaptSp: 114, as: 30, msPct: 3, cdr: 15, penPct: 10}},
     108404: {name: '타구봉', slot: 'weapon', grade: 'epic', weapon: 'bat', stats: {ad: 72, as: 40}, pas: '치유 감소'},
@@ -579,6 +609,7 @@ CONFIG.aiGear = {
     201404: {name: '수정 티아라', slot: 'head', grade: 'epic', stats: {ad: 17, as: 20, crit: 28}, pas: '치유 감소'},
     201405: {name: '오토바이 헬멧', slot: 'head', grade: 'epic', stats: {sp: 55, as: 30, cdr: 10}, pas: '포톤 런처'},
     201406: {name: '전술-OPS 헬멧', slot: 'head', grade: 'epic', stats: {hp: 120, as: 30, cdr: 15}, pas: '전자기 충격'},
+    201409: {name: '제국 왕관', slot: 'head', grade: 'epic', stats: {sp: 63, cdr: 15}},
     201413: {name: '비질란테', slot: 'head', grade: 'epic', stats: {sp: 50, hp: 150, cdr: 10}, pas: '부패'},
     201417: {name: '카우보이 모자', slot: 'head', grade: 'epic', stats: {ad: 28, as: 35}, pas: '치유 감소'},
     201418: {name: '플라즈마 투구', slot: 'head', grade: 'epic', stats: {ad: 35, msPct: 2, pen: 8}},
@@ -589,9 +620,11 @@ CONFIG.aiGear = {
     201518: {name: '쿼드 아이', slot: 'head', grade: 'legend', stats: {ad: 25, as: 22, crit: 35}, pas: '연장 총열'},
     201521: {name: '블래스터 헬멧', slot: 'head', grade: 'legend', stats: {ad: 30, as: 35}, pas: '블래스터 탄환'},
     201525: {name: '레가투스', slot: 'head', grade: 'legend', stats: {ad: 30, as: 33, crit: 35}, pas: '개시'},
+    201526: {name: '앙 가르드', slot: 'head', grade: 'legend', stats: {def: 8, sp: 75, cdr: 10}, pas: '예열 - 증강'},
     201534: {name: '붉은 별빛', slot: 'chest', grade: 'mythic', stats: {ad: 18, adLv: 3, def: 20, as: 15, crit: 35}, pas: '예열 / 치유 감소'},
     201537: {name: '야생의 허기', slot: 'head', grade: 'legend', stats: {def: 12, hpLv: 25}, pas: '포식'},
     202307: {name: '고위 사제복', slot: 'chest', grade: 'epic', stats: {def: 24, sp: 24, spLv: 5}, pas: '치유 감소'},
+    202404: {name: '어사의', slot: 'chest', grade: 'epic', stats: {def: 25, sp: 12, spLv: 5, cdr: 10}},
     202405: {name: '광학미채 슈트', slot: 'chest', grade: 'epic', stats: {ad: 9, adLv: 3, def: 13, crit: 24}},
     202407: {name: '미스릴 갑옷', slot: 'chest', grade: 'legend', stats: {def: 35, hpLv: 24, cdr: 15}, pas: '예열 - 인내'},
     202417: {name: 'EOD 슈트', slot: 'chest', grade: 'epic', stats: {def: 25, hpLv: 20, regen: 60, cdr: 15}},
@@ -610,12 +643,15 @@ CONFIG.aiGear = {
     203306: {name: '포이즌드', slot: 'arm', grade: 'epic', stats: {sp: 62, cdr: 10}, pas: '치유 감소'},
     203402: {name: '소드 스토퍼', slot: 'arm', grade: 'epic', stats: {def: 13, hp: 120, cdr: 10}, pas: '리플렉션'},
     203405: {name: '바이탈 센서', slot: 'arm', grade: 'epic', stats: {as: 33, crit: 26}, pas: '포톤 런처'},
+    203410: {name: '틴달로스의 팔찌', slot: 'arm', grade: 'epic', stats: {sp: 50, cdr: 20}},
     203414: {name: '스마트 밴드', slot: 'arm', grade: 'epic', stats: {ad: 28, cdr: 15, pen: 7}},
     203415: {name: '미닛맨의 표식', slot: 'arm', grade: 'epic', stats: {ad: 25, as: 18, crit: 24}},
     203501: {name: '스카디의 팔찌', slot: 'arm', grade: 'legend', stats: {sp: 82, cdr: 10}, pas: '한파'},
+    203507: {name: '틴달로스의 군주', slot: 'arm', grade: 'legend', stats: {sp: 84, cdr: 25}},
     203514: {name: '미스릴 완장', slot: 'arm', grade: 'legend', stats: {ad: 33, def: 10, crit: 34}, pas: '가벼운 발걸음'},
     204401: {name: '강철 무릎 보호대', slot: 'leg', grade: 'epic', stats: {def: 8, ms: 0.22, tenacity: 20}},
     204403: {name: '매버릭 러너', slot: 'leg', grade: 'epic', stats: {ad: 20, ms: 0.22, tenacity: 20}},
+    204406: {name: '풍화륜', slot: 'leg', grade: 'epic', stats: {sp: 25, ms: 0.22, cdr: 5}},
     204408: {name: '부케팔로스', slot: 'leg', grade: 'epic', stats: {ad: 8, ms: 0.22, crit: 25}},
     204409: {name: 'EOD 부츠', slot: 'leg', grade: 'legend', stats: {def: 10, hp: 100, regen: 50, ms: 0.25}, pas: '격동'},
     204410: {name: '글레이셜 슈즈', slot: 'leg', grade: 'legend', stats: {sp: 33, ms: 0.25, cdr: 15}},
@@ -624,6 +660,7 @@ CONFIG.aiGear = {
     204419: {name: '델타 레드', slot: 'leg', grade: 'epic', stats: {sp: 18, ms: 0.22, cdr: 10}},
     204504: {name: '알렉산드로스', slot: 'leg', grade: 'legend', stats: {ad: 14, ms: 0.25, crit: 33}},
     204505: {name: '칼날 다리', slot: 'leg', grade: 'legend', stats: {sp: 42, ms: 0.25, cdr: 10}, pas: '치유 감소'},
+    204506: {name: '와일드 워커', slot: 'leg', grade: 'legend', stats: {def: 10, ms: 0.25, cdr: 20}, pas: '치유 감소'},
     204507: {name: '갤럭시 스텝', slot: 'leg', grade: 'legend', stats: {ad: 23, as: 20, ms: 0.25, ls: 12}},
     204514: {name: '택티컬 슈즈', slot: 'leg', grade: 'legend', stats: {ad: 20, hp: 150, ms: 0.25, cdr: 15}, pas: '순풍'},
     205305: {name: '월왕구천', slot: 'arm', grade: 'legend', stats: {ad: 27, as: 30, crit: 35}, pas: '치유 감소'},
@@ -988,7 +1025,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '327dcd3a';
+const BUILD_ID = '32e6c055';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -4260,6 +4297,248 @@ PKits.chloe = {
   },
 };
 
+// ============================== 플레이어블: 쇼이치 (단검 · 암살자) ==============================
+// 플레이어 = 실험체 키트 틀(RangedPlayer + PKits.shoichi, 근접 평타) · AI = RangedDuelist + Kits.shoichi(4_d_shoichi_ai.js)
+// 스킬 효과는 ShoichiCore를 플레이어·AI가 함께 씀 (주인 o의 어댑터 o.sh: K · L · hit · foes · cdStart · cdSet · cdGet · shot · level · color · S)
+// 수치: CONFIG.rangedKits.shoichi (나무위키 + 공식 스킬 영상) · 근거 docs/er_notes_playables.md 15장 · ⚠ = 출처 없는 추정값
+//   핵심 = 바닥 단검: 스킬(일반 Q·W 제외)이 단검을 남김 → 주우면(걸어서·W 경로) 5m 안 적에게 투척(협상 표식 대상 우선) · W로 주우면 W 쿨 초기화
+//   P 부당거래: 스킬 적중마다 5초 중첩(최대 5) → 다음 평타 추가 피해 + 적 뒤에 단검
+//   Q 표리: 앞 찌르기 → 적중 시 쿨 3초 감소 + 10초 동안 다음 Q 강화(부채꼴 + 정면에 단검)
+//   W 비약: 적(등 뒤로) 또는 내 단검으로 순간 이동, 경로의 적에게 피해 · 단검을 주우면 쿨 초기화
+//   E 협상: 뒤로 물러나며 단검 투척 → 피해 + 둔화 + 5초 표식(던진 단검 피해 +25%, 맞을 때마다 E 쿨 1초 감소, 처치 시 쿨 90% 감소) · 대상 뒤에 단검(0.75초 뒤 떨어짐)
+//   R 무자비: 0.3초 휘두르기 → 주변 2.5m 피해 + 둔화 → 고정 방향 4곳에 단검 투척(경로 피해) → 단검 4개
+//   D 망토와 단검(단검 무기 스킬): 1차 이속 → 3초 안 2차 대상 뒤로 이동 + 현재 체력 비례 피해 + 둔화
+
+const ShoichiCore = {
+  attach(o) {
+    Object.assign(o, { shDags: [], shSeq: 0, shStk: 0, shStkT: 0, shQ2: 0, shMark: null, shD: null, shT: [] });
+  },
+  later(o, t, fn) { o.shT.push({ t, fn }); },
+  isFoeUnit(u) { return isHero(u) || u.kind === 'dummy'; },
+  // ---------- P 부당거래 중첩 ----------
+  stack(o, u) {
+    if (!u || !this.isFoeUnit(u)) return;
+    const P = o.sh.K.P, was = o.shStk; o.shStk = Math.min(P.max, o.shStk + 1); o.shStkT = P.stackDur;
+    if (was < P.max && o.shStk >= P.max) FX.ring(o.pos, o.r, o.r + 0.6, '#ff4d4d', 0.3, 0.1);
+  },
+  // 스킬 피해 + 중첩 (투척 단검은 중첩 X)
+  skillHit(o, u, amt, k, opt, stack = true) { if (!u || u.dead) return; o.sh.hit(u, amt, k, opt); if (stack) this.stack(o, u); },
+  // ---------- 바닥 단검 ----------
+  spawn(o, pos, fall = 0) {
+    const D = o.sh.K.dagger, p = Geo.pushOut(V.copy(pos), 0.25);
+    p.x = clamp(p.x, 0.4, CONFIG.world.w - 0.4); p.y = clamp(p.y, 0.4, CONFIG.world.h - 0.4);
+    o.shDags.push({ pos: p, land: fall, t: D.life + fall, id: ++o.shSeq }); o.sh.S.count('shDagOn');   // 코칭: 깔린 단검 수
+    if (fall <= 0) FX.ring(p, 0.1, D.pickR, '#ff6b6b', 0.25, 0.08);
+  },
+  landed(d) { return d.land <= 0; },
+  // 줍기: W 쿨 초기화 + 5m 안 적에게 투척(표식 대상 우선)
+  pick(o, d) {
+    const i = o.shDags.indexOf(d); if (i < 0) return; o.shDags.splice(i, 1);
+    const DK = o.sh.K.dagger, P = o.sh.K.P, lP = o.sh.L('P');
+    o.sh.cdSet('W', 0); o.sh.S.count('shPick');
+    FX.burst(d.pos, '#ff9f9f', 6, 3);
+    const foes = o.sh.foes().filter(u => V.dist(u.pos, o.pos) <= DK.throwR + u.r && Vision.visible(o, u));
+    const M = o.shMark, t = (M && foes.includes(M.u)) ? M.u : foes.sort((a, b) => V.dist(a.pos, o.pos) - V.dist(b.pos, o.pos))[0];
+    if (!t) return;
+    const amt = lv(P.dagger, lP) + (o.sp || 0) * P.daggerSp;
+    const pr = o.sh.shot({ from: V.copy(d.pos), dir: V.norm(V.sub(t.pos, d.pos)), speed: DK.throwSpeed, range: 99, home: t, only: t, width: 0.3, len: 0.6, color: '#ff6b6b', onHit: u => {
+      const marked = o.shMark && o.shMark.u === u;
+      this.skillHit(o, u, amt * (marked ? 1 + o.sh.K.E.markAmp : 1), 'P', { name: '부당거래 단검' }, false);
+      if (marked) { o.shMark.t = o.sh.K.E.markDur; o.sh.cdSet('E', Math.max(0, o.sh.cdGet('E') - o.sh.K.E.markCut)); }
+    } });
+    if (pr) pr.look = 'knife';
+  },
+  // ---------- 평타 적중: 5중첩이면 추가 피해 + 적 뒤 단검 ----------
+  aaHit(o, u) {
+    const P = o.sh.K.P; if (o.shStk < P.max || !this.isFoeUnit(u) || u.dead) return;
+    const l = o.sh.L('P'); o.shStk = 0; o.shStkT = 0; o.sh.S.count('shPassive');
+    o.sh.hit(u, lv(P.base, l) + (o.sp || 0) * P.sp + u.maxHp * lv(P.hpPct, l), 'P', { name: '부당거래' });
+    FX.ring(u.pos, 0.2, 1.1, '#ff4d4d', 0.3, 0.12); FX.text(u.pos, '부당거래', '#ff6b6b', 12, { bold: true });
+    this.spawn(o, V.add(u.pos, V.mul(V.norm(V.sub(u.pos, o.pos)), u.r + P.behind)), P.fall);
+  },
+  // ---------- Q 표리 ----------
+  qCast(o, dir) {
+    const Q = o.sh.K.Q, l = o.sh.L('Q'), enh = o.shQ2 > 0, a = V.ang(dir), amt = lv(Q.base, l) + (o.sp || 0) * Q.sp; let hit = false;
+    for (const u of o.sh.foes()) {
+      const inA = enh ? Geo.inSector(o.pos, a, Q.len2 + o.r, Q.angle2 / 2 * Math.PI / 180, u.pos, u.r)
+        : (() => { const rel = V.sub(u.pos, o.pos), al = V.dot(rel, dir), s = Math.abs(rel.x * dir.y - rel.y * dir.x); return al >= -u.r && al <= Q.len + o.r + u.r && s <= Q.width / 2 + u.r; })();
+      if (!inA) continue; this.skillHit(o, u, amt, 'Q'); if (this.isFoeUnit(u)) hit = true;
+    }
+    if (enh) FX.slash(o.pos, a, Q.len2 + o.r, Q.angle2 / 2 * Math.PI / 180, '#ff4d4d', 0.22, o.r * 0.5);
+    else FX.slash(o.pos, a, Q.len + o.r, 0.3, '#ff9f9f', 0.16, o.r * 0.5);
+    o.sh.cdStart('Q');
+    if (enh) { o.shQ2 = 0; this.spawn(o, V.add(o.pos, V.mul(dir, Q.front))); }   // 강화 Q: 정면에 단검(얇은 벽 너머 가능 — 벽 안이면 밖으로 밀어냄)
+    if (hit) { o.sh.cdSet('Q', Math.max(0, o.sh.cdGet('Q') - Q.cut)); o.shQ2 = Q.enhDur; }
+    return hit;
+  },
+  // ---------- W 비약: 순간 이동 + 경로 피해 + 경로의 단검 줍기 ----------
+  // to = { dagger } 또는 { unit }
+  wGo(o, to) {
+    const W = o.sh.K.W, l = o.sh.L('W'), from = V.copy(o.pos);
+    let dest;
+    if (to.dagger) dest = V.copy(to.dagger.pos);
+    else { const u = to.unit, dir = V.dist(u.pos, from) > 0.05 ? V.norm(V.sub(u.pos, from)) : V.fromAng(o.facing); dest = Geo.pushOut(V.add(u.pos, V.mul(dir, u.r + o.r + W.behind - 0.5)), o.r); }
+    o.sh.cdStart('W'); o.sh.S.count('shW');
+    const amt = lv(W.base, l) + (o.sp || 0) * W.sp; let hitHero = false;
+    for (const u of o.sh.foes()) if (Geo.segDist(u.pos, from, dest) <= W.width / 2 + u.r) { this.skillHit(o, u, amt, 'W'); if (isHero(u) || u.kind === 'dummy') hitHero = true; }
+    if (hitHero) o.sh.S.count('shWHit');
+    o.pos = dest; o.facing = V.ang(V.sub(dest, from)); o.moveTarget = null;
+    FX.trail(from, dest, '#7fa8ff', 0.6, 0.3); FX.burst(dest, '#9fc0ff', 8, 4);
+    for (const d of o.shDags.slice()) if (this.landed(d) && Geo.segDist(d.pos, from, dest) <= o.sh.K.dagger.pickR + 0.2) this.pick(o, d);
+    return hitHero;
+  },
+  // ---------- E 협상 ----------
+  eFire(o, dir) {
+    const E = o.sh.K.E, l = o.sh.L('E'), amt = lv(E.base, l) + (o.sp || 0) * E.sp;
+    o.sh.cdStart('E');
+    const pr = o.sh.shot({ dir, speed: E.speed, range: E.range, width: E.width, len: 0.7, color: '#ff6b6b', onHit: u => {
+      this.skillHit(o, u, amt, 'E'); u.addSlow(lv(E.slow, l), E.slowDur);
+      if (this.isFoeUnit(u)) { o.shMark = { u, t: E.markDur }; FX.text(u.pos, '협상', '#ff6b6b', 12, { bold: true }); o.sh.S.count('shE'); }
+      this.spawn(o, V.add(u.pos, V.mul(dir, u.r + E.behind)), E.fall);
+    } });
+    if (pr) pr.look = 'knife';
+  },
+  // ---------- R 무자비 ----------
+  rFire(o) {
+    const R = o.sh.K.R, l = o.sh.L('R'), c = V.copy(o.pos);
+    FX.ring(c, 0.4, R.r, '#ff4d4d', 0.35, 0.16); FX.slash(c, o.facing, R.r, Math.PI, '#ff6b6b', 0.25, 0.5);
+    if (o === Game.player) FX.addShake(4);
+    for (const u of o.sh.foes()) if (V.dist(u.pos, c) <= R.r + u.r) { this.skillHit(o, u, lv(R.base, l) + (o.sp || 0) * R.sp, 'R'); u.addSlow(R.slow, R.slowDur); }
+    R.angles.forEach((deg, i) => this.later(o, R.gap * i, () => {
+      const dir = V.fromAng(deg * Math.PI / 180), len = Geo.clampDash(c, dir, R.dRange, 0.2), blocked = len < R.dRange - 0.1, end = V.add(c, V.mul(dir, len));
+      FX.trail(c, end, '#ff6b6b', 0.25, 0.2);
+      for (const u of o.sh.foes()) if (Geo.segDist(u.pos, c, end) <= R.dWidth / 2 + u.r) this.skillHit(o, u, lv(R.dBase, l) + (o.sp || 0) * R.dSp, 'R', { name: '무자비 단검' });
+      this.spawn(o, blocked ? V.copy(o.pos) : end, 0.12);   // 벽에 막히면 발밑에(벽궁)
+    }));
+  },
+  // ---------- D 망토와 단검 2차: 대상 뒤로 + 현재 체력 비례 ----------
+  dHit(o, u) {
+    const D = o.sh.K.D, l = o.sh.L('D'), from = V.copy(o.pos), dir = V.dist(u.pos, from) > 0.05 ? V.norm(V.sub(u.pos, from)) : V.fromAng(o.facing);
+    o.pos = Geo.pushOut(V.add(u.pos, V.mul(dir, u.r + o.r + 0.2)), o.r); o.facing = V.ang(V.mul(dir, -1));
+    FX.trail(from, o.pos, '#b18cff', 0.3, 0.25);
+    this.skillHit(o, u, lv(D.dmg, l) + (o.bonusAd || 0) * D.bad + (o.sp || 0) * D.sp + u.hp * D.curHp, 'D');
+    u.addSlow(lv(D.slow, l), D.slowDur);
+    for (const d of o.shDags.slice()) if (this.landed(d) && V.dist(d.pos, o.pos) <= o.sh.K.dagger.pickR + o.r) this.pick(o, d);   // 대상 뒤 단검 바로 줍기
+  },
+  // ---------- 매 스텝 ----------
+  update(o, dt) {
+    const K = o.sh.K;
+    for (const q of o.shT) if ((q.t -= dt) <= 0 && !q.done) { q.done = true; if (!o.dead) q.fn(); }
+    o.shT = o.shT.filter(q => !q.done);
+    if (o.shStkT > 0 && (o.shStkT -= dt) <= 0) o.shStk = 0;
+    if (o.shQ2 > 0) o.shQ2 = Math.max(0, o.shQ2 - dt);
+    const M = o.shMark;
+    if (M) { if (M.u.dead) { o.sh.cdSet('E', o.sh.cdGet('E') * (1 - K.E.killCut)); o.shMark = null; } else if ((M.t -= dt) <= 0) o.shMark = null; }
+    if (o.shD && (o.shD.t -= dt) <= 0) { o.shD = null; o.sh.cdStart('D'); }
+    for (const d of o.shDags) { if (d.land > 0 && (d.land -= dt) <= 0) FX.ring(d.pos, 0.1, K.dagger.pickR, '#ff6b6b', 0.25, 0.08); d.t -= dt; }
+    o.shDags = o.shDags.filter(d => d.t > 0);
+    if (!o.dead) for (const d of o.shDags.slice()) if (this.landed(d) && V.dist(d.pos, o.pos) <= K.dagger.pickR + o.r * 0.5) this.pick(o, d);   // 걸어서 줍기
+  },
+  // ---------- 그리기 ----------
+  draw(o, ctx, mine) {
+    const K = o.sh.K, T = Game.time;
+    for (const d of o.shDags) {
+      if (!mine && !Vision.pointVisible(d.pos)) continue;
+      if (!this.landed(d)) { const k = clamp(1 - d.land / 0.75, 0, 1); ctx.save(); ctx.strokeStyle = '#ff6b6b'; ctx.globalAlpha = 0.5; ctx.lineWidth = 0.06; ctx.setLineDash([0.12, 0.1]); Draw.circle(ctx, d.pos.x, d.pos.y, K.dagger.pickR * (1.6 - 0.6 * k)); ctx.stroke(); ctx.restore(); continue; }   // 떨어지는 중
+      if (mine) { ctx.save(); ctx.strokeStyle = '#7fa8ff'; ctx.globalAlpha = 0.16; ctx.lineWidth = 0.05; Draw.circle(ctx, d.pos.x, d.pos.y, K.W.range); ctx.stroke(); ctx.restore(); }   // 이 단검에서 W가 닿는 거리
+      const fade = d.t < 1.5 ? 0.4 + 0.4 * Math.sin(T * 14) : 0.9;
+      KU.fill(ctx, d.pos, K.dagger.pickR, '#3d6dff', 0.18); KU.ring(ctx, d.pos, K.dagger.pickR, '#7fa8ff', fade, false);
+      ctx.save(); ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.moveTo(d.pos.x - 0.12, d.pos.y + 0.18); ctx.lineTo(d.pos.x + 0.12, d.pos.y - 0.18); ctx.stroke(); ctx.restore();   // 꽂힌 단검
+    }
+    if (o.shStk >= K.P.max) KU.ring(ctx, o.pos, o.r + 0.18, '#ff4d4d', 0.55 + 0.35 * Math.sin(T * 10), false);   // 5중첩: 발밑 붉은 오라(다음 평타 강화)
+    if (o.shQ2 > 0) KU.ring(ctx, o.pos, o.r + 0.32, '#ff9f9f', 0.5, true);   // 강화 Q 준비(가방이 붉게)
+    const M = o.shMark;
+    if (M && !M.u.dead && (mine || Vision.visible(Game.player, M.u))) { const u = M.u; KU.ring(ctx, u.pos, u.r + 0.3, '#ff6b6b', 0.85, false); ctx.save(); ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 0.1; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.45, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(M.t / K.E.markDur, 0, 1)); ctx.stroke(); ctx.restore(); }
+  },
+};
+
+// ============================== 플레이어 키트 ==============================
+PKits.shoichi = {
+  short: { Q: '표리', W: '비약', E: '협상', R: '무자비', D: '망토' },
+  noAim: ['R'],
+  def: { W: { moveCancel: false }, E: { moveCancel: false }, R: { moveCancel: false }, D: { moveCancel: false } },
+  label(p, k) { if (k === 'Q' && p.shQ2 > 0) return '표리 강화'; if (k === 'D' && p.shD) return '단검'; return this.short[k]; },
+  init(p) {
+    p.melee = true;
+    p.sh = { K: p.K, color: p.color, L: k => p.L(k), hit: (u, amt, k, o) => p.hitS(u, amt, k, o), foes: () => p.foes(), level: () => p.build.level || 1,
+      cdStart: k => p.startCd(k), cdSet: (k, v) => { p.skills[k].cd = v; }, cdGet: k => p.skills[k].cd, shot: o => p.shot(o) };
+    Object.defineProperty(p.sh, 'S', { get: () => p.S });
+    ShoichiCore.attach(p);
+  },
+  fireAA(p, t) { p.aaLand(t); return true; },   // 근접 평타
+  onAAHit(p, u) { ShoichiCore.aaHit(p, u); },
+  reset(p) { ShoichiCore.attach(p); },
+  recast(p, k) { return k === 'D' && !!p.shD; },
+  // E 뒤로 빠지는 동작(0.3초 뒤) 중 W·R·D = 캔슬
+  instant(p, k, aim) {
+    if (p.cast && p.cast.k === 'E' && p.cast.phase === 'recovery' && ['W', 'R', 'D'].includes(k)) { p.cast = null; return false; }
+    return false;
+  },
+  update(p, dt) { ShoichiCore.update(p, dt); },
+  // W 대상: 커서 근처(1.2m) 내 단검 우선 → 커서 위 적
+  wTarget(p, aim) {
+    const W = p.K.W, ds = p.shDags.filter(d => ShoichiCore.landed(d) && V.dist(d.pos, p.pos) <= W.range + 0.3 && V.dist(d.pos, aim) <= W.pickAim).sort((a, b) => V.dist(a.pos, aim) - V.dist(b.pos, aim));
+    if (ds.length) return { dagger: ds[0] };
+    const u = Game.pickEnemyAt(aim, CONFIG.input.pickRadius, p);
+    if (u && u.kind !== 'ward' && !(u.untargetable > 0) && Vision.visible(p, u) && V.dist(p.pos, u.pos) - u.r <= W.range) return { unit: u };
+    return null;
+  },
+  cast: {
+    Q(p, aim) {
+      const Q = p.K.Q;
+      p.beginCast('Q', aim, { windup: () => Q.windup, recovery: () => 0.1, fire(q, c) { ShoichiCore.qCast(q, c.dir); Sfx.play('slash', q.pos); } }, {});
+      return true;
+    },
+    // W: 단검(커서 근처) 또는 적에게 순간 이동 — 시전 시간 없음
+    W(p, aim) {
+      const to = PKits.shoichi.wTarget(p, aim);
+      if (!to) { FX.toastFor(p, '비약: 사거리(5.5m) 안의 단검이나 적을 지정하세요', '#aaa'); Sfx.playFor(p, 'error'); return false; }
+      ShoichiCore.wGo(p, to); p.instantUsed('W'); Sfx.play('blink'); return true;
+    },
+    // E: 커서 방향 투척 → 뒤로 물러남(0.3초 뒤 다른 스킬로 캔슬)
+    E(p, aim) {
+      const E = p.K.E;
+      p.beginCast('E', aim, { windup: () => E.windup, recovery: () => E.lock,
+        fire(q, c) { ShoichiCore.eFire(q, c.dir); Sfx.play('throw'); const back = V.mul(c.dir, -1); c.data.from = V.copy(q.pos); c.data.to = V.add(q.pos, V.mul(back, Geo.clampDash(q.pos, back, E.back, q.r))); },
+        tick(q, c) { const k = Math.min(1, c.t / E.backTime); q.pos = V.lerp(c.data.from, c.data.to, k); return k >= 1; } }, {});
+      return true;
+    },
+    // R: 제자리 0.3초 휘두르기 → 주변 피해 + 단검 4개
+    R(p) {
+      const R = p.K.R;
+      p.beginCast('R', p.pos, { windup: () => R.windup, recovery: () => 0.1, start(q) { FX.text(q.pos, R.name, q.color, 14, { bold: true }); }, fire(q) { q.startCd('R'); ShoichiCore.rFire(q); Sfx.play('ult'); } }, {});
+      return true;
+    },
+    // D 망토와 단검: 1차 = 이속 1초(3초 안 재입력) · 2차 = 대상(2.5m) 뒤로
+    D(p, aim) {
+      const D = p.K.D;
+      if (!p.shD) { p.shD = { t: D.window }; p.addMsBuff(lv(D.ms, p.L('D')), D.msDur, false, 'shD'); p.instantUsed('D'); FX.text(p.pos, '망토', p.color, 12, { bold: true }); Sfx.play('blink'); return true; }
+      const t = p.targetAt(aim, 'D'); if (!t) return false;
+      return p.chaseCast('D', t, D.range, () => {
+        p.beginCast('D', t.pos, { windup: () => D.windup, recovery: () => 0.1, fire(q) { if (t.dead) return; ShoichiCore.dHit(q, t); q.shD = null; q.startCd('D'); Sfx.play('aa'); } }, {});
+      });
+    },
+  },
+  shape(p, k) {
+    const K = p.K;
+    if (k === 'Q') return p.shQ2 > 0 ? { kind: 'cone', len: K.Q.len2 + p.r, angle: K.Q.angle2 } : { kind: 'line', len: K.Q.len + p.r, width: K.Q.width };
+    if (k === 'W') return { kind: 'circle', range: K.W.range, r: 0.5 };
+    if (k === 'E') return { kind: 'line', len: K.E.range, width: K.E.width };
+    if (k === 'R') return { kind: 'self', r: K.R.r };
+    if (k === 'D') return p.shD ? { kind: 'target', range: K.D.range } : null;
+    return null;
+  },
+  draw(p, ctx) { ShoichiCore.draw(p, ctx, true); },
+  hud(p) {
+    const K = p.K, b = [[p.shStk >= K.P.max ? '부당거래 5 — 다음 평타 강화' : `부당거래 ${p.shStk}/${K.P.max}`, p.shStk >= K.P.max ? '#ff6b6b' : '#8a93a6']];
+    const n = p.shDags.filter(d => ShoichiCore.landed(d)).length; if (n) b.push([`단검 ${n}개 (W로 주우면 쿨 초기화)`, '#7fa8ff']);
+    if (p.shQ2 > 0) b.push([`표리 강화 ${fmt(p.shQ2, 1)}`, '#ff9f9f']);
+    if (p.shMark) b.push([`협상 표식 ${fmt(p.shMark.t, 1)}`, '#ff6b6b']);
+    if (p.shD) b.push([`망토 → 단검(D) ${fmt(p.shD.t, 1)}`, '#b18cff']);
+    return b;
+  },
+};
+
 // ============================== 휴식 (X) — 시즌 12 규칙 ==============================
 // 공식 12.0 패치노트(2026-08-06) "휴식 시스템 개편":
 //  · 전투 상태와 무관하게 언제든 시작 · 3단계 캐스팅 — 각 단계가 끝날 때 회복량이 한 번에 적용, 도중 취소 시 진행 중 단계는 회복 없음
@@ -4950,7 +5229,7 @@ class RangedDuelist extends Duelist {
     this.moveTarget = this.pickSpot(p, want, clamp(this.speed() * t, 0.8, 2.4)); this.kiteT = t; this.stats.kites++;
   }
   // 플레이어의 진입 거리: 캐시 = E(수쳐) 사거리 / 다니엘 = E 돌진 3m + 그림자 평타 3m
-  threatRange(p) { if ((p.charKey || p.motifKey) === 'bihyung') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.max + 0.5 : 2.4; } if ((p.charKey || p.motifKey) === 'alonso') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.range + 0.5 : 2.2; } const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
+  threatRange(p) { if ((p.charKey || p.motifKey) === 'shoichi') { const K = p.K || p.kitCfg; return foeCd(p, 'W') <= 0.8 ? K.W.range + 0.5 : foeCd(p, 'E') <= 0.8 ? K.E.range : 2.4; } if ((p.charKey || p.motifKey) === 'bihyung') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.max + 0.5 : 2.4; } if ((p.charKey || p.motifKey) === 'alonso') { const K = p.K || p.kitCfg; return foeCd(p, 'E') <= 0.8 ? K.E.range + 0.5 : 2.2; } const dk = (p.charKey || p.motifKey) === 'daniel' && (p.K || p.kitCfg); if (dk) return foeCd(p, 'E') <= 0.8 ? dk.E.dist + dk.E.aaRange + 0.5 : 3.5; return p.motifKey ? p.aaRange() + 0.5 : p.ranged ? p.aaCfg().range + 0.5 : CONFIG.rangedAI.eThreatRange; }
   // 기본 평타 피해(치명 판정 포함) — 키트가 aaDamage로 덮어쓸 수 있음
   aaDamage(u) { const crit = rnd() < this.critChance; return { amount: this.ad * (crit ? 1.75 : 1) * this.diff.dmgMul, crit }; }
   fireAA(p) {
@@ -6011,6 +6290,87 @@ Kits.chloe = {
   draw(ai, ctx) { if (Vision.visible(Game.player, ai) || ai.team === myTeam()) ChloeCore.draw(ai, ctx); },
 };
 
+// ============================== AI 쇼이치 (암살자 · 결투·팀 대전 상대·아군) ==============================
+// 스킬 효과는 플레이어와 같은 ShoichiCore(3_z_rangedy_shoichi.js). 여기서는 「언제 쓰나」만 정함 — 근거: 나무위키 콤보·평가 + 유저 플레이(농루트 가이드·네브짱 랭크) (docs/er_notes_playables.md 15장)
+//   · W는 단검을 줍는 기술: 적을 긁으며 지나가는 단검 → 적 근처(투척 5m) 단검 → 그다음에 적 몸으로 · 단검을 주우면 W 쿨 초기화라 연쇄
+//   · 진입은 E(표식·둔화 + 대상 뒤 단검) → W, 붙으면 R(단검 4개) → 단검마다 W · 강화 Q는 미리 장전해 원하는 방향에 단검
+//   · 혼자 먼저 궁 금지: R은 대상이 2.5m 안이고 내 체력이 충분하거나 상대가 빈사일 때
+//   · 쉬움: 단검 연쇄를 거의 안 함(적에게 W만 · 단검은 걸어서) · R 가끔
+Kits.shoichi = {
+  init(ai) {
+    const K = ai.kitCfg;
+    ai.sh = { K, color: ai.motif.color, S: NullStats, L: k => ai.L(k), level: () => ai.level || 1,
+      hit: (u, amt, k, o) => ai.hitP(u, amt * ai.diff.dmgMul, Object.assign({ name: (K[k] && K[k].name) || k }, o)),
+      foes: () => Game.units.filter(u => u.team !== ai.team && u.team !== 2 && !u.dead && u.kind !== 'ward' && !(u.untargetable > 0)),
+      cdStart: k => { ai.cds[k] = ai.pick(K[k].cd, k); }, cdSet: (k, v) => { ai.cds[k] = v; }, cdGet: k => ai.cds[k] || 0, shot: o => ai.shoot(o) };
+    ShoichiCore.attach(ai);
+  },
+  fireAA(ai, p) { ai.aaLand(p); return true; },   // 근접 평타
+  onAAHit(ai, u) { ShoichiCore.aaHit(ai, u); },
+  update(ai, dt) { ShoichiCore.update(ai, dt); },
+  // W 대상 고르기: 적을 긁는 단검 > 적 근처 단검(투척) > 적
+  wPick(ai, p, easy) {
+    const K = ai.kitCfg, W = K.W, ds = ai.shDags.filter(d => ShoichiCore.landed(d) && V.dist(d.pos, ai.pos) <= W.range);
+    let best = null, bs = 0;
+    if (!easy) for (const d of ds) {
+      const through = Geo.segDist(p.pos, ai.pos, d.pos) <= W.width / 2 + p.r, near = V.dist(d.pos, p.pos) <= K.dagger.throwR;
+      const s = (through ? 3 : 0) + (near ? 1 : 0) - V.dist(d.pos, p.pos) * 0.05;
+      if (s > bs) { bs = s; best = d; }
+    }
+    if (best && bs >= 1) return { dagger: best };
+    return null;
+  },
+  think(ai, p, d) {
+    const K = ai.kitCfg, hpR = ai.hp / ai.maxHp, pHp = p.hp / p.maxHp, gap = d - ai.r - p.r, easy = ai.diffKey === 'easy';
+    // W: 단검 연쇄(적을 긁는 단검 우선) → 아니면 적에게 진입(이미 붙어 있으면 아낌)
+    if (ai.cds.W <= 0) {
+      const to = this.wPick(ai, p, easy);
+      if (to) { ShoichiCore.wGo(ai, to); return false; }
+      if (gap <= K.W.range - 0.2 && gap > 1.6 && (hpR > 0.35 || pHp < 0.3) && Vision.visible(ai, p)) { ShoichiCore.wGo(ai, { unit: p }); return false; }
+    }
+    // R: 붙어 있고(2.5m) 버틸 체력이 있거나 상대 빈사 — 단검 4개를 깔아 W 연쇄
+    if (ai.cds.R <= 0 && gap <= K.R.r - 0.4 && (hpR > 0.45 || pHp < 0.35) && (!easy || rnd() < 0.35)) {
+      ai.cds.R = ai.pick(K.R.cd, 'R'); FX.text(ai.pos, K.R.name, ai.motif.color, 14, { bold: true });
+      ai.startCast(K.R.windup, () => { ShoichiCore.rFire(ai); Sfx.play('ult'); }, { kind: 'circle', pos: V.copy(ai.pos), r: K.R.r });
+      return true;
+    }
+    // E: 5.8m 직선 — 표식·둔화 + 대상 뒤 단검 (너무 붙으면 뒤로 빠지는 동작이 손해라 1.2m 밖)
+    if (ai.cds.E <= 0 && gap <= K.E.range - 0.4 && gap >= 1.2) {
+      const E = K.E, dir = ai.aimDir(p, E.windup, E.speed);
+      ai.startCast(E.windup, () => {
+        ShoichiCore.eFire(ai, dir); Sfx.play('throw');
+        const back = V.mul(dir, -1), to = V.add(ai.pos, V.mul(back, Geo.clampDash(ai.pos, back, E.back, ai.r)));
+        ai.act = { type: 'dash', t: 0, dur: E.backTime, from: V.copy(ai.pos), to };
+      }, { kind: 'line', dir, len: E.range, width: E.width });
+      return true;
+    }
+    // Q: 앞 찌르기(강화면 부채꼴 + 정면 단검)
+    const qLen = ai.shQ2 > 0 ? K.Q.len2 : K.Q.len;
+    if (ai.cds.Q <= 0 && gap <= qLen - 0.2) {
+      const dir = V.norm(V.sub(p.pos, ai.pos));
+      ai.startCast(K.Q.windup, () => { ShoichiCore.qCast(ai, V.norm(V.sub(p.pos, ai.pos))); }, ai.shQ2 > 0 ? { kind: 'cone', dir, len: K.Q.len2 + ai.r, angle: K.Q.angle2 } : { kind: 'line', dir, len: K.Q.len + ai.r, width: K.Q.width });
+      return true;
+    }
+    // D 망토와 단검: 멀면 1차(이속)로 추격 · 2.5m 안이면 2차(대상 뒤로)
+    if (ai.cds.D <= 0 && !easy) {
+      if (!ai.shD && gap > 3 && gap < 8) { ai.shD = { t: K.D.window }; ai.addMsBuff(lv(K.D.ms, ai.L('D')), K.D.msDur, false, 'shD'); return false; }
+      if (ai.shD && gap <= K.D.range) { ShoichiCore.dHit(ai, p); ai.shD = null; ai.cds.D = ai.pick(K.D.cd, 'D'); return false; }
+    }
+    return false;
+  },
+  kite() {},   // 암살자: 평타 뒤 물러나지 않음
+  // 이동: W가 없으면 적 근처(투척 거리) 단검을 걸어서 주움 · 아니면 적에게 붙음
+  move(ai, p, d) {
+    const K = ai.kitCfg;
+    if (ai.cds.W > 0) {
+      const dg = ai.shDags.filter(x => ShoichiCore.landed(x) && V.dist(x.pos, ai.pos) <= 4.5 && V.dist(x.pos, p.pos) <= K.dagger.throwR).sort((a, b) => V.dist(a.pos, ai.pos) - V.dist(b.pos, ai.pos))[0];
+      if (dg) { ai.moveTarget = V.copy(dg.pos); return; }
+    }
+    if (d > ai.aaRange() + p.r + ai.r - 0.1) ai.moveTarget = Geo.pushOut(V.copy(p.pos), ai.r); else ai.moveTarget = null;
+  },
+  draw(ai, ctx) { ShoichiCore.draw(ai, ctx, ai.team === myTeam()); },
+};
+
 // ============================== 씬 구성 도우미 ==============================
 const Scene = {
   // 플레이어 실험체: 캐시(기본) / 다니엘 / 키트 실험체(아야·리오·나딘·카티야·클로에·알론소) — 콤보 트레이너는 그 콤보의 실험체
@@ -6147,7 +6507,7 @@ Modes.combo = {
     if (k !== 'AA' && p.attackTarget) { p.attackTarget = null; p.attackMove = null; }   // 다음이 스킬이면 자동 평타가 끼어들지 않게
     const busy = p.cast && p.cast.phase !== 'recovery', aaBusy = p.aa.phase === 'windup';
     if (busy || aaBusy || !p.canAct()) return;
-    if (skill && p.skills[skill] && p.skills[skill].cd > 0) return;
+    if (skill && p.skills[skill] && p.skills[skill].cd > 0 && !(p.recastReady && p.recastReady(skill))) return;   // 재사용형(비형 Q2·카티야 D 등)은 쿨 잠금 중에도 재입력
     if (k === 'D1' && p.daggerReady > 0) return;
     if (k === 'AA') p.cmdAttack(tgt); else p.cmdSkill(skill, { x: tgt.pos.x, y: tgt.pos.y });
     Input.aiming = null; D.issuedAt = i; D.wait = k === 'AA' ? 1.2 : 0.35;
@@ -6287,6 +6647,7 @@ Modes.duel = {
   TIPS: {
     ranged: '원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.',
     alonso: '알론소는 탱커 — <b>E(대상 지정 4.75m)</b> 고리가 보이면 0.8초 안에 8.25m 밖으로 빠지면 취소됩니다. <b>Q(직선 펀치)</b>에 맞으면 연결 — 그 상태에서 평타·어퍼컷을 맞으면 기절이니 붙지 마세요. W 방패는 앞만 막으니 옆·뒤로 돌아 치세요. R(게더링 필드) 중엔 원 밖으로 걸어 나가면 둔화 — 짧은 이동기로 빠지세요.',
+    shoichi: '쇼이치는 암살자 — 바닥에 꽂힌 <b>단검(파란 원)</b>이 많을수록 위험합니다. 쇼이치가 단검을 <b>W(비약)</b>로 주우면 쿨이 초기화되고 근처 적에게 단검을 던집니다. <b>E(직선 단검)</b>에 맞으면 표식·둔화 + 등 뒤에 단검 — 그 단검에서 멀어지세요. <b>R(주변 2.5m 휘두르기)</b>은 0.3초 예고가 있으니 붙어 있을 때 빠지고, 쇼이치는 체력이 낮아 CC·폭딜에 약합니다.',
     bihyung: '비형은 브루저 — <b>W(1.5초 뒤 폭발하는 원)</b>은 예고를 보고 원 밖으로 피하세요(맞으면 둔화 → E 도발 연계). <b>E 돌진(2.5~5.3m)</b>에 부딪히면 도발로 끌려가 Q 강화 평타·풀스윙을 다 맞으니 옆으로 비켜서세요. 몸에 청록 장판(도깨비 불)이 생기면 최대 체력 비례 피해 — 4초 동안 거리를 벌리면 끝납니다. 벽을 등지면 풀스윙 벽꿍 기절, R 착지 중앙(2m)은 더 아픕니다.',
   },
   name: '1:1 결투',
@@ -6541,7 +6902,7 @@ const TeamAI = {
   // 역할 배정 (2-3)
   assign(t) {
     const us = Game.units.filter(u => isHero(u) && u.team === t), key = u => u.motifKey || u.charKey || 'cathy';
-    const order = ['alonso', 'cathy', 'bihyung', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe'], poke = ['katja', 'rio', 'nadine', 'aya', 'chloe'];
+    const order = ['alonso', 'cathy', 'bihyung', 'daniel', 'shoichi', 'aya', 'rio', 'nadine', 'katja', 'chloe'], poke = ['katja', 'rio', 'nadine', 'aya', 'chloe'];
     for (const u of us) u.role = null;
     const melee = us.filter(u => this.isMelee(u)), cathy = melee.find(u => key(u) === 'cathy'), tank = melee.find(u => key(u) === 'alonso');
     const front = tank || cathy || (melee.length === 1 && us.length > 1 && !us.some(u => key(u) === 'aya') ? melee[0] : null) || us.filter(u => !this.isMelee(u)).sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)))[0] || melee[0];
@@ -7771,8 +8132,8 @@ const Render = {
       ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(-r * 4, 0); ctx.lineTo(0, r); ctx.fill();
       ctx.globalAlpha = 0.8; Draw.circle(ctx, 0, 0, r); ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; Draw.circle(ctx, 0, 0, r * 0.45); ctx.fill();
       ctx.strokeStyle = col; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.35, r * 1.3, 0, 0, Math.PI * 2); ctx.stroke();
-    } else if (Render3D.projLook(pr)) {   // 원딜: 무기별 모양(빛 꼬리 + 머리) — 3D와 같은 구분
-      const look = Render3D.projLook(pr), col = pr.color || '#c79bff', ln = pr.len || 0.6, big = clamp(ln / 0.6, 1, 3.5);
+    } else if (pr.look === 'knife' || Render3D.projLook(pr)) {   // 원딜: 무기별 모양(빛 꼬리 + 머리) — 3D와 같은 구분 · knife = 쇼이치 투척 단검
+      const look = pr.look === 'knife' ? 'bolt' : Render3D.projLook(pr), col = pr.color || '#c79bff', ln = pr.len || 0.6, big = clamp(ln / 0.6, 1, 3.5);
       ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 10;
       const tl = look === 'sniper' ? 2.2 * big : look === 'blade' ? 0.6 : 0.9 * big, tw = (look === 'sniper' ? 0.11 : 0.09) * big;
       const gr = ctx.createLinearGradient(-tl, 0, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, col);
@@ -8549,6 +8910,41 @@ const DESIGNS = {
       {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.065, 0, 0]}, "b": {"b": "Wrist%", "o": [-0.035, 0, 0]}, "r": [0.098, 0.1], "seg": 10, "c": "sash", "w": ["Wrist%", "LowerArm%"]},
       {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.035, 0, 0.005]}, "s": [0.045, 0.05, 0.035], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]}
     ]
+  },
+  "shoichi": {
+    "rig": "male",
+    "colors": {"skin": "#ecc9ae", "eye": "#3a2a22", "white": "#ffffff", "hair": "#5a3d2b", "hairDark": "#3e2a1e", "brow": "#4a3324", "lip": "#c48474", "suit": "#34343e", "suitEdge": "#24242c", "shirt": "#eeece6", "tie": "#b3262e", "pants": "#2c2c35", "shoe": "#1b1b20", "sole": "#0f0f12", "bag": "#6b4429", "bagDark": "#4a2e1b", "metal": "#c9c6bf"},
+    "skirt": {"top": 0.86, "span": 0.36, "max": 0.5},
+    "parts": [
+      {"t": "sphere", "rel": "Head", "at": [0, 0.09, 0.012], "s": [0.108, 0.13, 0.116], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.04, 0.085, 0.124], "s": [0.017, 0.011, 0.007], "seg": [6, 4], "c": "eye", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0.045, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [-0.035, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.043, 0.106, 0.121], "s": [0.036, 0.007, 0.006], "rot": [0, 0, 0.2], "c": "brow", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.058, 0.13], "s": [0.01, 0.017, 0.012], "seg": [5, 4], "c": "skin", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "at": [0, 0.028, 0.121], "s": [0.022, 0.004, 0.004], "c": "lip", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.11, -0.004], "s": [0.124, 0.124, 0.124], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.09, -0.003], "s": [0.128, 0.13, 0.126], "seg": [16, 8], "ang": [1.05, 0.9, 0, 0.82], "c": "hair", "w": ["Head"]},
+      {"t": "tube", "a": [0, 1.355, 0.04], "b": [0, 1.46, 0.04], "r": [0.046, 0.043], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"]},
+      {"t": "lathe", "prof": [[0.15, 0.82], [0.155, 0.92], [0.16, 1.02], [0.172, 1.12], [0.19, 1.22], [0.186, 1.3], [0.13, 1.36], [0.07, 1.4]], "cz": 0.045, "zs": 0.84, "n": 18, "c": "shirt", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"]},
+      {"t": "lathe", "prof": [[0.19, 0.74], [0.185, 0.82], [0.178, 0.92], [0.176, 1], [0.183, 1.1], [0.2, 1.2], [0.197, 1.3], [0.145, 1.37], [0.09, 1.41]], "cz": 0.045, "zs": 0.86, "n": 20, "p": [0.18, 1.62], "c": "suit", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true},
+      {"t": "box", "at": [0.04, 1.25, 0.205], "s": [0.03, 0.2, 0.01], "rot": [0.12, 0, -0.35], "c": "suitEdge", "w": ["Chest"]},
+      {"t": "box", "at": [-0.04, 1.25, 0.205], "s": [0.03, 0.2, 0.01], "rot": [0.12, 0, 0.35], "c": "suitEdge", "w": ["Chest"]},
+      {"t": "box", "at": [0, 1.33, 0.2], "s": [0.04, 0.035, 0.02], "rot": [0.1, 0, 0], "c": "tie", "w": ["Chest", "Neck"]},
+      {"t": "box", "at": [0, 1.2, 0.212], "s": [0.038, 0.2, 0.01], "rot": [0.12, 0, 0], "c": "tie", "w": ["Chest"]},
+      {"t": "lathe", "prof": [[0.155, 0.76], [0.162, 0.82], [0.158, 0.88]], "cz": 0.045, "zs": 0.85, "n": 16, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%"}, "r": [0.08, 0.066], "seg": 10, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.07}}, "r": [0.064, 0.058], "seg": 10, "rings": 4, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.04, "z": 0.1}}, "s": [0.056, 0.042, 0.125], "seg": [10, 6], "c": "shoe", "w": ["Foot%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.012, "z": 0.1}}, "s": [0.058, 0.012, 0.128], "seg": [10, 4], "c": "sole", "w": ["Foot%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "UpperArm%"}, "s": [0.082, 0.082, 0.082], "seg": [8, 6], "c": "suit", "w": ["UpperArm%", "Shoulder%", "Chest"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.07, 0.066], "seg": 10, "rings": 4, "c": "suit", "w": ["UpperArm%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "suit", "w": ["LowerArm%", "UpperArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "Wrist%", "o": [-0.05, 0, 0]}, "r": [0.064, 0.058], "seg": 10, "rings": 3, "c": "suit", "w": ["LowerArm%", "Wrist%"]},
+      {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.06, 0, 0]}, "b": {"b": "Wrist%", "o": [-0.035, 0, 0]}, "r": [0.056, 0.054], "seg": 10, "c": "shirt", "w": ["Wrist%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.035, 0, 0.005]}, "s": [0.045, 0.05, 0.035], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]}
+    ]
   }
 };
 
@@ -8573,6 +8969,7 @@ const Models = {
     nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
     chloe:  { file: 'ranged', tint: true },
     alonso: { file: 'male', colors: { White: '#6b5a48', Purple: '#3c3a3e', LightBlue: '#c9853e', Hair: '#b9b4ad', Eyebrows: '#b9b4ad' } },   // 고철상: 낡은 겉옷·주황 포인트
+    shoichi: { file: 'male', colors: { White: '#2a2a33', Purple: '#7a1f24', LightBlue: '#e8e4dc', Hair: '#3a2c26', Eyebrows: '#3a2c26' } },   // 짙은 정장 · 붉은 넥타이·가방 포인트
     bihyung: { file: 'male', colors: { White: '#1d1f26', Purple: '#2a2c33', LightBlue: '#c8344a', Hair: '#3fbf9f', Eyebrows: '#2c6f60' } },   // 청록 머리 · 검은 한복풍 겉옷 · 빨간 띠
     nina:   { file: 'cathy', h: 0.64, colors: { Red: '#f2f0ec', Brown: '#cdc1b4', LimeGreen: '#f7f5f1', Gold: '#2b2d33' } },   // 클로에의 인형 니나(아이 크기)
   },
@@ -8596,7 +8993,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso', 'bihyung'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso', 'bihyung', 'shoichi'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 복제(SkeletonUtils.clone)는 부위(메시)마다 뼈대를 따로 복제함 → 같은 뼈·같은 바인드 자세면 하나로 묶음
@@ -8691,7 +9088,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso' || u.motifKey === 'alonso', bat: u.charKey === 'bihyung' || u.motifKey === 'bihyung', aiMelee: u.kind !== 'player' && !!(u.motif && u.motif.melee), dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung' || u.charKey === 'shoichi'), glove: u.charKey === 'alonso' || u.motifKey === 'alonso', bat: u.charKey === 'bihyung' || u.motifKey === 'bihyung', aiMelee: u.kind !== 'player' && !!(u.motif && u.motif.melee), dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -9684,7 +10081,12 @@ const Render3D = {
     const alongX = geo => { geo.rotateZ(-Math.PI / 2); return geo; };   // 원기둥·원뿔(+Y) → 진행 방향(+X)
     const tail = (r, L, c, op) => mk(alongX(new T3.ConeGeometry(r, L, 8, 1, true)).rotateZ(Math.PI), glow(c, op), -L / 2);   // 뒤로 가늘어지는 빛 꼬리
     const big = clamp(len / 0.6, 1, 3.5);   // 스킬 탄(길이 큼)은 더 굵고 길게
-    if (look === 'needle') {   // 캐시 수쳐: 은색 수술 바늘 + 빛 꼬리 + 캐시에게서 이어진 실(길이는 매 프레임)
+    if (look === 'knife') {   // 쇼이치 투척 단검: 은색 칼날 + 붉은 빛 꼬리
+      mk(alongX(new T3.ConeGeometry(0.06, 0.42, 4)), solid('#e8eef5'), 0.12);
+      mk(alongX(new T3.CylinderGeometry(0.035, 0.035, 0.18, 6)), solid('#3a2a2a'), -0.17);
+      mk(new T3.SphereGeometry(0.13, 10, 8), glow(col, 0.45));
+      tail(0.08, 0.8, col, 0.4);
+    } else if (look === 'needle') {   // 캐시 수쳐: 은색 수술 바늘 + 빛 꼬리 + 캐시에게서 이어진 실(길이는 매 프레임)
       mk(alongX(new T3.CylinderGeometry(0.03, 0.03, 0.55, 6)), solid('#e8eef5'));
       mk(alongX(new T3.ConeGeometry(0.045, 0.14, 6)), solid('#ffffff'), 0.34);
       mk(new T3.SphereGeometry(0.14, 10, 8), glow(col, 0.5), 0.2);
@@ -9968,7 +10370,7 @@ const Coach = {
       drill: { mode: 'dummy', label: '허수아비에서 W 표식 연습' } },
   ],
   // 조준이 필요한 스킬(빗나갈 수 있는 스킬샷·범위기) — 버프·이동기·대상 지정기는 적중률 코칭에서 뺌
-  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], bihyung: ['W', 'E', 'R'], daniel: ['Q'] },
+  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], bihyung: ['W', 'E', 'R'], shoichi: ['E'], daniel: ['Q'] },
   // 지금 판의 실험체: cathy / daniel / 키트 실험체(원거리·근접)
   who() {
     const p = Game.player, ch = (p && p.charKey) || Settings.character || 'cathy';
@@ -10009,6 +10411,16 @@ const Coach = {
       why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
       tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
       drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    if (W.ch === 'shoichi') {   // 쇼이치: W로 적 긁기 · 단검 회수 — 근거 er_notes_playables.md 15장(유저 플레이 학습)
+      if ((C.shW || 0) >= 5 && (C.shWHit || 0) / C.shW < 0.4) out.push({ id: 'shWHit', w: 1.3, n: C.shW - (C.shWHit || 0), unit: '회', title: `W(비약)로 적을 못 긁음 (${C.shWHit || 0}/${C.shW})`,
+        why: '쇼이치 딜의 절반 가까이가 W 경로 피해입니다. 단검만 줍고 적을 지나가지 않으면 패시브 투척만 들어가 딜이 크게 줄어듭니다.',
+        tip: '적 – 단검 – 나 구도를 만들고 적을 관통하는 단검으로 W를 쓰세요(V자 타기). 궁 단검은 적을 사이에 둔 반대편 것부터.',
+        drill: { mode: 'combo', combo: 'sh2', label: 'W → R → 단검 W 연습' } });
+      if ((C.shDagOn || 0) >= 6 && (C.shPick || 0) / C.shDagOn < 0.4) out.push({ id: 'shPick', w: 1.0, n: C.shDagOn - (C.shPick || 0), unit: '개', title: `단검을 많이 버림 (${C.shPick || 0}/${C.shDagOn} 회수)`,
+        why: '단검을 주우면 W 쿨이 초기화되고 근처 적에게 투척 피해가 들어갑니다. 줍지 않은 단검은 쿨 초기화와 피해를 그대로 버린 것입니다.',
+        tip: 'E·강화 Q·R을 쓴 뒤 단검 위치를 보고 W나 걸어서 주우세요. E·강화 평타 단검은 0.75초 뒤 떨어지니 그 뒤에 W.',
+        drill: { mode: 'dummy', label: '허수아비에서 E → (0.75초) → W로 단검 줍기' } });
+    }
     if (W.ch === 'bihyung') {   // 비형: 도깨비 불 장판 유지 · 도발 → 풀스윙 · 뚝딱! 2단계 — 근거 er_notes_playables.md 14장(운영 요약)
       if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT < 0.25) out.push({ id: 'bhAura', w: 1.1, n: Math.round(St.combatT - (C.bhAuraT || 0)), unit: '초', title: `도깨비 불 장판 유지가 짧음 (교전의 ${pct(C.bhAuraT || 0, St.combatT)})`,
         why: '신력은 평타 10 · 스킬 30씩 차고, 장판은 적 실험체를 칠 때마다 4초로 초기화됩니다. 평타를 쉬거나 스킬을 아끼면 장판이 꺼져 지속 피해와 둔화 저항을 잃습니다.',
@@ -10068,6 +10480,8 @@ const Coach = {
     const C = St.counts || {};
     if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
     if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
+    if ((C.shW || 0) >= 5 && C.shWHit / C.shW >= 0.7) out.push(`W 긁기 ${C.shWHit}/${C.shW} — 단검을 타며 적을 잘 지나갑니다.`);
+    if ((C.shDagOn || 0) >= 6 && C.shPick / C.shDagOn >= 0.7) out.push(`단검 회수 ${C.shPick}/${C.shDagOn} — 단검을 거의 버리지 않습니다.`);
     if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT >= 0.5) out.push(`도깨비 불 장판 유지 ${pct(C.bhAuraT, St.combatT)} — 신력 관리가 좋습니다.`);
     if ((C.bhTaunt || 0) >= 3 && C.bhTauntD / C.bhTaunt >= 0.6) out.push(`도발 → 풀스윙 ${C.bhTauntD}/${C.bhTaunt} — 연계가 좋습니다.`);
     if ((C.bhQ1 || 0) >= 3 && C.bhQ2 / C.bhQ1 >= 0.7) out.push(`뚝딱! 2단계 ${C.bhQ2}/${C.bhQ1} — Q 재사용을 놓치지 않습니다.`);
@@ -10134,6 +10548,10 @@ const Measure = {
       how: 'Q를 누르고 평타하지 않은 채 기다리며, 강화 표시가 사라지고 쿨이 돌기 시작할 때까지.' },
     { g: '비형', key: 'bhKnock', path: 'CONFIG.rangedKits.bihyung.D.knock', label: '풀스윙 밀치는 거리', unit: 'm', min: 0.5, max: 6, step: 0.1,
       how: '허수아비를 풀스윙으로 쳐서 밀려난 거리(화면 자: 방망이 평타 원 1.8m). 공식 영상 약 2.4m(±20%).' },
+    { g: '쇼이치', key: 'shDagLife', path: 'CONFIG.rangedKits.shoichi.dagger.life', label: '바닥 단검이 사라지는 시간', unit: '초', min: 2, max: 30, step: 0.5,
+      how: '연습 모드에서 강화 Q로 단검을 하나 깔고 줍지 않은 채 기다리며, 단검이 사라질 때까지의 시간.' },
+    { g: '쇼이치', key: 'shPickR', path: 'CONFIG.rangedKits.shoichi.dagger.pickR', label: '단검 줍는 원 반지름', unit: 'm', min: 0.3, max: 2, step: 0.05,
+      how: '단검 쪽으로 천천히 걸어가 주워지는 순간 쇼이치 중심~단검 거리(화면 자: 단검의 큰 파란 원 = W 사거리 5.5m).' },
     { g: '카티야', key: 'snipeAim', path: 'CONFIG.rangedKits.katja.D.aim', label: '저격(D) 모드 진입 → 첫 발까지', unit: '초', min: 0, max: 2, step: 0.05,
       how: 'D를 누른 순간부터 첫 발을 쏠 수 있게 될 때까지(D 연타로 처음 나가는 시각).' },
     { g: '캐시', key: 'bleedTick', path: 'CONFIG.passive.tick', label: '외상 출혈 피해 간격', unit: '초', min: 0.1, max: 2, step: 0.05,
@@ -10595,8 +11013,8 @@ const UI = {
       <div class="row"><label>품질</label>${[['auto', '자동'], ['high', '높음'], ['low', '낮음 (휴대폰·저사양)']].map(([v, n]) => `<button class="btn ${(Settings.gfxQ || 'auto') === v ? 'sel' : ''}" data-a="gq" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">지금: ${Gfx.low() ? '낮음' : '높음'}${(Settings.gfxQ || 'auto') === 'auto' ? ' · 자동은 3D에서 프레임이 계속 40 아래면 낮음으로' : ''}</span></div>
       <div class="sub" style="margin:4px 0">낮음: 해상도 배율 1 · 3D 그림자 끔 · 비 절반 (판정은 그대로)</div>
       ${cb('models3d', '3D 인물 모델 사용 (CC0 · Quaternius) — 웹에서만, 끄면 단순 인형')}
-      <details${Renderer.mode === '3d' ? ' open' : ''}><summary class="sub" style="cursor:pointer;margin:6px 0">실험체별 3D 모델 고르기 (10명)</summary>
-      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나'], ['alonso', '알론소'], ['bihyung', '비형']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}</details>
+      <details${Renderer.mode === '3d' ? ' open' : ''}><summary class="sub" style="cursor:pointer;margin:6px 0">실험체별 3D 모델 고르기 (11명)</summary>
+      ${[['cathy', '캐시'], ['daniel', '다니엘'], ['aya', '아야'], ['rio', '리오'], ['nadine', '나딘'], ['katja', '카티야'], ['chloe', '클로에'], ['nina', '니나'], ['alonso', '알론소'], ['bihyung', '비형'], ['shoichi', '쇼이치']].map(([k, n]) => `<div class="row"><label>${n} 3D 모델</label>${[['cc0', 'CC0 모델'], ['proc', '직접 만든 모델'], ['blend', 'Blender 모델'], ['ref', '원작풍']].filter(([v]) => (v !== 'blend' || Models.src[k + 'Blend']) && (v !== 'ref' || Models.src[k + 'Ref'])).map(([v, l]) => `<button class="btn ${Models.choice(k) === v ? 'sel' : ''}" data-a="cmodel" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`).join('')}</details>
       ${cb('vfx3d', '3D 스킬 이펙트 — 빛나는 베기·돌진 궤적·불꽃 파티클·칼 궤적 (끄면 바닥에 2D로 표시)')}
       ${cb('toon', '카툰 렌더링 (3D) — 셀 셰이딩 명암 3단 + 검은 외곽선, 이터널 리턴 같은 애니메이션풍')}
       <div class="row"><label>날씨 (3D)</label>${[['clear', '맑음'], ['rain', '비'], ['fog', '안개']].map(([v, n]) => `<button class="btn ${(Settings.weather || 'clear') === v ? 'sel' : ''}" data-a="weather" data-v="${v}">${n}</button>`).join('')}<span class="sub" style="margin-left:8px">보기만 바뀜 · 판정 동일</span></div>
@@ -10659,6 +11077,10 @@ const UI = {
       · <b>P</b> 플라즈마 배리어: 기절·속박·공포를 한 번 무효(파란 고리 = 준비), 피해를 안 받으면 다시 준비 · 스킬로 적을 묶으면 회복.<br>
       · <b>Q</b> 마그네틱 펀치(직선) → 맞힌 적과 연결(그쪽으로 가면 빨라짐) → <b>평타·D</b>로 치면 기절 · <b>W</b> 커서 방향 방패 2.5초(앞에서 받는 피해 60% 감소, <kbd>W</kbd> 다시 = 터뜨리기) · <b>E</b> 대상 지정 → 0.8초 뒤 돌진·속박(8.25m 밖으로 빠지면 취소) · <b>R</b> 제자리 3.5초 당기기·회복(<kbd>R</kbd> 다시 = 마무리, CC에 끊김) · <b>D</b> 어퍼컷.<br>
       · 콤보: <b>E → Q → 평타</b>(속박 중 Q 확정 → 기절). 팀 대전에서는 앞라인을 맡습니다.</div>
+      <h3>쇼이치 (암살자)</h3><div class="sub">
+      · <b>바닥 단검</b>: E·강화 Q·R·5중첩 강화 평타가 단검을 남김(파란 원 = 줍는 곳, 옅은 큰 원 = 그 단검에서 W가 닿는 거리) — 걸어가거나 <b>W로 지나가며 주우면</b> 근처 적(표식 우선)에게 투척 · <b>W로 주우면 W 쿨 초기화</b>.<br>
+      · <b>P</b> 부당거래: 스킬 적중 5번 → 다음 평타 추가 피해 + 적 뒤에 단검 · <b>Q</b> 앞 찌르기 → 맞히면 쿨 −3초 + 다음 Q 강화(부채꼴 + 정면 단검) · <b>W</b> 커서 근처 단검 또는 적(등 뒤)으로 순간 이동, 경로의 적 피해 · <b>E</b> 직선 단검 투척(둔화 + 표식 + 적 뒤 단검) 후 뒤로 물러남(W·R·D로 캔슬) · <b>R</b> 0.3초 뒤 주변 2.5m 피해 + 사방 단검 4개 · <b>D</b> 망토(이속) → 3초 안 다시 = 대상 뒤로.<br>
+      · 콤보: <b>E → W → W</b>(떨어진 단검 줍기), <b>W → R → W → W</b>(궁 단검을 적을 긁으며 타기). 혼자 먼저 궁 금지.</div>
       <h3>비형 (브루저)</h3><div class="sub">
       · <b>P</b> 도깨비 불: 평타·스킬로 신력을 모아 100이면 4초 장판(주변 3m 최대 체력 비례 피해 + 둔화 저항) — 적 실험체를 치면 시간 초기화.<br>
       · <b>Q</b> 다음 평타 강화 + 회복 → 1.5초 뒤 <kbd>Q</kbd> 다시 = 강화 평타 + 2회 추가 · <b>W</b> 7m 안 지점에 1.5초 뒤 폭발(둔화, 내가 안에 있으면 보호막·이속) · <b>E</b> 2.5~5.3m 돌진 → 처음 부딪힌 적 <b>도발</b>(나를 계속 공격) · <b>R</b> 5m 도약(오를 때 면역, 피해 30% 감소, 15초 추가 체력) → 착지 피해·둔화(가운데 더 셈) · <b>D</b> 풀스윙: 앞 180° 밀치기 → 벽에 부딪히면 기절.<br>
@@ -10716,7 +11138,7 @@ const UI = {
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(rng ? '평타 / 무빙 비율' : dan ? '평타' : '평타 / 강화 평타', rng ? `${St.aaHits} / ${St.heroAA ? pct(St.kiteAA, St.heroAA) : '-'}` : dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
-        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) + (pl.charKey === 'alonso' ? stat('자력 연결 → 기절', `${(St.counts || {}).linkPop || 0} / ${(St.counts || {}).linkOn || 0}`) : pl.charKey === 'bihyung' ? stat('도깨비 불 유지', St.combatT ? pct((St.counts || {}).bhAuraT || 0, St.combatT) : '-') + stat('도발 → 풀스윙', `${(St.counts || {}).bhTauntD || 0} / ${(St.counts || {}).bhTaunt || 0}`) + stat('뚝딱! 2단계', `${(St.counts || {}).bhQ2 || 0} / ${(St.counts || {}).bhQ1 || 0}`) : pl.charKey === 'daniel' ? stat('영감 표식 폭발', `${(St.counts || {}).markPop || 0} / ${(St.counts || {}).markOn || 0}`) : '') : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
+        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) + (pl.charKey === 'alonso' ? stat('자력 연결 → 기절', `${(St.counts || {}).linkPop || 0} / ${(St.counts || {}).linkOn || 0}`) : pl.charKey === 'shoichi' ? stat('W로 적 긁기', `${(St.counts || {}).shWHit || 0} / ${(St.counts || {}).shW || 0}`) + stat('단검 회수', `${(St.counts || {}).shPick || 0} / ${(St.counts || {}).shDagOn || 0}`) + stat('부당거래 강화 평타', (St.counts || {}).shPassive || 0) : pl.charKey === 'bihyung' ? stat('도깨비 불 유지', St.combatT ? pct((St.counts || {}).bhAuraT || 0, St.combatT) : '-') + stat('도발 → 풀스윙', `${(St.counts || {}).bhTauntD || 0} / ${(St.counts || {}).bhTaunt || 0}`) + stat('뚝딱! 2단계', `${(St.counts || {}).bhQ2 || 0} / ${(St.counts || {}).bhQ1 || 0}`) : pl.charKey === 'daniel' ? stat('영감 표식 폭발', `${(St.counts || {}).markPop || 0} / ${(St.counts || {}).markOn || 0}`) : '') : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}

@@ -316,7 +316,12 @@ const Render3D = {
     const alongX = geo => { geo.rotateZ(-Math.PI / 2); return geo; };   // 원기둥·원뿔(+Y) → 진행 방향(+X)
     const tail = (r, L, c, op) => mk(alongX(new T3.ConeGeometry(r, L, 8, 1, true)).rotateZ(Math.PI), glow(c, op), -L / 2);   // 뒤로 가늘어지는 빛 꼬리
     const big = clamp(len / 0.6, 1, 3.5);   // 스킬 탄(길이 큼)은 더 굵고 길게
-    if (look === 'needle') {   // 캐시 수쳐: 은색 수술 바늘 + 빛 꼬리 + 캐시에게서 이어진 실(길이는 매 프레임)
+    if (look === 'knife') {   // 쇼이치 투척 단검: 은색 칼날 + 붉은 빛 꼬리
+      mk(alongX(new T3.ConeGeometry(0.06, 0.42, 4)), solid('#e8eef5'), 0.12);
+      mk(alongX(new T3.CylinderGeometry(0.035, 0.035, 0.18, 6)), solid('#3a2a2a'), -0.17);
+      mk(new T3.SphereGeometry(0.13, 10, 8), glow(col, 0.45));
+      tail(0.08, 0.8, col, 0.4);
+    } else if (look === 'needle') {   // 캐시 수쳐: 은색 수술 바늘 + 빛 꼬리 + 캐시에게서 이어진 실(길이는 매 프레임)
       mk(alongX(new T3.CylinderGeometry(0.03, 0.03, 0.55, 6)), solid('#e8eef5'));
       mk(alongX(new T3.ConeGeometry(0.045, 0.14, 6)), solid('#ffffff'), 0.34);
       mk(new T3.SphereGeometry(0.14, 10, 8), glow(col, 0.5), 0.2);

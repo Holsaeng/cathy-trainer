@@ -56,7 +56,7 @@ const TeamAI = {
   // 역할 배정 (2-3)
   assign(t) {
     const us = Game.units.filter(u => isHero(u) && u.team === t), key = u => u.motifKey || u.charKey || 'cathy';
-    const order = ['alonso', 'cathy', 'bihyung', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe'], poke = ['katja', 'rio', 'nadine', 'aya', 'chloe'];
+    const order = ['alonso', 'cathy', 'bihyung', 'daniel', 'shoichi', 'aya', 'rio', 'nadine', 'katja', 'chloe'], poke = ['katja', 'rio', 'nadine', 'aya', 'chloe'];
     for (const u of us) u.role = null;
     const melee = us.filter(u => this.isMelee(u)), cathy = melee.find(u => key(u) === 'cathy'), tank = melee.find(u => key(u) === 'alonso');
     const front = tank || cathy || (melee.length === 1 && us.length > 1 && !us.some(u => key(u) === 'aya') ? melee[0] : null) || us.filter(u => !this.isMelee(u)).sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)))[0] || melee[0];

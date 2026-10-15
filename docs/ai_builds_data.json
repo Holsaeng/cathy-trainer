@@ -590,9 +590,94 @@
         "https://namu.wiki/w/비형(이터널%20리턴)",
         "https://namu.wiki/w/이터널%20리턴/무기%20스킬"
       ]
+    },
+    "shoichi": {
+      "name": "쇼이치",
+      "weapon": "dagger",
+      "base": {
+        "hp": [
+          980,
+          92
+        ],
+        "ad": [
+          29,
+          5
+        ],
+        "def": [
+          52,
+          3.5
+        ],
+        "asBonus": 0.12,
+        "ms": 3.55,
+        "regen": [
+          1.8,
+          0.09
+        ]
+      },
+      "weaponAs": 0.58,
+      "mastery": {
+        "as": 0.027,
+        "sp": 0.045,
+        "other": "스킬 증폭형 숙련도 (dak.gg SkillAmpRatio)"
+      },
+      "builds": [
+        {
+          "label": "완성 1위: 월식 / 성법의 / 앙 가르드 / 틴달로스의 군주 / 와일드 워커",
+          "pick": "n=65 (dak.gg itemBuildStats, OneHandSword 1549게임 중 4.2%), TOP3 60.0%, 승률 13.8%",
+          "gear": {
+            "weapon": 101501,
+            "chest": 202503,
+            "head": 201526,
+            "arm": 203507,
+            "leg": 204506
+          }
+        },
+        {
+          "label": "완성 2위: 비색 단검 / 성법의 / 앙 가르드 / 틴달로스의 군주 / 와일드 워커",
+          "pick": "n=54 (dak.gg itemBuildStats, OneHandSword 1549게임 중 3.5%), TOP3 72.2%, 승률 31.5%",
+          "gear": {
+            "weapon": 101503,
+            "chest": 202503,
+            "head": 201526,
+            "arm": 203507,
+            "leg": 204506
+          }
+        },
+        {
+          "label": "시작(영웅): 파산검 / 어사의 / 제국 왕관 / 틴달로스의 팔찌 / 풍화륜",
+          "pick": "n=35 (dak.gg itemBuildStats, OneHandSword 1549게임 중 2.3%), TOP3 0.0%, 승률 0.0%",
+          "gear": {
+            "weapon": 101402,
+            "chest": 202404,
+            "head": 201409,
+            "arm": 203410,
+            "leg": 204406
+          }
+        }
+      ],
+      "src": [
+        "https://dak.gg/er/characters/Shoichi",
+        "https://dak.gg/er/characters/Shoichi/items",
+        "https://er.dakgg.io/api/v1/data/items?hl=ko",
+        "https://namu.wiki/w/쇼이치(이터널%20리턴)",
+        "https://namu.wiki/w/이터널%20리턴/아이템/장비/단검"
+      ]
     }
   },
   "items": {
+    "101402": {
+      "name": "파산검",
+      "slot": "weapon",
+      "grade": "epic",
+      "weapon": "dagger",
+      "stats": {
+        "ad": 25,
+        "sp": 68,
+        "msPct": 2,
+        "cdr": 10
+      },
+      "pas": ""
+    },
     "101407": {
       "name": "마하라자",
       "slot": "weapon",
@@ -603,6 +688,19 @@
         "as": 15
       },
       "pas": "신속 - 루드라의 단검"
+    },
+    "101501": {
+      "name": "월식",
+      "slot": "weapon",
+      "grade": "legend",
+      "weapon": "dagger",
+      "stats": {
+        "ad": 45,
+        "sp": 77,
+        "msPct": 2,
+        "cdr": 15
+      },
+      "pas": "의념"
     },
     "101502": {
       "name": "소울 리퍼",
@@ -864,6 +962,16 @@
       },
       "pas": "전자기 충격"
     },
+    "201409": {
+      "name": "제국 왕관",
+      "slot": "head",
+      "grade": "epic",
+      "stats": {
+        "sp": 63,
+        "cdr": 15
+      },
+      "pas": ""
+    },
     "201413": {
       "name": "비질란테",
       "slot": "head",
@@ -972,6 +1080,17 @@
       },
       "pas": "개시"
     },
+    "201526": {
+      "name": "앙 가르드",
+      "slot": "head",
+      "grade": "legend",
+      "stats": {
+        "def": 8,
+        "sp": 75,
+        "cdr": 10
+      },
+      "pas": "예열 - 증강"
+    },
     "201534": {
       "name": "붉은 별빛",
       "slot": "chest",
@@ -1005,6 +1124,18 @@
         "spLv": 5
       },
       "pas": "치유 감소"
+    },
+    "202404": {
+      "name": "어사의",
+      "slot": "chest",
+      "grade": "epic",
+      "stats": {
+        "def": 25,
+        "sp": 12,
+        "spLv": 5,
+        "cdr": 10
+      },
+      "pas": ""
     },
     "202405": {
       "name": "광학미채 슈트",
@@ -1214,6 +1345,16 @@
       },
       "pas": "포톤 런처"
     },
+    "203410": {
+      "name": "틴달로스의 팔찌",
+      "slot": "arm",
+      "grade": "epic",
+      "stats": {
+        "sp": 50,
+        "cdr": 20
+      },
+      "pas": ""
+    },
     "203414": {
       "name": "스마트 밴드",
       "slot": "arm",
@@ -1246,6 +1387,16 @@
       },
       "pas": "한파"
     },
+    "203507": {
+      "name": "틴달로스의 군주",
+      "slot": "arm",
+      "grade": "legend",
+      "stats": {
+        "sp": 84,
+        "cdr": 25
+      },
+      "pas": ""
+    },
     "203514": {
       "name": "미스릴 완장",
       "slot": "arm",
@@ -1276,6 +1427,17 @@
         "ad": 20,
         "ms": 0.22,
         "tenacity": 20
+      },
+      "pas": ""
+    },
+    "204406": {
+      "name": "풍화륜",
+      "slot": "leg",
+      "grade": "epic",
+      "stats": {
+        "sp": 25,
+        "ms": 0.22,
+        "cdr": 5
       },
       "pas": ""
     },
@@ -1366,6 +1528,17 @@
         "sp": 42,
         "ms": 0.25,
         "cdr": 10
+      },
+      "pas": "치유 감소"
+    },
+    "204506": {
+      "name": "와일드 워커",
+      "slot": "leg",
+      "grade": "legend",
+      "stats": {
+        "def": 10,
+        "ms": 0.25,
+        "cdr": 20
       },
       "pas": "치유 감소"
     },

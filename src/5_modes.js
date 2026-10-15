@@ -135,7 +135,7 @@ Modes.combo = {
     if (k !== 'AA' && p.attackTarget) { p.attackTarget = null; p.attackMove = null; }   // 다음이 스킬이면 자동 평타가 끼어들지 않게
     const busy = p.cast && p.cast.phase !== 'recovery', aaBusy = p.aa.phase === 'windup';
     if (busy || aaBusy || !p.canAct()) return;
-    if (skill && p.skills[skill] && p.skills[skill].cd > 0) return;
+    if (skill && p.skills[skill] && p.skills[skill].cd > 0 && !(p.recastReady && p.recastReady(skill))) return;   // 재사용형(비형 Q2·카티야 D 등)은 쿨 잠금 중에도 재입력
     if (k === 'D1' && p.daggerReady > 0) return;
     if (k === 'AA') p.cmdAttack(tgt); else p.cmdSkill(skill, { x: tgt.pos.x, y: tgt.pos.y });
     Input.aiming = null; D.issuedAt = i; D.wait = k === 'AA' ? 1.2 : 0.35;
@@ -275,6 +275,7 @@ Modes.duel = {
   TIPS: {
     ranged: '원딜은 쏘고 움직이며(카이팅), 캐시의 E·Q가 준비돼 있으면 평타 사이사이 E 사거리(5.5m) 밖으로 빠집니다. 평타를 쏘려면 사거리(4.85~6m) 안으로 들어와야 하니 그 순간을 노리세요. E 예고선을 보면 좌우로 피하고, 벽 근처는 피합니다. 이동기가 빠진 순간이 진입 타이밍.',
     alonso: '알론소는 탱커 — <b>E(대상 지정 4.75m)</b> 고리가 보이면 0.8초 안에 8.25m 밖으로 빠지면 취소됩니다. <b>Q(직선 펀치)</b>에 맞으면 연결 — 그 상태에서 평타·어퍼컷을 맞으면 기절이니 붙지 마세요. W 방패는 앞만 막으니 옆·뒤로 돌아 치세요. R(게더링 필드) 중엔 원 밖으로 걸어 나가면 둔화 — 짧은 이동기로 빠지세요.',
+    shoichi: '쇼이치는 암살자 — 바닥에 꽂힌 <b>단검(파란 원)</b>이 많을수록 위험합니다. 쇼이치가 단검을 <b>W(비약)</b>로 주우면 쿨이 초기화되고 근처 적에게 단검을 던집니다. <b>E(직선 단검)</b>에 맞으면 표식·둔화 + 등 뒤에 단검 — 그 단검에서 멀어지세요. <b>R(주변 2.5m 휘두르기)</b>은 0.3초 예고가 있으니 붙어 있을 때 빠지고, 쇼이치는 체력이 낮아 CC·폭딜에 약합니다.',
     bihyung: '비형은 브루저 — <b>W(1.5초 뒤 폭발하는 원)</b>은 예고를 보고 원 밖으로 피하세요(맞으면 둔화 → E 도발 연계). <b>E 돌진(2.5~5.3m)</b>에 부딪히면 도발로 끌려가 Q 강화 평타·풀스윙을 다 맞으니 옆으로 비켜서세요. 몸에 청록 장판(도깨비 불)이 생기면 최대 체력 비례 피해 — 4초 동안 거리를 벌리면 끝납니다. 벽을 등지면 풀스윙 벽꿍 기절, R 착지 중앙(2m)은 더 아픕니다.',
   },
   name: '1:1 결투',

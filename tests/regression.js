@@ -394,13 +394,13 @@
   // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
   G('실측값 입력', () => {
     reset(); const K = CONFIG.rangedKits;
-    T.ok('실측 항목 23개 · 경로가 모두 숫자', Measure.ITEMS.length === 23 && Measure.ITEMS.every(it => typeof Measure.value(it) === 'number'));
+    T.ok('실측 항목 25개 · 경로가 모두 숫자', Measure.ITEMS.length === 25 && Measure.ITEMS.every(it => typeof Measure.value(it) === 'number'));
     Measure.put('alonsoLink', 3.2); T.ok('입력 → 바로 적용', K.alonso.Q.markDur === 3.2 && Measure.measured(Measure.ITEMS[0]) && Measure.count() === 1);
     Measure.put('sphereMove', 9); T.ok('여러 경로 항목(임시·최종 스피어 이동)', CONFIG.sphere.phases[3].dur === 9 && CONFIG.sphere.finalPhases[3].dur === 9);
     Measure.put('plasmaShots', 7.6); T.ok('정수 항목은 반올림', CONFIG.tactical.plasmadash.shots === 8);
     Measure.put('ninaRange', 99); T.ok('범위 밖은 최대값으로', K.chloe.P.range === 4);
     Measure.put('ruptureR', 3); T.ok('아이템 효과(ItemFx)도 적용', ItemFx.RUPTURE.r === 3);
-    UI.showSettings(() => UI.showMenu()); click('[data-a="measure"]'); T.ok('설정 → 실측값 화면', document.querySelectorAll('[data-in="mv"]').length === 23 && document.getElementById('card').innerText.includes('✔ 실측 적용'));
+    UI.showSettings(() => UI.showMenu()); click('[data-a="measure"]'); T.ok('설정 → 실측값 화면', document.querySelectorAll('[data-in="mv"]').length === 25 && document.getElementById('card').innerText.includes('✔ 실측 적용'));
     click('[data-a="mclear"]'); T.ok('모두 지우기 → 추정값 복원', K.alonso.Q.markDur === 4 && CONFIG.sphere.phases[3].dur === 6 && CONFIG.tactical.plasmadash.shots === 5 && K.chloe.P.range === 1 && ItemFx.RUPTURE.r === 2.5 && Measure.count() === 0);
     UI.showMenu();
   });
@@ -483,7 +483,7 @@
 
   // ---------------- 콤보 시범(모범 간격) ----------------
   G('실험체별 콤보', () => {
-    const e0 = errs.length, chars = ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'alonso'];
+    const e0 = errs.length, chars = ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'alonso', 'bihyung', 'shoichi'];
     T.ok('모든 실험체에 콤보가 있고, 그 실험체 콤보만 보임', chars.every(ch => UI.combosFor(ch).length >= (ch === 'cathy' ? 6 : 2) && UI.combosFor(ch).every(c => UI.comboChar(c) === ch)));
     // 시범 보기: 실험체별 모든 콤보가 실제로 성공 (그 실험체로 시작)
     const fails = [];
@@ -492,7 +492,7 @@
       while (g < 120 * 25 && (M.demo || M.state !== 'result')) { step(); g++; }
       if (!M.resultOk || (Game.player.charKey || 'cathy') !== ch) fails.push(c.id + ':' + M.msg);
     }
-    T.ok('시범 보기: 다니엘·아야·리오·나딘·카티야·클로에·알론소 콤보 전부 성공', !fails.length && errs.length === e0, fails.join(' / '));
+    T.ok('시범 보기: 다니엘·아야·리오·나딘·카티야·클로에·알론소·비형·쇼이치 콤보 전부 성공', !fails.length && errs.length === e0, fails.join(' / '));
     // 콤보 성공 후 초기화: 클로에 니나는 하나만(새로 만들지 않음) · 쿨 초기화
     reset(); Game.start('combo', { combo: UI.combosFor('chloe')[0], diff: 'intro' }); Game.freeze = 0; Modes.combo.startDemo(); let g2 = 0; while (g2 < 120 * 25 && (Modes.combo.demo || Modes.combo.state !== 'result')) { step(); g2++; }
     run(Math.round(CONFIG.modes.combo.resetDelay * 1.6 * 120) + 10);
@@ -888,6 +888,60 @@
     T.ok('AI 비형: 결투에서 Q·W·E 사용', ['Q', 'W', 'E'].every(k => used.has(k)), [...used].join(''));
     T.ok('결투 팁: 비형 전용(다니엘 팁 아님)', Modes.duel.side().includes('도깨비 불') && !Modes.duel.side().includes('다니엘은'));
     T.ok('비형 오류 없음', errs.length === e0, errs.slice(e0).join(' | '));
+    Settings.character = 'cathy';
+  });
+
+  G('쇼이치', () => {
+    const K = CONFIG.rangedKits.shoichi, M = CONFIG.rangedMotifs.shoichi, e0 = errs.length;
+    const setup = (hp = 30000) => { reset(); Settings.character = 'shoichi'; Settings.castMode = 'smart'; Game.start('dummy', { count: 1, hp, def: 50, infinite: true, seed: 4 }); Game.freeze = 0; run(2); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 10.5, y: 9 }; return { p, d }; };
+    T.ok('수치: 나무위키(Q 3m·3.5m 90° · W 5.5m 폭 1.8 · E 5.8m 표식 5초 · R 2.5m·단검 3.9m) + 영상(Q 선딜 0.13 · E 0.12 · R 0.3 · 단검 고정 방향 4곳)',
+      K.Q.len === 3 && K.Q.len2 === 3.5 && K.Q.angle2 === 90 && K.W.range === 5.5 && K.W.width === 1.8 && K.E.range === 5.8 && K.E.markDur === 5 && K.R.r === 2.5 && K.R.dRange === 3.9 && K.Q.windup === 0.13 && K.E.windup === 0.12 && K.R.windup === 0.3 && K.R.angles.length === 4);
+    T.ok('능력치: 장비 계산(Lv18 체력 2544 · 스증 653) · 근접 1.25m', M.hp[2] === 2544 && M.sp[2] === 653 && M.melee && M.aaRange === 1.25);
+    let { p, d } = setup();
+    T.ok('플레이어블: 근접 암살자(평타 1.25m · 팀 AI 근접)', p instanceof RangedPlayer && p.charKey === 'shoichi' && p.melee && TeamAI.isMelee(p) && p.aaCfg().range === 1.25);
+    // E: 표식 + 둔화 + 0.75초 뒤 대상 뒤에 단검
+    p.cmdSkill('E', d.pos); Input.aiming = null; run(40);
+    const falling = p.shDags.length === 1 && p.shDags[0].land > 0; run(120);
+    T.ok('E: 피해 · 둔화 · 협상 표식 · 대상 뒤 단검(떨어진 뒤 줍기 가능)', (Stats.dmgBy.E || 0) > 0 && d.slows.length > 0 && p.shMark && p.shMark.u === d && falling && ShoichiCore.landed(p.shDags[0]) && p.shDags[0].pos.x > d.pos.x);
+    // W: 적을 긁으며 단검으로 → 줍기 = 쿨 초기화 + 투척(표식 대상)
+    const dg = p.shDags[0]; p.pos = { x: d.pos.x - 2.5, y: d.pos.y }; const w0 = Stats.dmgBy.W || 0;
+    p.cmdSkill('W', dg.pos); run(2); const proj = Game.projectiles.some(pr => pr.look === 'knife');
+    T.ok('W: 경로의 적 피해 → 단검 줍기 = W 쿨 초기화 + 투척 단검', (Stats.dmgBy.W || 0) > w0 && p.skills.W.cd === 0 && !p.shDags.length && proj && Stats.counts.shPick === 1 && Stats.counts.shWHit === 1);
+    // W: 적 지정 → 등 뒤
+    run(60); p.pos = { x: d.pos.x - 4, y: d.pos.y }; p.cmdSkill('W', d.pos); run(2);
+    T.ok('W: 적 지정 = 적 등 뒤로 순간 이동 · 쿨 시작', p.pos.x > d.pos.x && p.skills.W.cd > 0);
+    // Q: 적중 → 쿨 3초 감소 + 강화 → 강화 Q = 부채꼴 + 정면 단검
+    ({ p, d } = setup()); p.pos = { x: d.pos.x - 1.6, y: d.pos.y }; p.cmdSkill('Q', d.pos); Input.aiming = null; run(30);
+    const qcd = p.skills.Q.cd, base = 8 / (1 + p.cdr);
+    T.ok('Q: 적중 → 쿨 −3초 · 다음 Q 강화(10초)', p.shQ2 > 9 && qcd < base - 2.5, `${fmt(qcd, 2)} / ${fmt(base, 2)}`);
+    p.skills.Q.cd = 0; p.cmdSkill('Q', d.pos); Input.aiming = null; run(30);
+    T.ok('강화 Q: 정면 3.5m에 단검', p.shDags.length === 1 && Math.abs(V.dist(p.pos, p.shDags[0].pos) - K.Q.front) < 0.3);
+    // R: 0.3초 → 주변 피해·둔화 → 단검 4개
+    ({ p, d } = setup()); p.pos = { x: d.pos.x - 1.5, y: d.pos.y }; p.cmdSkill('R', p.pos); Input.aiming = null; run(Math.round(0.25 * 120)); const rEarly = Stats.dmgBy.R || 0; run(80);
+    T.ok('R: 0.3초 뒤 주변 피해 + 둔화 → 단검 4개(벽에 막힌 단검은 발밑 → 바로 주움)', rEarly === 0 && (Stats.dmgBy.R || 0) > 0 && d.slows.length > 0 && p.shDags.length + (Stats.counts.shPick || 0) === 4);
+    // P: 스킬 적중 5번 → 강화 평타 추가 피해 + 적 뒤 단검
+    ({ p, d } = setup()); p.pos = { x: d.pos.x - 1.4, y: d.pos.y }; p.shStk = 5; p.cmdAttack(d); run(120);
+    T.ok('P 부당거래: 5중첩 → 평타 추가 피해 + 적 뒤 단검', (Stats.dmgBy.P || 0) > 0 && p.shStk === 0 && p.shDags.length === 1);
+    // D: 1차 이속 → 2차 대상 뒤로 · 쿨
+    ({ p, d } = setup()); p.cmdSkill('D', d.pos); const ms1 = !!p.shD; p.cmdSkill('D', d.pos); Input.aiming = null; run(60);
+    T.ok('D 망토와 단검: 1차 망토 → 2차 대상 뒤로 + 피해 → 쿨', ms1 && !p.shD && (Stats.dmgBy.D || 0) > 0 && p.pos.x > d.pos.x && p.skills.D.cd > 0);
+    // 걸어서 줍기 · 수명
+    ({ p, d } = setup()); ShoichiCore.spawn(p, { x: 12, y: 9 }); p.cmdMove({ x: 13, y: 9 }); run(240);
+    T.ok('걸어서 단검 줍기', !p.shDags.length && Stats.counts.shPick === 1);
+    ShoichiCore.spawn(p, { x: 3, y: 3 }); run(Math.round((K.dagger.life + 0.2) * 120)); T.ok(`바닥 단검 수명 ${K.dagger.life}초`, !p.shDags.length);
+    // AI 쇼이치: 결투에서 스킬·단검 연쇄
+    reset(); Settings.character = 'cathy'; Game.start('duel', { diff: 'hard', motif: 'shoichi', enemyBuild: 'mid', map: 'basic', rounds: 1, seed: 3 }); Game.freeze = 0; Modes.duel.banner = null;
+    const e = Modes.duel.enemy, pc = Game.player; pc.invuln = 1e9; pc.pos = { x: 10, y: 9 }; e.pos = { x: 15, y: 9 };
+    const used = new Set(); let resets = 0; for (let i = 0; i < 120 * 25 && Game.state === 'play'; i++) { pc.invuln = 1e9; const wc = e.cds.W; step(); if (wc > 0 && e.cds.W === 0) resets++; for (const k of ['Q', 'W', 'E', 'R']) if (e.cds[k] > 0) used.add(k); }
+    T.ok('AI 쇼이치: Q·W·E·R 사용 + 단검으로 W 쿨 초기화', ['Q', 'W', 'E', 'R'].every(k => used.has(k)) && resets >= 1, `${[...used].join('')} · 초기화 ${resets}`);
+    T.ok('결투 팁: 쇼이치 전용', Modes.duel.side().includes('단검') && Modes.duel.side().includes('비약') && !Modes.duel.side().includes('다니엘은'));
+    // 코칭: W 긁기 · 단검 회수
+    ({ p, d } = setup()); Object.assign(Stats, { t: 60, combatT: 40, aaIdle: 1, counts: { shW: 8, shWHit: 1, shDagOn: 10, shPick: 2, shPassive: 1 } });
+    const sids = Coach.metrics(Stats).map(x => x.id);
+    T.ok('쇼이치 코칭: W 긁기 · 단검 회수 · 원딜 항목 없음', sids.includes('shWHit') && sids.includes('shPick') && !sids.includes('kite'), sids.join(','));
+    Game.finish('test'); const scard = document.getElementById('card').innerText;
+    T.ok('쇼이치 결과 화면: W로 적 긁기 · 단검 회수 · 부당거래 강화 평타', scard.includes('W로 적 긁기') && scard.includes('단검 회수') && scard.includes('부당거래 강화 평타'));
+    T.ok('쇼이치 오류 없음', errs.length === e0, errs.slice(e0).join(' | '));
     Settings.character = 'cathy';
   });
 

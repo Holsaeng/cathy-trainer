@@ -616,5 +616,40 @@ const DESIGNS = {
       {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.065, 0, 0]}, "b": {"b": "Wrist%", "o": [-0.035, 0, 0]}, "r": [0.098, 0.1], "seg": 10, "c": "sash", "w": ["Wrist%", "LowerArm%"]},
       {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.035, 0, 0.005]}, "s": [0.045, 0.05, 0.035], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]}
     ]
+  },
+  "shoichi": {
+    "rig": "male",
+    "colors": {"skin": "#ecc9ae", "eye": "#3a2a22", "white": "#ffffff", "hair": "#5a3d2b", "hairDark": "#3e2a1e", "brow": "#4a3324", "lip": "#c48474", "suit": "#34343e", "suitEdge": "#24242c", "shirt": "#eeece6", "tie": "#b3262e", "pants": "#2c2c35", "shoe": "#1b1b20", "sole": "#0f0f12", "bag": "#6b4429", "bagDark": "#4a2e1b", "metal": "#c9c6bf"},
+    "skirt": {"top": 0.86, "span": 0.36, "max": 0.5},
+    "parts": [
+      {"t": "sphere", "rel": "Head", "at": [0, 0.09, 0.012], "s": [0.108, 0.13, 0.116], "seg": [16, 12], "c": "skin", "w": ["Head", "Neck"]},
+      {"t": "sphere", "rel": "Head", "sym": true, "at": [0.04, 0.085, 0.124], "s": [0.017, 0.011, 0.007], "seg": [6, 4], "c": "eye", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0.045, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [-0.035, 0.088, 0.13], "s": [0.004, 0.004, 0.002], "seg": [4, 3], "c": "white", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "sym": true, "at": [0.043, 0.106, 0.121], "s": [0.036, 0.007, 0.006], "rot": [0, 0, 0.2], "c": "brow", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.058, 0.13], "s": [0.01, 0.017, 0.012], "seg": [5, 4], "c": "skin", "w": ["Head"]},
+      {"t": "box", "rel": "Head", "at": [0, 0.028, 0.121], "s": [0.022, 0.004, 0.004], "c": "lip", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.11, -0.004], "s": [0.124, 0.124, 0.124], "seg": [16, 8], "ang": [0, 2, 0, 0.5], "c": "hair", "w": ["Head"]},
+      {"t": "sphere", "rel": "Head", "at": [0, 0.09, -0.003], "s": [0.128, 0.13, 0.126], "seg": [16, 8], "ang": [1.05, 0.9, 0, 0.82], "c": "hair", "w": ["Head"]},
+      {"t": "tube", "a": [0, 1.355, 0.04], "b": [0, 1.46, 0.04], "r": [0.046, 0.043], "seg": 8, "c": "skin", "w": ["Neck", "Chest", "Head"]},
+      {"t": "lathe", "prof": [[0.15, 0.82], [0.155, 0.92], [0.16, 1.02], [0.172, 1.12], [0.19, 1.22], [0.186, 1.3], [0.13, 1.36], [0.07, 1.4]], "cz": 0.045, "zs": 0.84, "n": 18, "c": "shirt", "w": ["Hips", "Abdomen", "Torso", "Chest", "Neck"]},
+      {"t": "lathe", "prof": [[0.19, 0.74], [0.185, 0.82], [0.178, 0.92], [0.176, 1], [0.183, 1.1], [0.2, 1.2], [0.197, 1.3], [0.145, 1.37], [0.09, 1.41]], "cz": 0.045, "zs": 0.86, "n": 20, "p": [0.18, 1.62], "c": "suit", "w": ["Hips", "Abdomen", "Torso", "Chest"], "skirt": true},
+      {"t": "box", "at": [0.04, 1.25, 0.205], "s": [0.03, 0.2, 0.01], "rot": [0.12, 0, -0.35], "c": "suitEdge", "w": ["Chest"]},
+      {"t": "box", "at": [-0.04, 1.25, 0.205], "s": [0.03, 0.2, 0.01], "rot": [0.12, 0, 0.35], "c": "suitEdge", "w": ["Chest"]},
+      {"t": "box", "at": [0, 1.33, 0.2], "s": [0.04, 0.035, 0.02], "rot": [0.1, 0, 0], "c": "tie", "w": ["Chest", "Neck"]},
+      {"t": "box", "at": [0, 1.2, 0.212], "s": [0.038, 0.2, 0.01], "rot": [0.12, 0, 0], "c": "tie", "w": ["Chest"]},
+      {"t": "lathe", "prof": [[0.155, 0.76], [0.162, 0.82], [0.158, 0.88]], "cz": 0.045, "zs": 0.85, "n": 16, "c": "pants", "w": ["Hips", "UpperLegL", "UpperLegR"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperLeg%", "o": [0, 0.02, 0]}, "b": {"b": "LowerLeg%"}, "r": [0.08, 0.066], "seg": 10, "rings": 5, "c": "pants", "w": ["UpperLeg%", "Hips", "LowerLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "pants", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerLeg%"}, "b": {"b": "LowerLeg%", "o": [0, 0, -0.008], "set": {"y": 0.07}}, "r": [0.064, 0.058], "seg": 10, "rings": 4, "c": "pants", "w": ["LowerLeg%", "UpperLeg%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.04, "z": 0.1}}, "s": [0.056, 0.042, 0.125], "seg": [10, 6], "c": "shoe", "w": ["Foot%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerLeg%", "set": {"y": 0.012, "z": 0.1}}, "s": [0.058, 0.012, 0.128], "seg": [10, 4], "c": "sole", "w": ["Foot%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "UpperArm%"}, "s": [0.082, 0.082, 0.082], "seg": [8, 6], "c": "suit", "w": ["UpperArm%", "Shoulder%", "Chest"]},
+      {"t": "tube", "sym": true, "a": {"b": "UpperArm%"}, "b": {"b": "LowerArm%"}, "r": [0.07, 0.066], "seg": 10, "rings": 4, "c": "suit", "w": ["UpperArm%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "LowerArm%"}, "s": [0.066, 0.066, 0.066], "seg": [8, 6], "c": "suit", "w": ["LowerArm%", "UpperArm%"]},
+      {"t": "tube", "sym": true, "a": {"b": "LowerArm%"}, "b": {"b": "Wrist%", "o": [-0.05, 0, 0]}, "r": [0.064, 0.058], "seg": 10, "rings": 3, "c": "suit", "w": ["LowerArm%", "Wrist%"]},
+      {"t": "tube", "sym": true, "a": {"b": "Wrist%", "o": [-0.06, 0, 0]}, "b": {"b": "Wrist%", "o": [-0.035, 0, 0]}, "r": [0.056, 0.054], "seg": 10, "c": "shirt", "w": ["Wrist%", "LowerArm%"]},
+      {"t": "sphere", "sym": true, "at": {"b": "Wrist%", "o": [0.035, 0, 0.005]}, "s": [0.045, 0.05, 0.035], "seg": [8, 6], "c": "skin", "w": ["Wrist%"]}
+    ]
   }
 };

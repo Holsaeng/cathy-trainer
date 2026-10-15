@@ -20,6 +20,7 @@ const Models = {
     nadine: { file: 'ranged', tint: true },   // 나딘은 여성(178cm) — CC0 여성 모델
     chloe:  { file: 'ranged', tint: true },
     alonso: { file: 'male', colors: { White: '#6b5a48', Purple: '#3c3a3e', LightBlue: '#c9853e', Hair: '#b9b4ad', Eyebrows: '#b9b4ad' } },   // 고철상: 낡은 겉옷·주황 포인트
+    shoichi: { file: 'male', colors: { White: '#2a2a33', Purple: '#7a1f24', LightBlue: '#e8e4dc', Hair: '#3a2c26', Eyebrows: '#3a2c26' } },   // 짙은 정장 · 붉은 넥타이·가방 포인트
     bihyung: { file: 'male', colors: { White: '#1d1f26', Purple: '#2a2c33', LightBlue: '#c8344a', Hair: '#3fbf9f', Eyebrows: '#2c6f60' } },   // 청록 머리 · 검은 한복풍 겉옷 · 빨간 띠
     nina:   { file: 'cathy', h: 0.64, colors: { Red: '#f2f0ec', Brown: '#cdc1b4', LimeGreen: '#f7f5f1', Gold: '#2b2d33' } },   // 클로에의 인형 니나(아이 크기)
   },
@@ -43,7 +44,7 @@ const Models = {
       .catch(e => { console.warn('3D 모델을 불러오지 못해 기본 인형을 씁니다:', e); this.state = 'failed'; });
   },
   // 직접 만든 모델이 있는 실험체 (설계: 6_y_designs.js). 선택: Settings.models[키] = 'cc0' | 'proc' | 'blend'
-  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso', 'bihyung'],
+  CUSTOM: ['cathy', 'daniel', 'aya', 'rio', 'nadine', 'katja', 'chloe', 'nina', 'alonso', 'bihyung', 'shoichi'],
   // 기본: Blender 모델이 있으면 Blender 모델, 없으면(file:// 등) CC0 모델
   choice(key) { const m = Settings.models3dBy || {}; return m[key] || (this.src[key + 'Blend'] ? 'blend' : 'cc0'); },
   // 복제(SkeletonUtils.clone)는 부위(메시)마다 뼈대를 따로 복제함 → 같은 뼈·같은 바인드 자세면 하나로 묶음
@@ -138,7 +139,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso' || u.motifKey === 'alonso', bat: u.charKey === 'bihyung' || u.motifKey === 'bihyung', aiMelee: u.kind !== 'player' && !!(u.motif && u.motif.melee), dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung' || u.charKey === 'shoichi'), glove: u.charKey === 'alonso' || u.motifKey === 'alonso', bat: u.charKey === 'bihyung' || u.motifKey === 'bihyung', aiMelee: u.kind !== 'player' && !!(u.motif && u.motif.melee), dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },

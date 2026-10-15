@@ -53,7 +53,7 @@ const Coach = {
       drill: { mode: 'dummy', label: '허수아비에서 W 표식 연습' } },
   ],
   // 조준이 필요한 스킬(빗나갈 수 있는 스킬샷·범위기) — 버프·이동기·대상 지정기는 적중률 코칭에서 뺌
-  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], bihyung: ['W', 'E', 'R'], daniel: ['Q'] },
+  AIMED: { aya: ['W', 'R'], rio: ['W', 'R'], nadine: ['Q', 'W', 'D'], katja: ['Q', 'E', 'D'], chloe: ['Q', 'W', 'E', 'D'], alonso: ['Q', 'R'], bihyung: ['W', 'E', 'R'], shoichi: ['E'], daniel: ['Q'] },
   // 지금 판의 실험체: cathy / daniel / 키트 실험체(원거리·근접)
   who() {
     const p = Game.player, ch = (p && p.charKey) || Settings.character || 'cathy';
@@ -94,6 +94,16 @@ const Coach = {
       why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
       tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
       drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    if (W.ch === 'shoichi') {   // 쇼이치: W로 적 긁기 · 단검 회수 — 근거 er_notes_playables.md 15장(유저 플레이 학습)
+      if ((C.shW || 0) >= 5 && (C.shWHit || 0) / C.shW < 0.4) out.push({ id: 'shWHit', w: 1.3, n: C.shW - (C.shWHit || 0), unit: '회', title: `W(비약)로 적을 못 긁음 (${C.shWHit || 0}/${C.shW})`,
+        why: '쇼이치 딜의 절반 가까이가 W 경로 피해입니다. 단검만 줍고 적을 지나가지 않으면 패시브 투척만 들어가 딜이 크게 줄어듭니다.',
+        tip: '적 – 단검 – 나 구도를 만들고 적을 관통하는 단검으로 W를 쓰세요(V자 타기). 궁 단검은 적을 사이에 둔 반대편 것부터.',
+        drill: { mode: 'combo', combo: 'sh2', label: 'W → R → 단검 W 연습' } });
+      if ((C.shDagOn || 0) >= 6 && (C.shPick || 0) / C.shDagOn < 0.4) out.push({ id: 'shPick', w: 1.0, n: C.shDagOn - (C.shPick || 0), unit: '개', title: `단검을 많이 버림 (${C.shPick || 0}/${C.shDagOn} 회수)`,
+        why: '단검을 주우면 W 쿨이 초기화되고 근처 적에게 투척 피해가 들어갑니다. 줍지 않은 단검은 쿨 초기화와 피해를 그대로 버린 것입니다.',
+        tip: 'E·강화 Q·R을 쓴 뒤 단검 위치를 보고 W나 걸어서 주우세요. E·강화 평타 단검은 0.75초 뒤 떨어지니 그 뒤에 W.',
+        drill: { mode: 'dummy', label: '허수아비에서 E → (0.75초) → W로 단검 줍기' } });
+    }
     if (W.ch === 'bihyung') {   // 비형: 도깨비 불 장판 유지 · 도발 → 풀스윙 · 뚝딱! 2단계 — 근거 er_notes_playables.md 14장(운영 요약)
       if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT < 0.25) out.push({ id: 'bhAura', w: 1.1, n: Math.round(St.combatT - (C.bhAuraT || 0)), unit: '초', title: `도깨비 불 장판 유지가 짧음 (교전의 ${pct(C.bhAuraT || 0, St.combatT)})`,
         why: '신력은 평타 10 · 스킬 30씩 차고, 장판은 적 실험체를 칠 때마다 4초로 초기화됩니다. 평타를 쉬거나 스킬을 아끼면 장판이 꺼져 지속 피해와 둔화 저항을 잃습니다.',
@@ -153,6 +163,8 @@ const Coach = {
     const C = St.counts || {};
     if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
     if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
+    if ((C.shW || 0) >= 5 && C.shWHit / C.shW >= 0.7) out.push(`W 긁기 ${C.shWHit}/${C.shW} — 단검을 타며 적을 잘 지나갑니다.`);
+    if ((C.shDagOn || 0) >= 6 && C.shPick / C.shDagOn >= 0.7) out.push(`단검 회수 ${C.shPick}/${C.shDagOn} — 단검을 거의 버리지 않습니다.`);
     if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT >= 0.5) out.push(`도깨비 불 장판 유지 ${pct(C.bhAuraT, St.combatT)} — 신력 관리가 좋습니다.`);
     if ((C.bhTaunt || 0) >= 3 && C.bhTauntD / C.bhTaunt >= 0.6) out.push(`도발 → 풀스윙 ${C.bhTauntD}/${C.bhTaunt} — 연계가 좋습니다.`);
     if ((C.bhQ1 || 0) >= 3 && C.bhQ2 / C.bhQ1 >= 0.7) out.push(`뚝딱! 2단계 ${C.bhQ2}/${C.bhQ1} — Q 재사용을 놓치지 않습니다.`);

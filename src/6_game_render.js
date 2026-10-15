@@ -591,8 +591,8 @@ const Render = {
       ctx.globalAlpha = 0.35; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(-r * 4, 0); ctx.lineTo(0, r); ctx.fill();
       ctx.globalAlpha = 0.8; Draw.circle(ctx, 0, 0, r); ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; Draw.circle(ctx, 0, 0, r * 0.45); ctx.fill();
       ctx.strokeStyle = col; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.35, r * 1.3, 0, 0, Math.PI * 2); ctx.stroke();
-    } else if (Render3D.projLook(pr)) {   // 원딜: 무기별 모양(빛 꼬리 + 머리) — 3D와 같은 구분
-      const look = Render3D.projLook(pr), col = pr.color || '#c79bff', ln = pr.len || 0.6, big = clamp(ln / 0.6, 1, 3.5);
+    } else if (pr.look === 'knife' || Render3D.projLook(pr)) {   // 원딜: 무기별 모양(빛 꼬리 + 머리) — 3D와 같은 구분 · knife = 쇼이치 투척 단검
+      const look = pr.look === 'knife' ? 'bolt' : Render3D.projLook(pr), col = pr.color || '#c79bff', ln = pr.len || 0.6, big = clamp(ln / 0.6, 1, 3.5);
       ctx.translate(pr.pos.x, pr.pos.y); ctx.rotate(V.ang(pr.dir)); ctx.shadowColor = col; ctx.shadowBlur = 10;
       const tl = look === 'sniper' ? 2.2 * big : look === 'blade' ? 0.6 : 0.9 * big, tw = (look === 'sniper' ? 0.11 : 0.09) * big;
       const gr = ctx.createLinearGradient(-tl, 0, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, col);
