@@ -32,6 +32,7 @@ const Render3D = {
     this.outline = T3.OutlineEffect ? new T3.OutlineEffect(this.gl, { defaultThickness: 0.0042, defaultColor: [0.07, 0.05, 0.06], defaultAlpha: 0.95, defaultKeepAlive: true }) : null;
     this.mapKey = null; this.resize(); this.ready = true;
     VFX3D.init(this.scene);   // 3D 스킬 이펙트 (6_z_vfx3d.js)
+    this.warmPrograms();
     Env3D.init(this.scene);   // 낮밤 조명·스피어 벽·날씨 (6_z_env3d.js)
     Models.load();
   },
@@ -294,6 +295,15 @@ const Render3D = {
       else if (m.userData.look === 'needle' && m.userData.thread) { const o = pr.owner, d = o && !o.dead ? V.dist(o.pos, pr.pos) : 0; m.userData.thread.visible = d > 0.3; m.userData.thread.scale.x = Math.max(0.01, d); m.userData.thread.position.x = -d / 2; }   // 수쳐: 캐시에게서 이어진 실
     }
     for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material && c.userData.own) c.material.dispose(); }); this.projMeshes.delete(pr); }
+  },
+  // 셰이더 유지(2026-10-16 성능 점검): 효과·투사체 재질은 생길 때 만들고 사라질 때 지우는데, 같은 종류의 재질이 하나도 안 남으면
+  //   three.js가 셰이더 프로그램까지 지워 다음 효과 때 다시 컴파일함(판 중간 40~170ms 멈칫). 같은 설정의 보이지 않는 작은 메시를 늘 그려 프로그램을 붙잡아 둠
+  warmPrograms() {
+    const T3 = THREE, add = { blending: T3.AdditiveBlending, transparent: true, depthWrite: false }, geo = new T3.PlaneGeometry(0.001, 0.001);
+    const cfgs = [Object.assign({ side: T3.DoubleSide }, add), Object.assign({ side: T3.DoubleSide, vertexColors: true }, add), add, {}, { side: T3.DoubleSide }];   // 효과 · 칼 궤적 · 투사체 빛 · 투사체 몸통 · 깃·표창
+    this.warm = new T3.Group();
+    for (const c of cfgs) { const m = new T3.Mesh(geo, this.noLine(new T3.MeshBasicMaterial(Object.assign({ color: 0x000000, opacity: 0 }, c)))); m.frustumCulled = false; m.position.y = -50; this.warm.add(m); }
+    this.scene.add(this.warm);
   },
   // 무기별 투사체 모양 (주인의 무기로 정함 — 스킬 탄도 같은 무기 모양, 길이·굵기는 판정 값에 비례)
   PROJ_LOOK: { '권총': 'bullet', '활': 'arrow', '석궁': 'bolt', '저격총': 'sniper', '암기': 'blade' },
