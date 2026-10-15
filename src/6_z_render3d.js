@@ -244,8 +244,8 @@ const Render3D = {
       D.body.rotation.y = D.yaw;
       // 이동 중 흔들림, 평타·스킬 시 앞으로 내밀기
       const moving = V.dist(u.pos, D.last) > 0.002; D.last = V.copy(u.pos);
-      if (D.body.userData.rig) Models.animate(D.body.userData.rig, u, dt, moving);
-      else { D.bob += dt * (moving ? 14 : 3); D.body.position.y = moving ? Math.abs(Math.sin(D.bob)) * 0.06 : Math.sin(D.bob) * 0.012; }
+      if (D.body.userData.rig) { Models.animate(D.body.userData.rig, u, dt, moving); D.body.position.y = u.lift || 0; }   // lift: 도약 높이(비형 R — 보이는 것만, 발밑 고리는 바닥에 둠)
+      else { D.bob += dt * (moving ? 14 : 3); D.body.position.y = (u.lift || 0) + (moving ? Math.abs(Math.sin(D.bob)) * 0.06 : Math.sin(D.bob) * 0.012); }
       const atk = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
       if (D.body.userData.armR) D.body.userData.armR.rotation.z = atk ? 1.6 : 0.9;
       // 투명도: 은신·부쉬(내 캐릭터)·무적 깜빡임 / 피격 섬광

@@ -148,7 +148,8 @@ class DanielPlayer extends Cathy {
     for (const o of this.pendingQ) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; if (!this.dead) this.qLand(o); } }
     this.pendingQ = this.pendingQ.filter(o => o.t < o.dur + 0.25);
     if (this.mark) {
-      const M = this.mark; M.t += dt;
+      const M = this.mark, was = M.t; M.t += dt;
+      if (was < this.K.W.ready && M.t >= this.K.W.ready && !M.target.dead) DanFx.markReady(M.target);
       if (M.target.dead || M.t > this.K.W.ready + this.K.W.popWindow) this.mark = null;
       else Vision.reveals.push({ team: this.team, pos: V.copy(M.target.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야
     }
@@ -167,12 +168,8 @@ class DanielPlayer extends Cathy {
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 0.6; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
     }
-    if (this.mark && !this.mark.target.dead) {
-      const M = this.mark, ready = M.t >= this.K.W.ready, u = M.target;
-      KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.95 : 0.55, !ready);
-      if (!ready) { ctx.save(); ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / this.K.W.ready); ctx.stroke(); ctx.restore(); }
-    }
-    if (this.shadow) { const u = this.shadow.target; KU.fill(ctx, u.pos, u.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, u.pos, u.r + 0.3 + 0.1 * Math.sin(Game.time * 20), this.color, 0.9); }
+    if (this.mark && !this.mark.target.dead) DanFx.mark(ctx, this.mark, this.K.W);
+    if (this.shadow && this.shadow.phase !== 'out') DanFx.shadow(ctx, this.shadow.target, this.shadow.t / this.K.R.dur, this.color);
     if (this.shadowT > 0 && Settings.showRange) KU.ring(ctx, this.pos, this.K.E.aaRange + this.r, '#7d5cb8', 0.5, true);
   }
   // 조준 미리보기
@@ -191,6 +188,32 @@ class DanielPlayer extends Cathy {
     ctx.restore(); return true;
   }
 }
+
+// 다니엘 보이는 효과 (플레이어·AI 공통 — 판정과 무관)
+const DanFx = {
+  // 영감 표식: 준비(4초) 동안 차오르는 굵은 시간 고리 → 준비되면 밝게 맥동 + 터뜨릴 수 있는 남은 시간
+  mark(ctx, M, W) {
+    const u = M.target, ready = M.t >= W.ready, T = Game.time, top = -Math.PI / 2;
+    ctx.save(); ctx.lineCap = 'round';
+    if (!ready) {
+      ctx.strokeStyle = '#b07cff'; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.06; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4); ctx.stroke();
+      ctx.strokeStyle = '#d9a8ff'; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.13; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, top, top + Math.PI * 2 * M.t / W.ready); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#ffd1ff'; ctx.globalAlpha = 0.14 + 0.1 * Math.sin(T * 12); Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4); ctx.fill();
+      ctx.strokeStyle = '#ffd1ff'; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.14; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, top, top + Math.PI * 2 * clamp(1 - (M.t - W.ready) / W.popWindow, 0, 1)); ctx.stroke();
+      ctx.globalAlpha = 0.5 * (1 - (T * 1.5) % 1); ctx.lineWidth = 0.06; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4 + 0.5 * ((T * 1.5) % 1)); ctx.stroke();
+    }
+    ctx.restore();
+  },
+  markReady(u) { FX.text(u.pos, '영감 준비 — 공격!', '#ffd1ff', 12, { bold: true }); FX.ring(u.pos, u.r + 0.2, u.r + 1.2, '#ffd1ff', 0.35, 0.1); },
+  // 걸작 지속 피해: 그림자 속에서 베는 칼자국 (번갈아 방향)
+  rTick(u, n, color) { FX.slash(u.pos, n * 2.4, u.r + 0.9, 0.5, color, 0.14, u.r * 0.3); FX.burst(u.pos, '#d9a8ff', 4, 3); },
+  // 걸작: 그림자(어두운 원) + 남은 시간 고리
+  shadow(ctx, u, k, color) {
+    KU.fill(ctx, u.pos, u.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, u.pos, u.r + 0.3 + 0.1 * Math.sin(Game.time * 20), color, 0.9);
+    ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.12; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(1 - k, 0, 1)); ctx.stroke(); ctx.restore();
+  },
+};
 
 // 다니엘 시전 구현 (E·R은 캐시와 같은 시전 상태 기계를 사용)
 const DImpl = {
@@ -225,7 +248,7 @@ const DImpl = {
       if (!u.dead) p.pos = V.copy(u.pos);
       p.untargetable = p.invuln = p.unstoppable = 0.1; p.vel = { x: 0, y: 0 };
       const every = K.dur / K.ticks;
-      while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); }
+      while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) { Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); DanFx.rTick(u, S.n, p.color); } }
       if (S.t >= K.dur || S.exit || u.dead) {
         if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); p.S.hitCast('R'); }
         const cur = p.cursor, dir = cur && V.dist(cur, u.pos) > 0.1 ? V.norm(V.sub(cur, u.pos)) : V.fromAng(p.facing);   // 커서 쪽으로 빠져나옴 (커서 = 마지막 명령 좌표·걸작 중 커서 명령 — 재생해도 같게)

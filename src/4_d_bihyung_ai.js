@@ -28,7 +28,7 @@ Kits.bihyung = {
       const land = V.copy(p.pos), around = foes.filter(u => V.dist(u.pos, land) <= K.R.r + u.r).length;
       if (around >= 2 || (pHp < 0.4 && ai.diffKey !== 'easy') || (hpR < 0.35 && gap < 2)) {
         BihyungCore.rStart(ai, land);
-        ai.startChannel(K.R.leap, { onTick: (dt, a) => { if (BihyungCore.rStep(ai, dt)) a.stop = true; }, onEnd: () => { if (ai.bhR) BihyungCore.rStep(ai, 99); }, tele: { kind: 'circle', pos: land, r: K.R.r } });
+        ai.startChannel(K.R.leap, { onTick: (dt, a) => { if (BihyungCore.rStep(ai, dt)) a.stop = true; }, onEnd: () => { if (ai.bhR) BihyungCore.rStep(ai, 99); ai.lift = 0; }, tele: { kind: 'circle', pos: land, r: K.R.r } });
         return true;
       }
     }
@@ -52,7 +52,7 @@ Kits.bihyung = {
     if (ai.cds.D <= 0 && gap <= K.D.range + 0.2) {
       const dir = V.norm(V.sub(p.pos, ai.pos));
       if (taunted || p.root > 0 || this.wallBehind(p, dir, K.D.knock) || (hpR < 0.4 && ai.diffKey !== 'easy')) {
-        ai.cds.D = K.D.cd[0];   // 쿨 고정
+        ai.cds.D = K.D.cd[0]; BihyungCore.dAim(ai, dir);   // 쿨 고정
         ai.startCast(K.D.windup, () => { ai.facing = V.ang(dir); BihyungCore.dSwing(ai, V.norm(V.sub(p.pos, ai.pos))); }, { kind: 'cone', dir, len: K.D.range + ai.r, angle: K.D.angle });
         return true;
       }

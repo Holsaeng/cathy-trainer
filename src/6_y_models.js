@@ -138,7 +138,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso'), glove: u.charKey === 'alonso', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso', bat: u.charKey === 'bihyung', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -285,6 +285,11 @@ const Models = {
     aQ:    { clip: 'stabR', w: [0.42, 0.68], r: [0.68, 0.98], lean: 0.25 },
     aE:    { clip: 'stabL', w: [0.44, 0.62], a: [0.62, 0.74], r: [0.74, 1.00], lean: 0.45, crouch: 0.15 },
     aR:    { clip: 'slash', a: [0.10, 0.26], r: [0.26, 0.60], crouch: 0.1 },
+    // 비형 — W: 손을 뻗어 지점 지정 · E: 숙여 돌진 · R: 도약하며 방망이를 들어 올렸다 착지에 내려찍기 · D 풀스윙: 크게 감았다 휘두르기
+    bW:    { clip: 'stabR', w: [0.45, 0.68], r: [0.68, 0.95] },
+    bE:    { clip: 'stabR', w: [0.50, 0.62], a: [0.62, 0.70], r: [0.70, 0.95], lean: 0.45 },
+    bR:    { clip: 'slash', a: [0.06, 0.46], r: [0.46, 0.95], lean: 0.2 },
+    bD:    { clip: 'slash', w: [0.02, 0.45], r: [0.45, 0.95], lean: 0.3, crouch: 0.12 },
     // 다니엘 — E 그림자 이동: 몸을 숙여 찌르는 자세로 은신 돌진 · R 걸작: 그림자 속(모델 숨김)에선 칼을 들어 올린 채, 빠져나올 때 숙여 돌진하며 베기
     dE:    { clip: 'stabR', a: [0.58, 0.70], r: [0.70, 0.95], lean: 0.42 },
     dR:    { clip: 'slash', a: [0.06, 0.30], out: [0.30, 0.52], lean: 0.45 },
@@ -292,7 +297,7 @@ const Models = {
   },
   // 다니엘 즉시 시전 스킬(시전 시간 없음)의 손짓: Q 그림자 가위 = 크게 휘두르기 · W 영감 = 대상을 가리키는 찌르기 (이동 중이면 다리를 살리려고 생략)
   DAN_GESTURE: { Q: { clip: 'slash', s: 0.22, e: 0.52, dur: 0.3 }, W: { clip: 'stabR', s: 0.56, e: 0.70, dur: 0.16 } },
-  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
+  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
   // 구간 재생: 같은 클립이 이어지면 끊지 않고 속도만 바꿈
   seg(rig, clip, from, to, dur, fade = 0.06) {
     const a = rig.actions[clip]; if (!a) return;
@@ -367,9 +372,9 @@ const Models = {
       const enh = u.enhanced > 0, dual = u.weapon === 'dual';
       const W = Math.max(0.02, a.dur - a.t);
       const hasDual = dual && rig.actions.dualAA;   // 쌍검: 오른손 대각 베기 → 왼손 반대 대각 베기 / 강화 평타 = X자 교차 베기
-      let name = rig.glove ? (rig.swing++ % 2 ? 'stabL' : 'stabR') : enh ? (hasDual ? 'dualX' : 'slash') : dual ? (hasDual ? 'dualAA' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
+      let name = rig.bat ? 'slash' : rig.glove ? (rig.swing++ % 2 ? 'stabL' : 'stabR') : enh ? (hasDual ? 'dualX' : 'slash') : dual ? (hasDual ? 'dualAA' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
       if (W < 0.08) {   // 즉시 평타(R 직후 등): 처음부터 다시 들어 올리면 튀므로, 지금 동작과 다른 클립을 타격 직전부터 이어 붙임
-        name = rig.glove ? (rig.cur === rig.actions.stabR ? 'stabL' : 'stabR') : hasDual ? (enh ? 'dualX' : 'dualAA') : rig.cur === rig.actions.slash ? 'stabR' : 'slash'; const M = this.MELEE[name], lead = Math.max(0.05, W * 2);
+        name = rig.bat ? 'slash' : rig.glove ? (rig.cur === rig.actions.stabR ? 'stabL' : 'stabR') : hasDual ? (enh ? 'dualX' : 'dualAA') : rig.cur === rig.actions.slash ? 'stabR' : 'slash'; const M = this.MELEE[name], lead = Math.max(0.05, W * 2);
         this.playSeg(rig, name, M.hit - lead, lead / W, 0.05);
       } else { const M = this.MELEE[name]; this.playSeg(rig, name, M.s, clamp((M.hit - M.s) / W, 0.3, 14), 0.06); }
       rig.swingName = name; rig.dual = dual && !enh; rig.combat = 2.5; rig.recov = 9;
@@ -398,6 +403,10 @@ const Models = {
       const fresh = k => { const G = this.DAN_GESTURE[k]; if (!moving) { this.seg(rig, G.clip, G.s, G.e, G.dur, 0.05); rig.recov = G.dur + 0.15; rig.combat = 2.5; } };
       if (u.qSeq !== rig.qSeq) { if (rig.qSeq !== undefined) fresh('Q'); rig.qSeq = u.qSeq; }
       if (u.mark !== rig.mark) { if (u.mark && rig.mark !== undefined) fresh('W'); rig.mark = u.mark; }
+    }
+    if (rig.bat && u.bhSwing !== rig.bhSwing) {   // 비형 뚝딱! 추가 타격(0.2초 간격): 빠르게 한 번 더 휘두름 — 풀스윙은 skillAnim이 맡음
+      if (rig.bhSwing !== undefined && !u.cast) { const M = this.MELEE.slash; this.playSeg(rig, 'slash', M.hit - 0.18, 0.18 / 0.08, 0.03); rig.segEnd = null; rig.recov = 0.2; rig.combat = 2.5; rig.aaPh = 'none'; }
+      rig.bhSwing = u.bhSwing;
     }
     if (rig.glove) {   // 알론소 어퍼컷(시전 시간 없음): 아래에서 위로 주먹
       if (u.alUpper !== rig.alUpper) { if (rig.alUpper !== undefined) { this.seg(rig, 'stabR', 0.46, 0.96, 0.32, 0.04); rig.recov = 0.32; rig.combat = 2.5; rig.aaPh = 'none'; } rig.alUpper = u.alUpper; }

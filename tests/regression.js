@@ -342,6 +342,27 @@
     Settings.character = 'cathy';
   });
 
+  // 비형·다니엘 가시성: 풀스윙 준비 부채꼴 · R 도약 높이(착지·끊김 시 0) · 영감 표식 준비 알림 · 그리기 오류 없음
+  G('근접 가시성', () => {
+    reset(); Settings.character = 'bihyung'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    let p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 1.8, y: d.pos.y };
+    p.cmdSkill('D', d.pos); Input.aiming = null; run(24); const aimD = !!p.bhD; run(60);
+    T.ok('비형 풀스윙: 0.42초 준비 동안 부채꼴(bhD) → 휘두르면 사라짐', aimD && !p.bhD);
+    p.pos = { x: d.pos.x - 4.5, y: d.pos.y }; p.skills.R.cd = 0; p.cmdSkill('R', d.pos); Input.aiming = null; run(72); const mid = p.lift; run(120);
+    T.ok('비형 R: 도약 중 높이 → 착지하면 0', mid > 1.5 && p.lift === 0 && !p.bhR, `${mid}/${p.lift}`);
+    p.skills.R.cd = 0; p.cmdSkill('R', d.pos); Input.aiming = null; run(30); p.cast = null; run(2);
+    T.ok('비형 R: 시전이 끊기면 바로 착지(면역·높이 안 남음)', !p.bhR && p.lift === 0 && !p.ccGuard('stun'));
+    let ok = true; try { const c = document.createElement('canvas').getContext('2d'); p.bhQ = { stage: 2, t: 3 }; p.bhAura = 2; p.bhW = [{ pos: V.copy(p.pos), t: 0.7 }]; p.bhD = { dir: { x: 1, y: 0 }, t: 0.2 }; d.taunt = 1; d.tauntBy = p; BihyungCore.draw(p, c); } catch (e) { ok = false; }
+    T.ok('비형 그리기(장판·Q·W·도발·풀스윙 동시) 오류 없음', ok);
+    reset(); Settings.character = 'daniel'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    p = Game.player; d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 3, y: d.pos.y };
+    p.cmdSkill('W', d.pos); Input.aiming = null; run(Math.round(4.1 * 120));
+    T.ok('다니엘: 표식 준비되면 「영감 준비」 알림', FX.texts.some(t => String(t.str || t.text || '').includes('영감 준비')));
+    ok = true; try { const c = document.createElement('canvas').getContext('2d'); DanFx.mark(c, p.mark, p.K.W); DanFx.shadow(c, d, 0.5, p.color); } catch (e) { ok = false; }
+    T.ok('다니엘 표식·걸작 그리기 오류 없음', ok && !!p.mark);
+    Settings.character = 'cathy';
+  });
+
   // 실측값 입력: 넣으면 설정값에 바로 적용 · 범위 제한 · 지우면 추정값으로
   G('실측값 입력', () => {
     reset(); const K = CONFIG.rangedKits;

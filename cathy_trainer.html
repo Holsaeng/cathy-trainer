@@ -988,7 +988,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'd5efdda1';
+const BUILD_ID = 'dff93b5f';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -2589,7 +2589,8 @@ class DanielPlayer extends Cathy {
     for (const o of this.pendingQ) { o.t += dt; if (!o.done && o.t >= o.dur) { o.done = true; if (!this.dead) this.qLand(o); } }
     this.pendingQ = this.pendingQ.filter(o => o.t < o.dur + 0.25);
     if (this.mark) {
-      const M = this.mark; M.t += dt;
+      const M = this.mark, was = M.t; M.t += dt;
+      if (was < this.K.W.ready && M.t >= this.K.W.ready && !M.target.dead) DanFx.markReady(M.target);
       if (M.target.dead || M.t > this.K.W.ready + this.K.W.popWindow) this.mark = null;
       else Vision.reveals.push({ team: this.team, pos: V.copy(M.target.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야
     }
@@ -2608,12 +2609,8 @@ class DanielPlayer extends Cathy {
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 0.6; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
     }
-    if (this.mark && !this.mark.target.dead) {
-      const M = this.mark, ready = M.t >= this.K.W.ready, u = M.target;
-      KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.95 : 0.55, !ready);
-      if (!ready) { ctx.save(); ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / this.K.W.ready); ctx.stroke(); ctx.restore(); }
-    }
-    if (this.shadow) { const u = this.shadow.target; KU.fill(ctx, u.pos, u.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, u.pos, u.r + 0.3 + 0.1 * Math.sin(Game.time * 20), this.color, 0.9); }
+    if (this.mark && !this.mark.target.dead) DanFx.mark(ctx, this.mark, this.K.W);
+    if (this.shadow && this.shadow.phase !== 'out') DanFx.shadow(ctx, this.shadow.target, this.shadow.t / this.K.R.dur, this.color);
     if (this.shadowT > 0 && Settings.showRange) KU.ring(ctx, this.pos, this.K.E.aaRange + this.r, '#7d5cb8', 0.5, true);
   }
   // 조준 미리보기
@@ -2632,6 +2629,32 @@ class DanielPlayer extends Cathy {
     ctx.restore(); return true;
   }
 }
+
+// 다니엘 보이는 효과 (플레이어·AI 공통 — 판정과 무관)
+const DanFx = {
+  // 영감 표식: 준비(4초) 동안 차오르는 굵은 시간 고리 → 준비되면 밝게 맥동 + 터뜨릴 수 있는 남은 시간
+  mark(ctx, M, W) {
+    const u = M.target, ready = M.t >= W.ready, T = Game.time, top = -Math.PI / 2;
+    ctx.save(); ctx.lineCap = 'round';
+    if (!ready) {
+      ctx.strokeStyle = '#b07cff'; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.06; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4); ctx.stroke();
+      ctx.strokeStyle = '#d9a8ff'; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.13; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, top, top + Math.PI * 2 * M.t / W.ready); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#ffd1ff'; ctx.globalAlpha = 0.14 + 0.1 * Math.sin(T * 12); Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4); ctx.fill();
+      ctx.strokeStyle = '#ffd1ff'; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.14; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.4, top, top + Math.PI * 2 * clamp(1 - (M.t - W.ready) / W.popWindow, 0, 1)); ctx.stroke();
+      ctx.globalAlpha = 0.5 * (1 - (T * 1.5) % 1); ctx.lineWidth = 0.06; Draw.circle(ctx, u.pos.x, u.pos.y, u.r + 0.4 + 0.5 * ((T * 1.5) % 1)); ctx.stroke();
+    }
+    ctx.restore();
+  },
+  markReady(u) { FX.text(u.pos, '영감 준비 — 공격!', '#ffd1ff', 12, { bold: true }); FX.ring(u.pos, u.r + 0.2, u.r + 1.2, '#ffd1ff', 0.35, 0.1); },
+  // 걸작 지속 피해: 그림자 속에서 베는 칼자국 (번갈아 방향)
+  rTick(u, n, color) { FX.slash(u.pos, n * 2.4, u.r + 0.9, 0.5, color, 0.14, u.r * 0.3); FX.burst(u.pos, '#d9a8ff', 4, 3); },
+  // 걸작: 그림자(어두운 원) + 남은 시간 고리
+  shadow(ctx, u, k, color) {
+    KU.fill(ctx, u.pos, u.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, u.pos, u.r + 0.3 + 0.1 * Math.sin(Game.time * 20), color, 0.9);
+    ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha = 0.95; ctx.lineWidth = 0.12; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(1 - k, 0, 1)); ctx.stroke(); ctx.restore();
+  },
+};
 
 // 다니엘 시전 구현 (E·R은 캐시와 같은 시전 상태 기계를 사용)
 const DImpl = {
@@ -2666,7 +2689,7 @@ const DImpl = {
       if (!u.dead) p.pos = V.copy(u.pos);
       p.untargetable = p.invuln = p.unstoppable = 0.1; p.vel = { x: 0, y: 0 };
       const every = K.dur / K.ticks;
-      while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); }
+      while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) { Combat.damage(p, u, p.calc(K.tick, 'R'), { type: 'skill', source: 'R 지속', noShake: true }); DanFx.rTick(u, S.n, p.color); } }
       if (S.t >= K.dur || S.exit || u.dead) {
         if (!u.dead) { Combat.damage(p, u, p.calc(K.last, 'R'), { type: 'skill', source: 'R 마무리' }); FX.xslash(u.pos, p.color, 3); Sfx.play('ult'); p.S.hitCast('R'); }
         const cur = p.cursor, dir = cur && V.dist(cur, u.pos) > 0.1 ? V.norm(V.sub(cur, u.pos)) : V.fromAng(p.facing);   // 커서 쪽으로 빠져나옴 (커서 = 마지막 명령 좌표·걸작 중 커서 명령 — 재생해도 같게)
@@ -3658,7 +3681,7 @@ PKits.alonso = {
 
 const BihyungCore = {
   attach(o) {
-    Object.assign(o, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], slowRes: 0 });
+    Object.assign(o, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], bhD: null, lift: 0, slowRes: 0 });
     o.ccGuard = type => !!(o.bhR && o.bhR.t < o.bh.K.R.immune);   // R 오르는 동안 방해 효과 면역
     o.dmgMulFrom = () => o.bhR ? 1 - o.bh.K.R.reduce : 1;          // R 쓰는 동안 받는 피해 30% 감소
   },
@@ -3674,8 +3697,17 @@ const BihyungCore = {
   // 스킬 피해 + 신력 30 + 장판 초기화
   skillHit(o, u, amt, k, opt) { if (!u || u.dead) return; o.bh.hit(u, amt, k, opt); this.gain(o, o.bh.K.P.gainSkill); this.refresh(o, u); },
   // ---------- 평타 적중: 신력 10 · Q 강화 ----------
+  // ---------- 보이는 효과 (판정과 무관) ----------
+  // 방망이 타격: 휘두른 호 + 맞은 자리 불꽃 · 뚝딱!(Q 강화)은 분홍으로 크게 + 화면 흔들림
+  batFx(o, u, big) {
+    const to = V.sub(u.pos, o.pos), a = V.ang(to), col = big ? '#ff6b9d' : '#ffe2a8';
+    FX.slash(o.pos, a, o.r + (big ? 1.6 : 1.15), big ? 1.0 : 0.6, col, big ? 0.22 : 0.12, o.r + (big ? 0.3 : 0.5));
+    const at = V.sub(u.pos, V.mul(V.norm(to), u.r * 0.5)); FX.burst(at, col, big ? 14 : 6, big ? 6 : 4);
+    if (big) { FX.ring(at, 0.1, 1.2, col, 0.3, 0.12); if (o === Game.player || u === Game.player) FX.addShake(6); }
+  },
   onAA(o, u) {
     if (!u || u.dead) return;
+    this.batFx(o, u, !!o.bhQ);
     this.gain(o, o.bh.K.P.gainAA); this.refresh(o, u);
     const st = o.bhQ; if (!st) return;
     o.bhQ = null; const Q = o.bh.K.Q, l = o.bh.L('Q');
@@ -3690,7 +3722,7 @@ const BihyungCore = {
         o.bh.hit(u, o.ad * (1 + (o.aaAmp || 0)) * Q.extraAA, 'Q', { type: 'normal' }); this.gain(o, o.bh.K.P.gainAA);
         this.skillHit(o, u, ex, 'Q');
         for (const v of o.bh.foes()) if (v !== u && V.dist(v.pos, u.pos) <= Q.aoeR + v.r) o.bh.hit(v, ex * Q.aoe, 'Q');
-        FX.burst(u.pos, '#ff6b9d', 8, 4);
+        FX.burst(u.pos, '#ff6b9d', 8, 4); FX.ring(u.pos, 0.3, Q.aoeR, '#ff6b9d', 0.25, 0.08); FX.slash(o.pos, V.ang(V.sub(u.pos, o.pos)) + (i % 2 ? 0.5 : -0.5), o.r + 1.5, 0.8, '#ff6b9d', 0.15, o.r + 0.3); o.bhSwing = (o.bhSwing || 0) + 1;   // 추가 타격: 주변 2m 표시 · 한 번 더 휘두름
       });
       o.bh.cdStart('Q');
     }
@@ -3723,9 +3755,10 @@ const BihyungCore = {
     for (const u of o.bh.foes()) if (Geo.segDist(u.pos, from, V.add(from, V.mul(st.dir, step + o.r))) <= u.r + E.width / 2) {
       const l = o.bh.L('E'); this.skillHit(o, u, lv(E.base, l) + o.ad * E.ad, 'E');
       if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) FX.text(u.pos, '도발', '#ffd166', 12, { bold: true });
+      FX.ring(u.pos, 0.2, 1.5, '#ffd166', 0.35, 0.14); FX.burst(u.pos, '#ffd166', 12, 5); if (o === Game.player || u === Game.player) FX.addShake(5);
       st.done = true; return true;
     }
-    o.pos = to; o.facing = V.ang(st.dir); st.left -= step;
+    FX.trail(from, to, o.bh.color, 0.7, 0.3); o.pos = to; o.facing = V.ang(st.dir); st.left -= step;
     if (st.left <= 0.001 || V.dist(from, to) < step * 0.3) { st.done = true; return true; }   // 끝까지 · 벽에 막힘
     return false;
   },
@@ -3740,9 +3773,10 @@ const BihyungCore = {
   rStep(o, dt) {
     const S = o.bhR, R = o.bh.K.R; if (!S) return true; S.t += dt;
     const k = clamp(S.t / R.leap, 0, 1); o.pos = V.lerp(S.from, S.to, k); o.facing = V.ang(V.sub(S.to, S.from));
+    o.lift = Math.sin(Math.PI * k) * 2.2;   // 3D 높이(보이는 것만): 포물선 도약
     if (S.t < R.leap) return false;
-    o.bhR = null; const l = o.bh.L('R');
-    FX.ring(S.to, 0.5, R.r, '#ff6b9d', 0.45); FX.ring(S.to, 0.2, R.core, '#ffd166', 0.35); FX.addShake(8); Sfx.play('slam', S.to);
+    o.bhR = null; o.lift = 0; const l = o.bh.L('R');
+    FX.ring(S.to, 0.5, R.r, '#ff6b9d', 0.45, 0.2); FX.ring(S.to, 0.2, R.core, '#ffd166', 0.35, 0.14); FX.burst(S.to, '#ff6b9d', 24, 7); FX.addShake(8); Sfx.play('slam', S.to);
     for (const u of o.bh.foes()) {
       const d = V.dist(u.pos, S.to); if (d > R.r + u.r) continue;
       const mul = d <= R.core + u.r ? R.coreMul : 1;
@@ -3751,16 +3785,18 @@ const BihyungCore = {
     return true;
   },
   // ---------- D 풀스윙 (방망이 무기 스킬) ----------
+  dAim(o, dir) { o.bhD = { dir: V.copy(dir), t: 0 }; },   // 0.42초 준비: 휘두를 부채꼴이 차오름
   dSwing(o, dir) {
-    const D = o.bh.K.D, l = o.bh.L('D');
-    FX.slash(o.pos, V.ang(dir), D.range + 0.4, 1.6, '#ffd166', 0.25); Sfx.play('slash', o.pos);
+    const D = o.bh.K.D, l = o.bh.L('D'); o.bhD = null; o.bhSwing = (o.bhSwing || 0) + 1;
+    FX.slash(o.pos, V.ang(dir), D.range + o.r + 0.3, D.angle / 2 * Math.PI / 180, '#ffd166', 0.3, o.r + 0.2); Sfx.play('slash', o.pos);
     for (const u of o.bh.foes()) {
       if (!Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
       this.skillHit(o, u, lv(D.base, l) + (o.bonusAd || 0) * D.bad + (o.sp || 0) * lv(D.sp, l), 'D');
       if (u.dead) continue;
+      FX.burst(u.pos, '#ffd166', 12, 6); FX.trail(u.pos, V.add(u.pos, V.mul(dir, D.knock)), '#ffd166', 0.5, 0.3);   // 밀려나는 길
       KU.knock(u, dir, D.knock, D.knockTime, () => {   // 벽꿍: 추가 피해 + 기절
         this.skillHit(o, u, lv(D.wallBase, l) + (o.bonusAd || 0) * D.wallBad + (o.sp || 0) * D.wallSp, 'D');
-        if (u.applyCC('stun', lv(D.stun, l))) FX.text(u.pos, '벽꿍 기절!', '#ffffff', 15, { bold: true }); FX.addShake(7);
+        if (u.applyCC('stun', lv(D.stun, l))) FX.text(u.pos, '벽꿍 기절!', '#ffffff', 15, { bold: true }); FX.addShake(7); FX.ring(u.pos, 0.2, 1.6, '#ffffff', 0.35, 0.16); FX.burst(u.pos, '#ffffff', 16, 6);
       });
     }
   },
@@ -3771,6 +3807,7 @@ const BihyungCore = {
     o.bhT = o.bhT.filter(q => !q.done);
     for (const w of o.bhW) if ((w.t -= dt) <= 0 && !w.done) { w.done = true; if (!o.dead) this.wBlow(o, w); }
     o.bhW = o.bhW.filter(w => !w.done);
+    if (o.bhD && (o.bhD.t += dt) > K.D.windup + 0.2) o.bhD = null;
     // Q: 강화 평타 대기 · 재사용 창 — 끝나면 쿨 시작
     if (o.bhQ && (o.bhQ.t -= dt) <= 0) { o.bhQ = null; o.bh.cdStart('Q'); }
     if (o.bhQ2 && (o.bhQ2.t += dt) > K.Q.recastAfter + K.Q.window) { o.bhQ2 = null; o.bh.cdStart('Q'); }
@@ -3780,6 +3817,7 @@ const BihyungCore = {
       o.bhAura -= dt; o.bhAuraAcc += dt;
       if (o.bhAuraAcc >= K.P.tick) {
         o.bhAuraAcc -= K.P.tick;
+        FX.ring(o.pos, K.P.r * 0.5, K.P.r, '#3fd0c9', 0.35, 0.08);   // 장판 피해 맥박
         for (const u of o.bh.foes()) if (V.dist(u.pos, o.pos) <= K.P.r + u.r) o.bh.hit(u, (lv(K.P.base, l) + (o.bonusAd || 0) * K.P.bad + u.maxHp * lv(K.P.hpPct, l)) * K.P.tick, 'P', { tick: true });
       }
       if (o.bhAura <= 0) o.bhAura = 0;
@@ -3788,11 +3826,44 @@ const BihyungCore = {
     if (o.bhHp && (o.bhHp.t -= dt) <= 0) { o.maxHp -= o.bhHp.amt; o.hp = Math.min(o.hp, o.maxHp); o.bhHp = null; }
   },
   draw(o, ctx) {
-    const K = o.bh.K;
-    if (o.bhAura > 0) { KU.fill(ctx, o.pos, K.P.r, '#3fd0c9', 0.08 + 0.05 * Math.sin(Game.time * 9)); KU.ring(ctx, o.pos, K.P.r, '#3fd0c9', 0.55, false); }
-    for (const w of o.bhW) { KU.ring(ctx, w.pos, K.W.r, '#5ff0e6', 0.7, false); KU.fill(ctx, w.pos, K.W.r * (1 - w.t / K.W.delay), '#5ff0e6', 0.18); }
-    if (o.bhR) { KU.ring(ctx, o.bhR.to, K.R.r, '#ff6b9d', 0.7, false); KU.ring(ctx, o.bhR.to, K.R.core, '#ffd166', 0.6, false); }
-    if (o.bhQ) KU.ring(ctx, o.pos, o.r + 0.18, '#ff6b9d', 0.8, false);
+    const K = o.bh.K, T = Game.time, CY = '#3fd0c9', PK = '#ff6b9d', top = -Math.PI / 2;
+    const arc = (c, r, k, col, w, al) => { ctx.save(); ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(c.x, c.y, r, top, top + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); };
+    // P: 장판(굵은 경계 + 바깥으로 번지는 고리) · 평소엔 발밑 신력 게이지(0~100)
+    if (o.bhAura > 0) {
+      KU.fill(ctx, o.pos, K.P.r, CY, 0.08 + 0.05 * Math.sin(T * 9));
+      ctx.save(); ctx.strokeStyle = CY; ctx.globalAlpha = 0.75; ctx.lineWidth = 0.12; Draw.circle(ctx, o.pos.x, o.pos.y, K.P.r); ctx.stroke();
+      const f = (T * 1.2) % 1; ctx.globalAlpha = 0.4 * (1 - f); ctx.lineWidth = 0.07; Draw.circle(ctx, o.pos.x, o.pos.y, K.P.r * (0.35 + 0.65 * f)); ctx.stroke(); ctx.restore();
+      arc(o.pos, o.r + 0.42, o.bhAura / K.P.dur, CY, 0.1, 0.9);
+    } else if (o.bhG > 0) { arc(o.pos, o.r + 0.42, 1, CY, 0.08, 0.18); arc(o.pos, o.r + 0.42, o.bhG / K.P.max, CY, 0.08, 0.75); }
+    // Q: 강화 평타 대기 = 분홍 고리(맥동) · 2단계 대기 = 남은 시간 · 재사용 창 = 점선 + 남은 창
+    if (o.bhQ) { KU.ring(ctx, o.pos, o.r + 0.2, PK, 0.6 + 0.35 * Math.sin(T * 10), false); arc(o.pos, o.r + 0.2, o.bhQ.t / K.Q.buffDur, PK, 0.12, 0.9); if (o.bhQ.stage === 2) KU.ring(ctx, o.pos, o.r + 0.32, PK, 0.6, false); }
+    else if (o.bhQ2) { const ready = o.bhQ2.t >= K.Q.recastAfter; KU.ring(ctx, o.pos, o.r + 0.2, PK, ready ? 0.5 : 0.2, true); if (ready) arc(o.pos, o.r + 0.2, 1 - (o.bhQ2.t - K.Q.recastAfter) / K.Q.window, PK, 0.1, 0.85); }
+    // W: 떨어질 자리 — 굵은 경계 + 차오르는 원 · 비형이 범위 안이면 밝게(보호막 받는 자리)
+    for (const w of o.bhW) {
+      const inside = V.dist(o.pos, w.pos) <= K.W.r + o.r, k = 1 - w.t / K.W.delay;
+      ctx.save(); ctx.strokeStyle = '#5ff0e6'; ctx.globalAlpha = inside ? 0.95 : 0.65; ctx.lineWidth = inside ? 0.16 : 0.1; Draw.circle(ctx, w.pos.x, w.pos.y, K.W.r); ctx.stroke(); ctx.restore();
+      KU.fill(ctx, w.pos, K.W.r * k, '#5ff0e6', 0.12 + 0.12 * k);
+    }
+    // E 도발: 도발당한 적과 이어진 선
+    for (const u of o.bh.foes()) if (u.taunt > 0 && u.tauntBy === o) {
+      ctx.save(); ctx.strokeStyle = '#ffd166'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(T * 14); ctx.lineWidth = 0.08; ctx.setLineDash([0.2, 0.12]); ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.lineTo(u.pos.x, u.pos.y); ctx.stroke(); ctx.restore();
+      KU.ring(ctx, u.pos, u.r + 0.25, '#ffd166', 0.8, false);
+    }
+    // R: 착지 자리 — 경계 + 가운데(30% 더) + 도약 진행만큼 차오름 · 지금 있는 자리의 그림자
+    if (o.bhR) {
+      const k = clamp(o.bhR.t / K.R.leap, 0, 1);
+      ctx.save(); ctx.strokeStyle = PK; ctx.globalAlpha = 0.85; ctx.lineWidth = 0.14; Draw.circle(ctx, o.bhR.to.x, o.bhR.to.y, K.R.r); ctx.stroke(); ctx.restore();
+      KU.fill(ctx, o.bhR.to, K.R.r * k, PK, 0.15); KU.ring(ctx, o.bhR.to, K.R.core, '#ffd166', 0.8, false); KU.fill(ctx, o.bhR.to, K.R.core, '#ffd166', 0.1 + 0.15 * k);
+      KU.fill(ctx, o.pos, o.r * (1 - 0.4 * Math.sin(Math.PI * k)), '#000000', 0.35);
+    }
+    // D 풀스윙 준비(0.42초): 휘두를 부채꼴이 차오름
+    if (o.bhD) {
+      const D = K.D, a0 = V.ang(o.bhD.dir), h = D.angle / 2 * Math.PI / 180, R = D.range + o.r, k = clamp(o.bhD.t / D.windup, 0, 1);
+      ctx.save(); ctx.fillStyle = '#ffd166'; ctx.strokeStyle = '#ffd166';
+      ctx.globalAlpha = 0.12; ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.arc(o.pos.x, o.pos.y, R, a0 - h, a0 + h); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.6; ctx.lineWidth = 0.06; ctx.stroke();
+      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.arc(o.pos.x, o.pos.y, R * k, a0 - h, a0 + h); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
   },
 };
 
@@ -3812,10 +3883,13 @@ PKits.bihyung = {
   // 근접 평타: 투사체 없이 즉시
   fireAA(p, t) { p.aaLand(t); return true; },
   onAAHit(p, u) { BihyungCore.onAA(p, u); },
-  reset(p) { if (p.bhHp) { p.maxHp -= p.bhHp.amt; p.hp = Math.min(p.hp, p.maxHp); } Object.assign(p, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], slowRes: 0 }); },
+  reset(p) { if (p.bhHp) { p.maxHp -= p.bhHp.amt; p.hp = Math.min(p.hp, p.maxHp); } Object.assign(p, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], bhD: null, lift: 0, slowRes: 0 }); },
   recast(p, k) { return k === 'Q' && BihyungCore.qReady2(p); },
   instant(p, k) { if (k === 'Q' && BihyungCore.qReady2(p)) { BihyungCore.qCast(p); p.instantUsed('Q'); return true; } return false; },
-  update(p, dt) { BihyungCore.update(p, dt); },
+  update(p, dt) {
+    BihyungCore.update(p, dt);
+    if (p.bhR && !(p.cast && p.cast.k === 'R')) BihyungCore.rStep(p, 99);   // 도약 시전이 끊기면(저지 불가 0.9초 뒤 기절 등) 남은 도약을 바로 마무리(착지) — 면역·피해 감소·공중 상태가 남지 않게
+  },
   cast: {
     Q(p) { if (!BihyungCore.qCast(p)) return false; p.instantUsed('Q'); if (p.attackTarget == null) { const e = Game.nearestEnemy(p.pos, p.aaCfg().range + p.r + 0.8, p); if (e) p.attackTarget = e; } return true; },
     // W: 7m 안 지점 → 1.5초 뒤 폭발
@@ -3841,7 +3915,7 @@ PKits.bihyung = {
     },
     // D 풀스윙: 0.42초 뒤 커서 방향 180°
     D(p, aim) {
-      const D = p.K.D, dir = p.dirTo(aim);
+      const D = p.K.D, dir = p.dirTo(aim); BihyungCore.dAim(p, dir);
       p.beginCast('D', aim, { windup: () => D.windup, recovery: () => 0.1, fire(q) { q.startCd('D'); q.facing = V.ang(dir); BihyungCore.dSwing(q, dir); } }, {});
       return true;
     },
@@ -5467,7 +5541,8 @@ Kits.daniel = {
     if (ai.cloakT > 0) { ai.cloakT -= dt; if (ai.cloakT <= 0) ai.cds.D = ai.pick(K.D.cd, 'D'); }   // 단검(2차) 안 쓰면 쿨 시작
     if (ai.qShots > 0 && !ai.asBuffs.some(a => a.tag === 'danQ')) ai.qShots = 0;
     if (ai.mark) {
-      const M = ai.mark; M.t += dt;
+      const M = ai.mark, was = M.t; M.t += dt;
+      if (was < K.W.ready && M.t >= K.W.ready && !M.target.dead && (M.target === Game.player || Vision.visible(Game.player, M.target))) DanFx.markReady(M.target);
       if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
       else Vision.reveals.push({ team: ai.team, pos: V.copy(M.target.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
     }
@@ -5482,7 +5557,7 @@ Kits.daniel = {
     if (!u.dead) ai.pos = V.copy(u.pos);
     ai.untargetable = ai.invuln = 0.1; ai.stealthT = 0.05; ai.vel = { x: 0, y: 0 };
     const every = K.dur / K.ticks;
-    while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) ai.hitP(u, ai.calc(K.tick, 'R'), { name: K.name, noShake: true }); }
+    while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) { ai.hitP(u, ai.calc(K.tick, 'R'), { name: K.name, noShake: true }); DanFx.rTick(u, S.n, '#b07cff'); } }
     if (S.t >= K.dur || u.dead) this.exitShadow(ai);
     return true;
   },
@@ -5713,12 +5788,8 @@ Kits.daniel = {
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 0.5; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
     }
-    if (ai.mark && !ai.mark.target.dead) {   // 영감 표식: 4초 뒤 활성(밝아짐)
-      const M = ai.mark, ready = M.t >= ai.kitCfg.W.ready, u = M.target;
-      KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.9 : 0.5, !ready);
-      if (!ready) { ctx.save(); ctx.globalAlpha = 0.8; ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / ai.kitCfg.W.ready); ctx.stroke(); ctx.restore(); }
-    }
-    if (ai.shadow) { const p = ai.shadow.target; KU.fill(ctx, p.pos, p.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, p.pos, p.r + 0.3 + 0.1 * Math.sin(Game.time * 20), '#b07cff', 0.9); }   // 걸작: 캐시 그림자 속
+    if (ai.mark && !ai.mark.target.dead) DanFx.mark(ctx, ai.mark, ai.kitCfg.W);   // 영감 표식: 4초 뒤 활성(밝아짐)
+    if (ai.shadow && ai.shadow.phase !== 'out') DanFx.shadow(ctx, ai.shadow.target, ai.shadow.t / ai.kitCfg.R.dur, '#b07cff');   // 걸작: 캐시 그림자 속
   },
 };
 
@@ -5820,7 +5891,7 @@ Kits.bihyung = {
       const land = V.copy(p.pos), around = foes.filter(u => V.dist(u.pos, land) <= K.R.r + u.r).length;
       if (around >= 2 || (pHp < 0.4 && ai.diffKey !== 'easy') || (hpR < 0.35 && gap < 2)) {
         BihyungCore.rStart(ai, land);
-        ai.startChannel(K.R.leap, { onTick: (dt, a) => { if (BihyungCore.rStep(ai, dt)) a.stop = true; }, onEnd: () => { if (ai.bhR) BihyungCore.rStep(ai, 99); }, tele: { kind: 'circle', pos: land, r: K.R.r } });
+        ai.startChannel(K.R.leap, { onTick: (dt, a) => { if (BihyungCore.rStep(ai, dt)) a.stop = true; }, onEnd: () => { if (ai.bhR) BihyungCore.rStep(ai, 99); ai.lift = 0; }, tele: { kind: 'circle', pos: land, r: K.R.r } });
         return true;
       }
     }
@@ -5844,7 +5915,7 @@ Kits.bihyung = {
     if (ai.cds.D <= 0 && gap <= K.D.range + 0.2) {
       const dir = V.norm(V.sub(p.pos, ai.pos));
       if (taunted || p.root > 0 || this.wallBehind(p, dir, K.D.knock) || (hpR < 0.4 && ai.diffKey !== 'easy')) {
-        ai.cds.D = K.D.cd[0];   // 쿨 고정
+        ai.cds.D = K.D.cd[0]; BihyungCore.dAim(ai, dir);   // 쿨 고정
         ai.startCast(K.D.windup, () => { ai.facing = V.ang(dir); BihyungCore.dSwing(ai, V.norm(V.sub(p.pos, ai.pos))); }, { kind: 'cone', dir, len: K.D.range + ai.r, angle: K.D.angle });
         return true;
       }
@@ -8594,7 +8665,7 @@ const Models = {
     if (actions.death) { actions.death.setLoop(T3.LoopOnce); actions.death.clampWhenFinished = true; }
     const ranged = !!(u.motif && !u.motif.melee);
     const root = new T3.Group(); root.add(obj);   // 기울기 틀: 돌진 시 앞으로 숙임 (게임 정면 +X 기준 Z축 회전)
-    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso'), glove: u.charKey === 'alonso', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 / dan: 다니엘 스킬 동작
+    const rig = { blades: (PP && PP.blades) || [], obj, root, mixer, actions, cur: null, ranged, oneShot: 0, melee: u.kind === 'player' && (!u.ranged || u.charKey === 'alonso' || u.charKey === 'bihyung'), glove: u.charKey === 'alonso', bat: u.charKey === 'bihyung', dan: u.charKey === 'daniel', swing: 0, recov: 0, combat: 0, lean: 0, leanTo: 0, segEnd: null };   // melee: 플레이어(캐시·다니엘·알론소·비형) 평타를 판정 타이밍에 맞춰 재생 · glove: 알론소 — 오른손·왼손 주먹을 번갈아 · bat: 비형 — 방망이 휘두르기 / dan: 다니엘 스킬 동작
     this.play(rig, ranged ? 'idleGun' : 'idle', 0);
     return rig;
   },
@@ -8741,6 +8812,11 @@ const Models = {
     aQ:    { clip: 'stabR', w: [0.42, 0.68], r: [0.68, 0.98], lean: 0.25 },
     aE:    { clip: 'stabL', w: [0.44, 0.62], a: [0.62, 0.74], r: [0.74, 1.00], lean: 0.45, crouch: 0.15 },
     aR:    { clip: 'slash', a: [0.10, 0.26], r: [0.26, 0.60], crouch: 0.1 },
+    // 비형 — W: 손을 뻗어 지점 지정 · E: 숙여 돌진 · R: 도약하며 방망이를 들어 올렸다 착지에 내려찍기 · D 풀스윙: 크게 감았다 휘두르기
+    bW:    { clip: 'stabR', w: [0.45, 0.68], r: [0.68, 0.95] },
+    bE:    { clip: 'stabR', w: [0.50, 0.62], a: [0.62, 0.70], r: [0.70, 0.95], lean: 0.45 },
+    bR:    { clip: 'slash', a: [0.06, 0.46], r: [0.46, 0.95], lean: 0.2 },
+    bD:    { clip: 'slash', w: [0.02, 0.45], r: [0.45, 0.95], lean: 0.3, crouch: 0.12 },
     // 다니엘 — E 그림자 이동: 몸을 숙여 찌르는 자세로 은신 돌진 · R 걸작: 그림자 속(모델 숨김)에선 칼을 들어 올린 채, 빠져나올 때 숙여 돌진하며 베기
     dE:    { clip: 'stabR', a: [0.58, 0.70], r: [0.70, 0.95], lean: 0.42 },
     dR:    { clip: 'slash', a: [0.06, 0.30], out: [0.30, 0.52], lean: 0.45 },
@@ -8748,7 +8824,7 @@ const Models = {
   },
   // 다니엘 즉시 시전 스킬(시전 시간 없음)의 손짓: Q 그림자 가위 = 크게 휘두르기 · W 영감 = 대상을 가리키는 찌르기 (이동 중이면 다리를 살리려고 생략)
   DAN_GESTURE: { Q: { clip: 'slash', s: 0.22, e: 0.52, dur: 0.3 }, W: { clip: 'stabR', s: 0.56, e: 0.70, dur: 0.16 } },
-  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
+  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
   // 구간 재생: 같은 클립이 이어지면 끊지 않고 속도만 바꿈
   seg(rig, clip, from, to, dur, fade = 0.06) {
     const a = rig.actions[clip]; if (!a) return;
@@ -8823,9 +8899,9 @@ const Models = {
       const enh = u.enhanced > 0, dual = u.weapon === 'dual';
       const W = Math.max(0.02, a.dur - a.t);
       const hasDual = dual && rig.actions.dualAA;   // 쌍검: 오른손 대각 베기 → 왼손 반대 대각 베기 / 강화 평타 = X자 교차 베기
-      let name = rig.glove ? (rig.swing++ % 2 ? 'stabL' : 'stabR') : enh ? (hasDual ? 'dualX' : 'slash') : dual ? (hasDual ? 'dualAA' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
+      let name = rig.bat ? 'slash' : rig.glove ? (rig.swing++ % 2 ? 'stabL' : 'stabR') : enh ? (hasDual ? 'dualX' : 'slash') : dual ? (hasDual ? 'dualAA' : 'stabR') : (rig.swing++ % 2 ? 'stabR' : 'slash');
       if (W < 0.08) {   // 즉시 평타(R 직후 등): 처음부터 다시 들어 올리면 튀므로, 지금 동작과 다른 클립을 타격 직전부터 이어 붙임
-        name = rig.glove ? (rig.cur === rig.actions.stabR ? 'stabL' : 'stabR') : hasDual ? (enh ? 'dualX' : 'dualAA') : rig.cur === rig.actions.slash ? 'stabR' : 'slash'; const M = this.MELEE[name], lead = Math.max(0.05, W * 2);
+        name = rig.bat ? 'slash' : rig.glove ? (rig.cur === rig.actions.stabR ? 'stabL' : 'stabR') : hasDual ? (enh ? 'dualX' : 'dualAA') : rig.cur === rig.actions.slash ? 'stabR' : 'slash'; const M = this.MELEE[name], lead = Math.max(0.05, W * 2);
         this.playSeg(rig, name, M.hit - lead, lead / W, 0.05);
       } else { const M = this.MELEE[name]; this.playSeg(rig, name, M.s, clamp((M.hit - M.s) / W, 0.3, 14), 0.06); }
       rig.swingName = name; rig.dual = dual && !enh; rig.combat = 2.5; rig.recov = 9;
@@ -8854,6 +8930,10 @@ const Models = {
       const fresh = k => { const G = this.DAN_GESTURE[k]; if (!moving) { this.seg(rig, G.clip, G.s, G.e, G.dur, 0.05); rig.recov = G.dur + 0.15; rig.combat = 2.5; } };
       if (u.qSeq !== rig.qSeq) { if (rig.qSeq !== undefined) fresh('Q'); rig.qSeq = u.qSeq; }
       if (u.mark !== rig.mark) { if (u.mark && rig.mark !== undefined) fresh('W'); rig.mark = u.mark; }
+    }
+    if (rig.bat && u.bhSwing !== rig.bhSwing) {   // 비형 뚝딱! 추가 타격(0.2초 간격): 빠르게 한 번 더 휘두름 — 풀스윙은 skillAnim이 맡음
+      if (rig.bhSwing !== undefined && !u.cast) { const M = this.MELEE.slash; this.playSeg(rig, 'slash', M.hit - 0.18, 0.18 / 0.08, 0.03); rig.segEnd = null; rig.recov = 0.2; rig.combat = 2.5; rig.aaPh = 'none'; }
+      rig.bhSwing = u.bhSwing;
     }
     if (rig.glove) {   // 알론소 어퍼컷(시전 시간 없음): 아래에서 위로 주먹
       if (u.alUpper !== rig.alUpper) { if (rig.alUpper !== undefined) { this.seg(rig, 'stabR', 0.46, 0.96, 0.32, 0.04); rig.recov = 0.32; rig.combat = 2.5; rig.aaPh = 'none'; } rig.alUpper = u.alUpper; }
@@ -9485,8 +9565,8 @@ const Render3D = {
       D.body.rotation.y = D.yaw;
       // 이동 중 흔들림, 평타·스킬 시 앞으로 내밀기
       const moving = V.dist(u.pos, D.last) > 0.002; D.last = V.copy(u.pos);
-      if (D.body.userData.rig) Models.animate(D.body.userData.rig, u, dt, moving);
-      else { D.bob += dt * (moving ? 14 : 3); D.body.position.y = moving ? Math.abs(Math.sin(D.bob)) * 0.06 : Math.sin(D.bob) * 0.012; }
+      if (D.body.userData.rig) { Models.animate(D.body.userData.rig, u, dt, moving); D.body.position.y = u.lift || 0; }   // lift: 도약 높이(비형 R — 보이는 것만, 발밑 고리는 바닥에 둠)
+      else { D.bob += dt * (moving ? 14 : 3); D.body.position.y = (u.lift || 0) + (moving ? Math.abs(Math.sin(D.bob)) * 0.06 : Math.sin(D.bob) * 0.012); }
       const atk = (u.aa && u.aa.phase === 'windup') || (u.act && (u.act.type === 'aa' || u.act.type === 'cast')) || (u.cast && u.cast.phase !== 'recovery');
       if (D.body.userData.armR) D.body.userData.armR.rotation.z = atk ? 1.6 : 0.9;
       // 투명도: 은신·부쉬(내 캐릭터)·무적 깜빡임 / 피격 섬광

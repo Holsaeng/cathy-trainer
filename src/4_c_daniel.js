@@ -25,7 +25,8 @@ Kits.daniel = {
     if (ai.cloakT > 0) { ai.cloakT -= dt; if (ai.cloakT <= 0) ai.cds.D = ai.pick(K.D.cd, 'D'); }   // 단검(2차) 안 쓰면 쿨 시작
     if (ai.qShots > 0 && !ai.asBuffs.some(a => a.tag === 'danQ')) ai.qShots = 0;
     if (ai.mark) {
-      const M = ai.mark; M.t += dt;
+      const M = ai.mark, was = M.t; M.t += dt;
+      if (was < K.W.ready && M.t >= K.W.ready && !M.target.dead && (M.target === Game.player || Vision.visible(Game.player, M.target))) DanFx.markReady(M.target);
       if (M.target.dead || M.t > K.W.ready + K.W.popWindow) ai.mark = null;
       else Vision.reveals.push({ team: ai.team, pos: V.copy(M.target.pos), r: 2, t: 0.05 });   // 표식 대상 주변 2m 시야 (부쉬·암시야 속도 보임)
     }
@@ -40,7 +41,7 @@ Kits.daniel = {
     if (!u.dead) ai.pos = V.copy(u.pos);
     ai.untargetable = ai.invuln = 0.1; ai.stealthT = 0.05; ai.vel = { x: 0, y: 0 };
     const every = K.dur / K.ticks;
-    while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) ai.hitP(u, ai.calc(K.tick, 'R'), { name: K.name, noShake: true }); }
+    while (S.n < K.ticks && S.t >= every * (S.n + 1) - 1e-6) { S.n++; if (!u.dead) { ai.hitP(u, ai.calc(K.tick, 'R'), { name: K.name, noShake: true }); DanFx.rTick(u, S.n, '#b07cff'); } }
     if (S.t >= K.dur || u.dead) this.exitShadow(ai);
     return true;
   },
@@ -271,11 +272,7 @@ Kits.daniel = {
       ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.arc(apex.x, apex.y, K.len, an - h, an + h); ctx.closePath(); ctx.fill();
       ctx.globalAlpha = 0.5; ctx.fillStyle = '#d9a8ff'; Draw.circle(ctx, o.pos.x, o.pos.y, K.centerR * k); ctx.fill(); ctx.restore();
     }
-    if (ai.mark && !ai.mark.target.dead) {   // 영감 표식: 4초 뒤 활성(밝아짐)
-      const M = ai.mark, ready = M.t >= ai.kitCfg.W.ready, u = M.target;
-      KU.ring(ctx, u.pos, u.r + 0.35, ready ? '#ffd1ff' : '#b07cff', ready ? 0.9 : 0.5, !ready);
-      if (!ready) { ctx.save(); ctx.globalAlpha = 0.8; ctx.strokeStyle = '#d9a8ff'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.arc(u.pos.x, u.pos.y, u.r + 0.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * M.t / ai.kitCfg.W.ready); ctx.stroke(); ctx.restore(); }
-    }
-    if (ai.shadow) { const p = ai.shadow.target; KU.fill(ctx, p.pos, p.r + 0.3, '#2a1840', 0.55); KU.ring(ctx, p.pos, p.r + 0.3 + 0.1 * Math.sin(Game.time * 20), '#b07cff', 0.9); }   // 걸작: 캐시 그림자 속
+    if (ai.mark && !ai.mark.target.dead) DanFx.mark(ctx, ai.mark, ai.kitCfg.W);   // 영감 표식: 4초 뒤 활성(밝아짐)
+    if (ai.shadow && ai.shadow.phase !== 'out') DanFx.shadow(ctx, ai.shadow.target, ai.shadow.t / ai.kitCfg.R.dur, '#b07cff');   // 걸작: 캐시 그림자 속
   },
 };

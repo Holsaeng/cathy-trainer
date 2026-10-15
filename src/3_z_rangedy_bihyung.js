@@ -12,7 +12,7 @@
 
 const BihyungCore = {
   attach(o) {
-    Object.assign(o, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], slowRes: 0 });
+    Object.assign(o, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], bhD: null, lift: 0, slowRes: 0 });
     o.ccGuard = type => !!(o.bhR && o.bhR.t < o.bh.K.R.immune);   // R 오르는 동안 방해 효과 면역
     o.dmgMulFrom = () => o.bhR ? 1 - o.bh.K.R.reduce : 1;          // R 쓰는 동안 받는 피해 30% 감소
   },
@@ -28,8 +28,17 @@ const BihyungCore = {
   // 스킬 피해 + 신력 30 + 장판 초기화
   skillHit(o, u, amt, k, opt) { if (!u || u.dead) return; o.bh.hit(u, amt, k, opt); this.gain(o, o.bh.K.P.gainSkill); this.refresh(o, u); },
   // ---------- 평타 적중: 신력 10 · Q 강화 ----------
+  // ---------- 보이는 효과 (판정과 무관) ----------
+  // 방망이 타격: 휘두른 호 + 맞은 자리 불꽃 · 뚝딱!(Q 강화)은 분홍으로 크게 + 화면 흔들림
+  batFx(o, u, big) {
+    const to = V.sub(u.pos, o.pos), a = V.ang(to), col = big ? '#ff6b9d' : '#ffe2a8';
+    FX.slash(o.pos, a, o.r + (big ? 1.6 : 1.15), big ? 1.0 : 0.6, col, big ? 0.22 : 0.12, o.r + (big ? 0.3 : 0.5));
+    const at = V.sub(u.pos, V.mul(V.norm(to), u.r * 0.5)); FX.burst(at, col, big ? 14 : 6, big ? 6 : 4);
+    if (big) { FX.ring(at, 0.1, 1.2, col, 0.3, 0.12); if (o === Game.player || u === Game.player) FX.addShake(6); }
+  },
   onAA(o, u) {
     if (!u || u.dead) return;
+    this.batFx(o, u, !!o.bhQ);
     this.gain(o, o.bh.K.P.gainAA); this.refresh(o, u);
     const st = o.bhQ; if (!st) return;
     o.bhQ = null; const Q = o.bh.K.Q, l = o.bh.L('Q');
@@ -44,7 +53,7 @@ const BihyungCore = {
         o.bh.hit(u, o.ad * (1 + (o.aaAmp || 0)) * Q.extraAA, 'Q', { type: 'normal' }); this.gain(o, o.bh.K.P.gainAA);
         this.skillHit(o, u, ex, 'Q');
         for (const v of o.bh.foes()) if (v !== u && V.dist(v.pos, u.pos) <= Q.aoeR + v.r) o.bh.hit(v, ex * Q.aoe, 'Q');
-        FX.burst(u.pos, '#ff6b9d', 8, 4);
+        FX.burst(u.pos, '#ff6b9d', 8, 4); FX.ring(u.pos, 0.3, Q.aoeR, '#ff6b9d', 0.25, 0.08); FX.slash(o.pos, V.ang(V.sub(u.pos, o.pos)) + (i % 2 ? 0.5 : -0.5), o.r + 1.5, 0.8, '#ff6b9d', 0.15, o.r + 0.3); o.bhSwing = (o.bhSwing || 0) + 1;   // 추가 타격: 주변 2m 표시 · 한 번 더 휘두름
       });
       o.bh.cdStart('Q');
     }
@@ -77,9 +86,10 @@ const BihyungCore = {
     for (const u of o.bh.foes()) if (Geo.segDist(u.pos, from, V.add(from, V.mul(st.dir, step + o.r))) <= u.r + E.width / 2) {
       const l = o.bh.L('E'); this.skillHit(o, u, lv(E.base, l) + o.ad * E.ad, 'E');
       if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) FX.text(u.pos, '도발', '#ffd166', 12, { bold: true });
+      FX.ring(u.pos, 0.2, 1.5, '#ffd166', 0.35, 0.14); FX.burst(u.pos, '#ffd166', 12, 5); if (o === Game.player || u === Game.player) FX.addShake(5);
       st.done = true; return true;
     }
-    o.pos = to; o.facing = V.ang(st.dir); st.left -= step;
+    FX.trail(from, to, o.bh.color, 0.7, 0.3); o.pos = to; o.facing = V.ang(st.dir); st.left -= step;
     if (st.left <= 0.001 || V.dist(from, to) < step * 0.3) { st.done = true; return true; }   // 끝까지 · 벽에 막힘
     return false;
   },
@@ -94,9 +104,10 @@ const BihyungCore = {
   rStep(o, dt) {
     const S = o.bhR, R = o.bh.K.R; if (!S) return true; S.t += dt;
     const k = clamp(S.t / R.leap, 0, 1); o.pos = V.lerp(S.from, S.to, k); o.facing = V.ang(V.sub(S.to, S.from));
+    o.lift = Math.sin(Math.PI * k) * 2.2;   // 3D 높이(보이는 것만): 포물선 도약
     if (S.t < R.leap) return false;
-    o.bhR = null; const l = o.bh.L('R');
-    FX.ring(S.to, 0.5, R.r, '#ff6b9d', 0.45); FX.ring(S.to, 0.2, R.core, '#ffd166', 0.35); FX.addShake(8); Sfx.play('slam', S.to);
+    o.bhR = null; o.lift = 0; const l = o.bh.L('R');
+    FX.ring(S.to, 0.5, R.r, '#ff6b9d', 0.45, 0.2); FX.ring(S.to, 0.2, R.core, '#ffd166', 0.35, 0.14); FX.burst(S.to, '#ff6b9d', 24, 7); FX.addShake(8); Sfx.play('slam', S.to);
     for (const u of o.bh.foes()) {
       const d = V.dist(u.pos, S.to); if (d > R.r + u.r) continue;
       const mul = d <= R.core + u.r ? R.coreMul : 1;
@@ -105,16 +116,18 @@ const BihyungCore = {
     return true;
   },
   // ---------- D 풀스윙 (방망이 무기 스킬) ----------
+  dAim(o, dir) { o.bhD = { dir: V.copy(dir), t: 0 }; },   // 0.42초 준비: 휘두를 부채꼴이 차오름
   dSwing(o, dir) {
-    const D = o.bh.K.D, l = o.bh.L('D');
-    FX.slash(o.pos, V.ang(dir), D.range + 0.4, 1.6, '#ffd166', 0.25); Sfx.play('slash', o.pos);
+    const D = o.bh.K.D, l = o.bh.L('D'); o.bhD = null; o.bhSwing = (o.bhSwing || 0) + 1;
+    FX.slash(o.pos, V.ang(dir), D.range + o.r + 0.3, D.angle / 2 * Math.PI / 180, '#ffd166', 0.3, o.r + 0.2); Sfx.play('slash', o.pos);
     for (const u of o.bh.foes()) {
       if (!Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
       this.skillHit(o, u, lv(D.base, l) + (o.bonusAd || 0) * D.bad + (o.sp || 0) * lv(D.sp, l), 'D');
       if (u.dead) continue;
+      FX.burst(u.pos, '#ffd166', 12, 6); FX.trail(u.pos, V.add(u.pos, V.mul(dir, D.knock)), '#ffd166', 0.5, 0.3);   // 밀려나는 길
       KU.knock(u, dir, D.knock, D.knockTime, () => {   // 벽꿍: 추가 피해 + 기절
         this.skillHit(o, u, lv(D.wallBase, l) + (o.bonusAd || 0) * D.wallBad + (o.sp || 0) * D.wallSp, 'D');
-        if (u.applyCC('stun', lv(D.stun, l))) FX.text(u.pos, '벽꿍 기절!', '#ffffff', 15, { bold: true }); FX.addShake(7);
+        if (u.applyCC('stun', lv(D.stun, l))) FX.text(u.pos, '벽꿍 기절!', '#ffffff', 15, { bold: true }); FX.addShake(7); FX.ring(u.pos, 0.2, 1.6, '#ffffff', 0.35, 0.16); FX.burst(u.pos, '#ffffff', 16, 6);
       });
     }
   },
@@ -125,6 +138,7 @@ const BihyungCore = {
     o.bhT = o.bhT.filter(q => !q.done);
     for (const w of o.bhW) if ((w.t -= dt) <= 0 && !w.done) { w.done = true; if (!o.dead) this.wBlow(o, w); }
     o.bhW = o.bhW.filter(w => !w.done);
+    if (o.bhD && (o.bhD.t += dt) > K.D.windup + 0.2) o.bhD = null;
     // Q: 강화 평타 대기 · 재사용 창 — 끝나면 쿨 시작
     if (o.bhQ && (o.bhQ.t -= dt) <= 0) { o.bhQ = null; o.bh.cdStart('Q'); }
     if (o.bhQ2 && (o.bhQ2.t += dt) > K.Q.recastAfter + K.Q.window) { o.bhQ2 = null; o.bh.cdStart('Q'); }
@@ -134,6 +148,7 @@ const BihyungCore = {
       o.bhAura -= dt; o.bhAuraAcc += dt;
       if (o.bhAuraAcc >= K.P.tick) {
         o.bhAuraAcc -= K.P.tick;
+        FX.ring(o.pos, K.P.r * 0.5, K.P.r, '#3fd0c9', 0.35, 0.08);   // 장판 피해 맥박
         for (const u of o.bh.foes()) if (V.dist(u.pos, o.pos) <= K.P.r + u.r) o.bh.hit(u, (lv(K.P.base, l) + (o.bonusAd || 0) * K.P.bad + u.maxHp * lv(K.P.hpPct, l)) * K.P.tick, 'P', { tick: true });
       }
       if (o.bhAura <= 0) o.bhAura = 0;
@@ -142,11 +157,44 @@ const BihyungCore = {
     if (o.bhHp && (o.bhHp.t -= dt) <= 0) { o.maxHp -= o.bhHp.amt; o.hp = Math.min(o.hp, o.maxHp); o.bhHp = null; }
   },
   draw(o, ctx) {
-    const K = o.bh.K;
-    if (o.bhAura > 0) { KU.fill(ctx, o.pos, K.P.r, '#3fd0c9', 0.08 + 0.05 * Math.sin(Game.time * 9)); KU.ring(ctx, o.pos, K.P.r, '#3fd0c9', 0.55, false); }
-    for (const w of o.bhW) { KU.ring(ctx, w.pos, K.W.r, '#5ff0e6', 0.7, false); KU.fill(ctx, w.pos, K.W.r * (1 - w.t / K.W.delay), '#5ff0e6', 0.18); }
-    if (o.bhR) { KU.ring(ctx, o.bhR.to, K.R.r, '#ff6b9d', 0.7, false); KU.ring(ctx, o.bhR.to, K.R.core, '#ffd166', 0.6, false); }
-    if (o.bhQ) KU.ring(ctx, o.pos, o.r + 0.18, '#ff6b9d', 0.8, false);
+    const K = o.bh.K, T = Game.time, CY = '#3fd0c9', PK = '#ff6b9d', top = -Math.PI / 2;
+    const arc = (c, r, k, col, w, al) => { ctx.save(); ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(c.x, c.y, r, top, top + Math.PI * 2 * k); ctx.stroke(); ctx.restore(); };
+    // P: 장판(굵은 경계 + 바깥으로 번지는 고리) · 평소엔 발밑 신력 게이지(0~100)
+    if (o.bhAura > 0) {
+      KU.fill(ctx, o.pos, K.P.r, CY, 0.08 + 0.05 * Math.sin(T * 9));
+      ctx.save(); ctx.strokeStyle = CY; ctx.globalAlpha = 0.75; ctx.lineWidth = 0.12; Draw.circle(ctx, o.pos.x, o.pos.y, K.P.r); ctx.stroke();
+      const f = (T * 1.2) % 1; ctx.globalAlpha = 0.4 * (1 - f); ctx.lineWidth = 0.07; Draw.circle(ctx, o.pos.x, o.pos.y, K.P.r * (0.35 + 0.65 * f)); ctx.stroke(); ctx.restore();
+      arc(o.pos, o.r + 0.42, o.bhAura / K.P.dur, CY, 0.1, 0.9);
+    } else if (o.bhG > 0) { arc(o.pos, o.r + 0.42, 1, CY, 0.08, 0.18); arc(o.pos, o.r + 0.42, o.bhG / K.P.max, CY, 0.08, 0.75); }
+    // Q: 강화 평타 대기 = 분홍 고리(맥동) · 2단계 대기 = 남은 시간 · 재사용 창 = 점선 + 남은 창
+    if (o.bhQ) { KU.ring(ctx, o.pos, o.r + 0.2, PK, 0.6 + 0.35 * Math.sin(T * 10), false); arc(o.pos, o.r + 0.2, o.bhQ.t / K.Q.buffDur, PK, 0.12, 0.9); if (o.bhQ.stage === 2) KU.ring(ctx, o.pos, o.r + 0.32, PK, 0.6, false); }
+    else if (o.bhQ2) { const ready = o.bhQ2.t >= K.Q.recastAfter; KU.ring(ctx, o.pos, o.r + 0.2, PK, ready ? 0.5 : 0.2, true); if (ready) arc(o.pos, o.r + 0.2, 1 - (o.bhQ2.t - K.Q.recastAfter) / K.Q.window, PK, 0.1, 0.85); }
+    // W: 떨어질 자리 — 굵은 경계 + 차오르는 원 · 비형이 범위 안이면 밝게(보호막 받는 자리)
+    for (const w of o.bhW) {
+      const inside = V.dist(o.pos, w.pos) <= K.W.r + o.r, k = 1 - w.t / K.W.delay;
+      ctx.save(); ctx.strokeStyle = '#5ff0e6'; ctx.globalAlpha = inside ? 0.95 : 0.65; ctx.lineWidth = inside ? 0.16 : 0.1; Draw.circle(ctx, w.pos.x, w.pos.y, K.W.r); ctx.stroke(); ctx.restore();
+      KU.fill(ctx, w.pos, K.W.r * k, '#5ff0e6', 0.12 + 0.12 * k);
+    }
+    // E 도발: 도발당한 적과 이어진 선
+    for (const u of o.bh.foes()) if (u.taunt > 0 && u.tauntBy === o) {
+      ctx.save(); ctx.strokeStyle = '#ffd166'; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(T * 14); ctx.lineWidth = 0.08; ctx.setLineDash([0.2, 0.12]); ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.lineTo(u.pos.x, u.pos.y); ctx.stroke(); ctx.restore();
+      KU.ring(ctx, u.pos, u.r + 0.25, '#ffd166', 0.8, false);
+    }
+    // R: 착지 자리 — 경계 + 가운데(30% 더) + 도약 진행만큼 차오름 · 지금 있는 자리의 그림자
+    if (o.bhR) {
+      const k = clamp(o.bhR.t / K.R.leap, 0, 1);
+      ctx.save(); ctx.strokeStyle = PK; ctx.globalAlpha = 0.85; ctx.lineWidth = 0.14; Draw.circle(ctx, o.bhR.to.x, o.bhR.to.y, K.R.r); ctx.stroke(); ctx.restore();
+      KU.fill(ctx, o.bhR.to, K.R.r * k, PK, 0.15); KU.ring(ctx, o.bhR.to, K.R.core, '#ffd166', 0.8, false); KU.fill(ctx, o.bhR.to, K.R.core, '#ffd166', 0.1 + 0.15 * k);
+      KU.fill(ctx, o.pos, o.r * (1 - 0.4 * Math.sin(Math.PI * k)), '#000000', 0.35);
+    }
+    // D 풀스윙 준비(0.42초): 휘두를 부채꼴이 차오름
+    if (o.bhD) {
+      const D = K.D, a0 = V.ang(o.bhD.dir), h = D.angle / 2 * Math.PI / 180, R = D.range + o.r, k = clamp(o.bhD.t / D.windup, 0, 1);
+      ctx.save(); ctx.fillStyle = '#ffd166'; ctx.strokeStyle = '#ffd166';
+      ctx.globalAlpha = 0.12; ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.arc(o.pos.x, o.pos.y, R, a0 - h, a0 + h); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 0.6; ctx.lineWidth = 0.06; ctx.stroke();
+      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.moveTo(o.pos.x, o.pos.y); ctx.arc(o.pos.x, o.pos.y, R * k, a0 - h, a0 + h); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
   },
 };
 
@@ -166,10 +214,13 @@ PKits.bihyung = {
   // 근접 평타: 투사체 없이 즉시
   fireAA(p, t) { p.aaLand(t); return true; },
   onAAHit(p, u) { BihyungCore.onAA(p, u); },
-  reset(p) { if (p.bhHp) { p.maxHp -= p.bhHp.amt; p.hp = Math.min(p.hp, p.maxHp); } Object.assign(p, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], slowRes: 0 }); },
+  reset(p) { if (p.bhHp) { p.maxHp -= p.bhHp.amt; p.hp = Math.min(p.hp, p.maxHp); } Object.assign(p, { bhG: 0, bhAura: 0, bhAuraAcc: 0, bhQ: null, bhQ2: null, bhW: [], bhR: null, bhHp: null, bhT: [], bhD: null, lift: 0, slowRes: 0 }); },
   recast(p, k) { return k === 'Q' && BihyungCore.qReady2(p); },
   instant(p, k) { if (k === 'Q' && BihyungCore.qReady2(p)) { BihyungCore.qCast(p); p.instantUsed('Q'); return true; } return false; },
-  update(p, dt) { BihyungCore.update(p, dt); },
+  update(p, dt) {
+    BihyungCore.update(p, dt);
+    if (p.bhR && !(p.cast && p.cast.k === 'R')) BihyungCore.rStep(p, 99);   // 도약 시전이 끊기면(저지 불가 0.9초 뒤 기절 등) 남은 도약을 바로 마무리(착지) — 면역·피해 감소·공중 상태가 남지 않게
+  },
   cast: {
     Q(p) { if (!BihyungCore.qCast(p)) return false; p.instantUsed('Q'); if (p.attackTarget == null) { const e = Game.nearestEnemy(p.pos, p.aaCfg().range + p.r + 0.8, p); if (e) p.attackTarget = e; } return true; },
     // W: 7m 안 지점 → 1.5초 뒤 폭발
@@ -195,7 +246,7 @@ PKits.bihyung = {
     },
     // D 풀스윙: 0.42초 뒤 커서 방향 180°
     D(p, aim) {
-      const D = p.K.D, dir = p.dirTo(aim);
+      const D = p.K.D, dir = p.dirTo(aim); BihyungCore.dAim(p, dir);
       p.beginCast('D', aim, { windup: () => D.windup, recovery: () => 0.1, fire(q) { q.startCd('D'); q.facing = V.ang(dir); BihyungCore.dSwing(q, dir); } }, {});
       return true;
     },
