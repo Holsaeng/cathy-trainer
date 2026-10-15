@@ -945,6 +945,23 @@
     Settings.character = 'cathy';
   });
 
+  // 근딜·암살자 팀 대전 · 돌진 중 선입력 · 3D 바닥 단검
+  G('근딜·암살자 팀 대전', () => {
+    const e0 = errs.length;
+    reset(); Settings.character = 'shoichi'; Game.start('team', { diff: 'hard', map: 'arena', rounds: 1, seed: 9, sphere: false, allies: ['bihyung', 'aya'], enemies: ['shoichi', 'bihyung', 'alonso'] }); Game.freeze = 0; Game.mode.banner = null;
+    const keys = Game.units.filter(u => u.motifKey).map(u => u.motifKey).sort().join(',');
+    let n = 0; for (; n < 120 * 40 && Game.state === 'play'; n++) step();
+    T.ok('팀 대전: 쇼이치(나) + 비형·아야 vs 쇼이치·비형·알론소 — 오류 없이 진행', keys.includes('shoichi') && keys.includes('bihyung') && errs.length === e0, `${keys} · ${n}스텝 · ${errs.slice(e0).join(' | ')}`);
+    // 비형 E 돌진 중 D 선입력 → 돌진이 끝나면 바로 풀스윙
+    reset(); Settings.character = 'bihyung'; Settings.castMode = 'smart'; Game.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true, seed: 4 }); Game.freeze = 0; run(2);
+    const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 12, y: 9 };
+    p.cmdSkill('E', d.pos); Input.aiming = null; run(30); p.cmdSkill('D', d.pos); Input.aiming = null; run(150);
+    T.ok('선입력: 비형 E 돌진 중 누른 D가 돌진 뒤 나감(입력 씹힘 없음)', (Stats.dmgBy.D || 0) > 0);
+    // 3D: 바닥 단검 메시가 단검 수만큼(3D 사용 가능할 때)
+    if (Render3D.ready) { reset(); Settings.character = 'shoichi'; Game.start('dummy', { count: 1, hp: 30000, def: 50, infinite: true }); run(2); ShoichiCore.spawn(Game.player, { x: 12, y: 9 }); Render3D.syncDaggers(); T.ok('3D: 바닥 단검 메시', Render3D.dagMeshes.size === 1); }
+    Settings.character = 'cathy';
+  });
+
   G('리플레이', () => {
     reset(); Settings.character = 'cathy'; Settings.weapon = 'dagger'; Settings.tactical = 'blink'; Settings.fog = true;
     const opts = { diff: 'normal', motif: 'katja', enemyBuild: 'mid', map: 'jungle', rounds: 3, animals: true, sphere: true, time: 'day', seed: 4321 };

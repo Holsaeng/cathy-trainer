@@ -1025,7 +1025,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '32e6c055';
+const BUILD_ID = '73c50cd3';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -2004,6 +2004,7 @@ class Cathy extends Unit {
       if (this.cast && this.cast.phase === 'windup') this.cancelCast(false);
       this.buffer = null; this.attackTarget = this.tauntBy; this.attackMove = null; this.moveTarget = null;
     }
+    if (this.buffer && this.charKey && this.cast) this.buffer.time = Game.time;   // 키트 실험체: 시전(돌진·도약·후딜) 중에 누른 스킬은 끝난 뒤 바로 나감(허용 시간이 시전 동안 줄지 않음) — 캐시 선입력 연습 규칙은 그대로
     if (this.cast) { this.updateCast(dt); if (this.cast) return; }
     if (this.buffer) {   // 선입력 처리
       const b = this.buffer; this.buffer = null;
@@ -9236,6 +9237,11 @@ const Models = {
     aE:    { clip: 'stabL', w: [0.44, 0.62], a: [0.62, 0.74], r: [0.74, 1.00], lean: 0.45, crouch: 0.15 },
     aR:    { clip: 'slash', a: [0.10, 0.26], r: [0.26, 0.60], crouch: 0.1 },
     // 비형 — W: 손을 뻗어 지점 지정 · E: 숙여 돌진 · R: 도약하며 방망이를 들어 올렸다 착지에 내려찍기 · D 풀스윙: 크게 감았다 휘두르기
+    // 쇼이치 — Q 표리: 짧게 파고드는 찌르기 · E 협상: 왼손으로 던지며 뒤로(몸을 젖힘) · R 무자비: 크게 한 바퀴 휘두르기 · D 2차: 대상 뒤로 찌르기
+    shQ:   { clip: 'stabR', w: [0.50, 0.70], r: [0.70, 0.98], lean: 0.3 },
+    shE:   { clip: 'stabL', w: [0.50, 0.72], a: [0.72, 0.80], r: [0.80, 1.00], lean: -0.25 },
+    shR:   { clip: 'slash', w: [0.04, 0.45], r: [0.45, 0.95], lean: 0.2, crouch: 0.12 },
+    shD:   { clip: 'stabR', w: [0.48, 0.70], r: [0.70, 1.00], lean: 0.35 },
     bW:    { clip: 'stabR', w: [0.45, 0.68], r: [0.68, 0.95] },
     bE:    { clip: 'stabR', w: [0.50, 0.62], a: [0.62, 0.70], r: [0.70, 0.95], lean: 0.45 },
     bR:    { clip: 'slash', a: [0.06, 0.46], r: [0.46, 0.95], lean: 0.2 },
@@ -9247,7 +9253,7 @@ const Models = {
   },
   // 다니엘 즉시 시전 스킬(시전 시간 없음)의 손짓: Q 그림자 가위 = 크게 휘두르기 · W 영감 = 대상을 가리키는 찌르기 (이동 중이면 다리를 살리려고 생략)
   DAN_GESTURE: { Q: { clip: 'slash', s: 0.22, e: 0.52, dur: 0.3 }, W: { clip: 'stabR', s: 0.56, e: 0.70, dur: 0.16 } },
-  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
+  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; if (u && u.charKey === 'shoichi') return 'sh' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
   // 구간 재생: 같은 클립이 이어지면 끊지 않고 속도만 바꿈
   seg(rig, clip, from, to, dur, fade = 0.06) {
     const a = rig.actions[clip]; if (!a) return;
@@ -10126,6 +10132,28 @@ const Render3D = {
     const tail = mk(new T3.ConeGeometry(r * 0.8, r * 4, 12, 1, true), M(col, 0.28)); tail.rotation.z = Math.PI / 2; tail.position.x = -r * 2.2;   // 3 꼬리
     return g;
   },
+  // ---------- 쇼이치 바닥 단검: 땅에 비스듬히 꽂힌 칼 · 떨어지는 중엔 공중에서 돌며 내려옴 ----------
+  syncDaggers() {
+    const T3 = THREE, seen = new Set(); this.dagMeshes = this.dagMeshes || new Map();
+    if (!this.dagGeo) {
+      const blade = new T3.ConeGeometry(0.07, 0.5, 4); blade.rotateX(Math.PI); blade.translate(0, 0.25, 0);   // 칼끝(아래, y 0) → 칼날 → 손잡이(위)
+      const grip = new T3.CylinderGeometry(0.035, 0.035, 0.2, 6); grip.translate(0, 0.6, 0);
+      const guard = new T3.BoxGeometry(0.2, 0.03, 0.05); guard.translate(0, 0.5, 0);
+      this.dagGeo = [blade, grip, guard];
+      this.dagMat = [this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color('#dfe4ea').convertSRGBToLinear() })), this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color('#8a1f24').convertSRGBToLinear() })), this.noLine(new T3.MeshBasicMaterial({ color: new T3.Color('#3a2a2a').convertSRGBToLinear() }))];
+    }
+    for (const u of Game.units) {
+      if (!u.shDags || !u.shDags.length) continue; const mine = u.team === myTeam();
+      for (const d of u.shDags) {
+        seen.add(d); let m = this.dagMeshes.get(d);
+        if (!m) { m = new T3.Group(); m.add(new T3.Mesh(this.dagGeo[0], this.dagMat[0]), new T3.Mesh(this.dagGeo[1], this.dagMat[1]), new T3.Mesh(this.dagGeo[2], this.dagMat[2])); m.rotation.order = 'YXZ'; m.rotation.y = (d.id * 1.7) % (Math.PI * 2); this.scene.add(m); this.dagMeshes.set(d, m); }
+        m.visible = mine || Vision.pointVisible(d.pos);
+        if (d.land > 0) { m.position.set(d.pos.x, 0.1 + d.land * 2.4, d.pos.y); m.rotation.x = Game.time * 14; }   // 공중에서 돌며 떨어짐
+        else { m.position.set(d.pos.x, -0.1, d.pos.y); m.rotation.x = -0.35; }   // 칼끝이 땅에 박혀 비스듬히
+      }
+    }
+    for (const [d, m] of this.dagMeshes) if (!seen.has(d)) { this.scene.remove(m); this.dagMeshes.delete(d); }   // 지오메트리·재질은 공용(지우지 않음)
+  },
   // ---------- 부쉬 반투명·흔들림 ----------
   syncBushes() {
     const p = Game.player, pb = p ? Vision.bushAt(p.pos) : -1;
@@ -10173,7 +10201,7 @@ const Render3D = {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.lastT || now)) / 1000); this.lastT = now;
     if (this.mapKey !== Game.mapKey || (this.wallRef !== CONFIG.walls && this.wallSig !== this.mapSig())) this.buildMap();   // 판마다 벽 배열이 새로 만들어져도 내용이 같으면 그대로
     this.updateCamera(dt); Env3D.frame(dt);
-    this.syncUnits(dt); this.syncProjectiles(); this.syncBushes();
+    this.syncUnits(dt); this.syncProjectiles(); this.syncDaggers(); this.syncBushes();
     VFX3D.frame(Game.state === 'play' && !Game.paused ? dt * (Settings.gameSpeed || 1) : 0);
     this.drawDecal();
     if (this.outline && this.toonOn()) this.outline.render(this.scene, this.camera); else this.gl.render(this.scene, this.camera);

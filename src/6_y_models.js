@@ -287,6 +287,11 @@ const Models = {
     aE:    { clip: 'stabL', w: [0.44, 0.62], a: [0.62, 0.74], r: [0.74, 1.00], lean: 0.45, crouch: 0.15 },
     aR:    { clip: 'slash', a: [0.10, 0.26], r: [0.26, 0.60], crouch: 0.1 },
     // 비형 — W: 손을 뻗어 지점 지정 · E: 숙여 돌진 · R: 도약하며 방망이를 들어 올렸다 착지에 내려찍기 · D 풀스윙: 크게 감았다 휘두르기
+    // 쇼이치 — Q 표리: 짧게 파고드는 찌르기 · E 협상: 왼손으로 던지며 뒤로(몸을 젖힘) · R 무자비: 크게 한 바퀴 휘두르기 · D 2차: 대상 뒤로 찌르기
+    shQ:   { clip: 'stabR', w: [0.50, 0.70], r: [0.70, 0.98], lean: 0.3 },
+    shE:   { clip: 'stabL', w: [0.50, 0.72], a: [0.72, 0.80], r: [0.80, 1.00], lean: -0.25 },
+    shR:   { clip: 'slash', w: [0.04, 0.45], r: [0.45, 0.95], lean: 0.2, crouch: 0.12 },
+    shD:   { clip: 'stabR', w: [0.48, 0.70], r: [0.70, 1.00], lean: 0.35 },
     bW:    { clip: 'stabR', w: [0.45, 0.68], r: [0.68, 0.95] },
     bE:    { clip: 'stabR', w: [0.50, 0.62], a: [0.62, 0.70], r: [0.70, 0.95], lean: 0.45 },
     bR:    { clip: 'slash', a: [0.06, 0.46], r: [0.46, 0.95], lean: 0.2 },
@@ -298,7 +303,7 @@ const Models = {
   },
   // 다니엘 즉시 시전 스킬(시전 시간 없음)의 손짓: Q 그림자 가위 = 크게 휘두르기 · W 영감 = 대상을 가리키는 찌르기 (이동 중이면 다리를 살리려고 생략)
   DAN_GESTURE: { Q: { clip: 'slash', s: 0.22, e: 0.52, dur: 0.3 }, W: { clip: 'stabR', s: 0.56, e: 0.70, dur: 0.16 } },
-  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
+  skillKey(c, u) { if (u && u.charKey === 'daniel') return 'd' + c.k; if (u && u.charKey === 'alonso') return 'a' + c.k; if (u && u.charKey === 'bihyung') return 'b' + c.k; if (u && u.charKey === 'shoichi') return 'sh' + c.k; return c.k !== 'D' ? c.k : c.impl === Impl.Ddual1 ? 'Ddual' : c.impl === Impl.Ddual2 ? 'D2' : 'D'; },
   // 구간 재생: 같은 클립이 이어지면 끊지 않고 속도만 바꿈
   seg(rig, clip, from, to, dur, fade = 0.06) {
     const a = rig.actions[clip]; if (!a) return;

@@ -353,6 +353,7 @@ class Cathy extends Unit {
       if (this.cast && this.cast.phase === 'windup') this.cancelCast(false);
       this.buffer = null; this.attackTarget = this.tauntBy; this.attackMove = null; this.moveTarget = null;
     }
+    if (this.buffer && this.charKey && this.cast) this.buffer.time = Game.time;   // 키트 실험체: 시전(돌진·도약·후딜) 중에 누른 스킬은 끝난 뒤 바로 나감(허용 시간이 시전 동안 줄지 않음) — 캐시 선입력 연습 규칙은 그대로
     if (this.cast) { this.updateCast(dt); if (this.cast) return; }
     if (this.buffer) {   // 선입력 처리
       const b = this.buffer; this.buffer = null;
