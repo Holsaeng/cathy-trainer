@@ -94,6 +94,20 @@ const Coach = {
       why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
       tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
       drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    if (W.ch === 'bihyung') {   // 비형: 도깨비 불 장판 유지 · 도발 → 풀스윙 · 뚝딱! 2단계 — 근거 er_notes_playables.md 14장(운영 요약)
+      if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT < 0.25) out.push({ id: 'bhAura', w: 1.1, n: Math.round(St.combatT - (C.bhAuraT || 0)), unit: '초', title: `도깨비 불 장판 유지가 짧음 (교전의 ${pct(C.bhAuraT || 0, St.combatT)})`,
+        why: '신력은 평타 10 · 스킬 30씩 차고, 장판은 적 실험체를 칠 때마다 4초로 초기화됩니다. 평타를 쉬거나 스킬을 아끼면 장판이 꺼져 지속 피해와 둔화 저항을 잃습니다.',
+        tip: '붙은 뒤엔 평타를 쉬지 말고, Q(뚝딱!)로 평타를 강화해 신력을 빨리 채우세요. 장판이 켜지면 4초 안에 계속 때려 끊기지 않게 합니다.',
+        drill: { mode: 'dummy', label: '허수아비에서 장판 끊지 않고 때리기' } });
+      if ((C.bhTaunt || 0) >= 3 && (C.bhTauntD || 0) / C.bhTaunt < 0.3) out.push({ id: 'bhTauntD', w: 1.2, n: C.bhTaunt - (C.bhTauntD || 0), unit: '회', title: `도발 뒤 풀스윙으로 못 이음 (${C.bhTauntD || 0}/${C.bhTaunt})`,
+        why: 'E(내기 한판!) 도발은 0.8~1초로 길어서, 상대가 나에게 걸어오는 동안 풀스윙(0.42초 준비)을 맞히기 쉽습니다. 뒤에 벽이 있으면 벽꿍 기절까지 이어집니다.',
+        tip: 'E가 맞으면 바로 Q → 평타 → D(풀스윙). 상대 뒤에 벽이 있는 각도에서 E를 쓰면 풀스윙으로 벽에 박아 기절시킬 수 있습니다.',
+        drill: { mode: 'combo', combo: 'bh2', label: 'E → Q → 평타 → 풀스윙 콤보 연습' } });
+      if ((C.bhQ1 || 0) >= 3 && (C.bhQ2 || 0) / C.bhQ1 < 0.4) out.push({ id: 'bhQ2', w: 0.9, n: C.bhQ1 - (C.bhQ2 || 0), unit: '회', title: `뚝딱! 2단계를 놓침 (${C.bhQ2 || 0}/${C.bhQ1})`,
+        why: 'Q로 강화한 평타가 맞으면 1.5초 뒤부터 4초 안에 Q를 다시 쓸 수 있습니다. 2단계는 강화 평타 + 추가 타격 2회(주변 2m)와 더 큰 회복이라 브루저 교전력의 핵심입니다.',
+        tip: 'Q → 평타 뒤 HUD의 「Q 재사용」이 뜨면 바로 Q를 한 번 더 누르고 평타하세요. 발밑 분홍 점선 고리가 재사용 창입니다.',
+        drill: { mode: 'dummy', label: '허수아비에서 Q → 평타 → Q → 평타 반복' } });
+    }
     return out;
   },
   // 키트 실험체 스킬별 적중률(조준 스킬만)
@@ -139,6 +153,9 @@ const Coach = {
     const C = St.counts || {};
     if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
     if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
+    if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT >= 0.5) out.push(`도깨비 불 장판 유지 ${pct(C.bhAuraT, St.combatT)} — 신력 관리가 좋습니다.`);
+    if ((C.bhTaunt || 0) >= 3 && C.bhTauntD / C.bhTaunt >= 0.6) out.push(`도발 → 풀스윙 ${C.bhTauntD}/${C.bhTaunt} — 연계가 좋습니다.`);
+    if ((C.bhQ1 || 0) >= 3 && C.bhQ2 / C.bhQ1 >= 0.7) out.push(`뚝딱! 2단계 ${C.bhQ2}/${C.bhQ1} — Q 재사용을 놓치지 않습니다.`);
     if (St.enhAA >= 3 && St.aaHits && St.enhAA / St.aaHits >= 0.5) out.push(`강화 평타 ${St.enhAA}회 — 스킬과 평타를 잘 섞고 있습니다.`);
     if (St.eDouble > 0) out.push(`2인 수쳐 ${St.eDouble}회 — 고급 기술을 쓰고 있습니다.`);
     if (St.eWall > 0) out.push(`벽꿍 수쳐 ${St.eWall}회 — 지형을 잘 활용합니다.`);

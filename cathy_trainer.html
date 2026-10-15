@@ -988,7 +988,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = '4b837af6';
+const BUILD_ID = '34dc942f';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
@@ -3704,7 +3704,7 @@ const BihyungCore = {
   gain(o, n) {
     if (o.bhAura > 0) return;
     o.bhG = Math.min(o.bh.K.P.max, o.bhG + n);
-    if (o.bhG >= o.bh.K.P.max) { o.bhG = 0; o.bhAura = o.bh.K.P.dur; o.bhAuraAcc = 0; FX.ring(o.pos, 0.5, o.bh.K.P.r, '#3fd0c9', 0.4); FX.text(o.pos, o.bh.K.P.name, '#3fd0c9', 13, { bold: true }); Sfx.play('blink', o.pos); }
+    if (o.bhG >= o.bh.K.P.max) { o.bh.S.count('bhAura'); o.bhG = 0; o.bhAura = o.bh.K.P.dur; o.bhAuraAcc = 0; FX.ring(o.pos, 0.5, o.bh.K.P.r, '#3fd0c9', 0.4); FX.text(o.pos, o.bh.K.P.name, '#3fd0c9', 13, { bold: true }); Sfx.play('blink', o.pos); }
   },
   refresh(o, u) { if (o.bhAura > 0 && u && this.isFoeUnit(u)) o.bhAura = o.bh.K.P.dur; },   // 적 실험체를 치면 장판 시간 초기화 (일반 야생 동물은 X)
   // 스킬 피해 + 신력 30 + 장판 초기화
@@ -3744,9 +3744,9 @@ const BihyungCore = {
   qReady2(o) { return !!(o.bhQ2 && o.bhQ2.t >= o.bh.K.Q.recastAfter); },
   qCast(o) {
     const Q = o.bh.K.Q;
-    if (this.qReady2(o)) { o.bhQ2 = null; o.bhQ = { stage: 2, t: Q.buffDur }; return true; }
+    if (this.qReady2(o)) { o.bhQ2 = null; o.bhQ = { stage: 2, t: Q.buffDur }; o.bh.S.count('bhQ2'); return true; }   // 코칭: 뚝딱! 2단계 사용
     if (o.bhQ || o.bhQ2) return false;
-    o.bhQ = { stage: 1, t: Q.buffDur }; o.bh.cdSet('Q', 999);   // 다 쓸 때까지 쿨 잠금
+    o.bhQ = { stage: 1, t: Q.buffDur }; o.bh.cdSet('Q', 999); o.bh.S.count('bhQ1');   // 다 쓸 때까지 쿨 잠금
     return true;
   },
   // ---------- W 천벌 받아라! ----------
@@ -3767,7 +3767,7 @@ const BihyungCore = {
     const step = Math.min(st.left, E.speed * dt), from = V.copy(o.pos), to = Geo.pushOut(V.add(o.pos, V.mul(st.dir, step)), o.r);
     for (const u of o.bh.foes()) if (Geo.segDist(u.pos, from, V.add(from, V.mul(st.dir, step + o.r))) <= u.r + E.width / 2) {
       const l = o.bh.L('E'); this.skillHit(o, u, lv(E.base, l) + o.ad * E.ad, 'E');
-      if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) FX.text(u.pos, '도발', '#ffd166', 12, { bold: true });
+      if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) { FX.text(u.pos, '도발', '#ffd166', 12, { bold: true }); if (isHero(u) || u.kind === 'dummy') o.bh.S.count('bhTaunt'); }   // 코칭: 도발 성공
       FX.ring(u.pos, 0.2, 1.5, '#ffd166', 0.35, 0.14); FX.burst(u.pos, '#ffd166', 12, 5); if (o === Game.player || u === Game.player) FX.addShake(5);
       st.done = true; return true;
     }
@@ -3801,6 +3801,7 @@ const BihyungCore = {
   dAim(o, dir) { o.bhD = { dir: V.copy(dir), t: 0 }; },   // 0.42초 준비: 휘두를 부채꼴이 차오름
   dSwing(o, dir) {
     const D = o.bh.K.D, l = o.bh.L('D'); o.bhD = null; o.bhSwing = (o.bhSwing || 0) + 1;
+    if (o.bh.foes().some(u => u.taunt > 0 && u.tauntBy === o && Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r))) o.bh.S.count('bhTauntD');   // 코칭: 도발 중인 적을 풀스윙
     FX.slash(o.pos, V.ang(dir), D.range + o.r + 0.3, D.angle / 2 * Math.PI / 180, '#ffd166', 0.3, o.r + 0.2); Sfx.play('slash', o.pos);
     for (const u of o.bh.foes()) {
       if (!Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
@@ -3827,6 +3828,7 @@ const BihyungCore = {
     // P 장판: 초당 피해 · 둔화 저항
     o.slowRes = o.bhAura > 0 ? lv(K.P.slowRes, l) : 0;
     if (o.bhAura > 0) {
+      const C = o.bh.S.counts; if (C) C.bhAuraT = (C.bhAuraT || 0) + dt;   // 코칭: 장판 유지 시간
       o.bhAura -= dt; o.bhAuraAcc += dt;
       if (o.bhAuraAcc >= K.P.tick) {
         o.bhAuraAcc -= K.P.tick;
@@ -9996,6 +9998,20 @@ const Coach = {
       why: 'W 표식은 4초가 지나 「영감의 대상」이 된 뒤 2.5초 안에 공격해야 쌓인 고정 피해와 폭발이 들어갑니다. 너무 일찍 치거나 늦으면 사라집니다.',
       tip: 'W를 건 뒤 바로 들어가지 말고, 표식이 밝아지는 4초 무렵 E(그림자 이동)나 평타로 진입해 터뜨리세요.',
       drill: { mode: 'combo', combo: 'dan2', label: 'W 표식 → 4초 → E → 평타 콤보 연습' } });
+    if (W.ch === 'bihyung') {   // 비형: 도깨비 불 장판 유지 · 도발 → 풀스윙 · 뚝딱! 2단계 — 근거 er_notes_playables.md 14장(운영 요약)
+      if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT < 0.25) out.push({ id: 'bhAura', w: 1.1, n: Math.round(St.combatT - (C.bhAuraT || 0)), unit: '초', title: `도깨비 불 장판 유지가 짧음 (교전의 ${pct(C.bhAuraT || 0, St.combatT)})`,
+        why: '신력은 평타 10 · 스킬 30씩 차고, 장판은 적 실험체를 칠 때마다 4초로 초기화됩니다. 평타를 쉬거나 스킬을 아끼면 장판이 꺼져 지속 피해와 둔화 저항을 잃습니다.',
+        tip: '붙은 뒤엔 평타를 쉬지 말고, Q(뚝딱!)로 평타를 강화해 신력을 빨리 채우세요. 장판이 켜지면 4초 안에 계속 때려 끊기지 않게 합니다.',
+        drill: { mode: 'dummy', label: '허수아비에서 장판 끊지 않고 때리기' } });
+      if ((C.bhTaunt || 0) >= 3 && (C.bhTauntD || 0) / C.bhTaunt < 0.3) out.push({ id: 'bhTauntD', w: 1.2, n: C.bhTaunt - (C.bhTauntD || 0), unit: '회', title: `도발 뒤 풀스윙으로 못 이음 (${C.bhTauntD || 0}/${C.bhTaunt})`,
+        why: 'E(내기 한판!) 도발은 0.8~1초로 길어서, 상대가 나에게 걸어오는 동안 풀스윙(0.42초 준비)을 맞히기 쉽습니다. 뒤에 벽이 있으면 벽꿍 기절까지 이어집니다.',
+        tip: 'E가 맞으면 바로 Q → 평타 → D(풀스윙). 상대 뒤에 벽이 있는 각도에서 E를 쓰면 풀스윙으로 벽에 박아 기절시킬 수 있습니다.',
+        drill: { mode: 'combo', combo: 'bh2', label: 'E → Q → 평타 → 풀스윙 콤보 연습' } });
+      if ((C.bhQ1 || 0) >= 3 && (C.bhQ2 || 0) / C.bhQ1 < 0.4) out.push({ id: 'bhQ2', w: 0.9, n: C.bhQ1 - (C.bhQ2 || 0), unit: '회', title: `뚝딱! 2단계를 놓침 (${C.bhQ2 || 0}/${C.bhQ1})`,
+        why: 'Q로 강화한 평타가 맞으면 1.5초 뒤부터 4초 안에 Q를 다시 쓸 수 있습니다. 2단계는 강화 평타 + 추가 타격 2회(주변 2m)와 더 큰 회복이라 브루저 교전력의 핵심입니다.',
+        tip: 'Q → 평타 뒤 HUD의 「Q 재사용」이 뜨면 바로 Q를 한 번 더 누르고 평타하세요. 발밑 분홍 점선 고리가 재사용 창입니다.',
+        drill: { mode: 'dummy', label: '허수아비에서 Q → 평타 → Q → 평타 반복' } });
+    }
     return out;
   },
   // 키트 실험체 스킬별 적중률(조준 스킬만)
@@ -10041,6 +10057,9 @@ const Coach = {
     const C = St.counts || {};
     if ((C.linkOn || 0) >= 3 && C.linkPop / C.linkOn >= 0.7) out.push(`자력 연결 기절 ${C.linkPop}/${C.linkOn} — Q 연계가 좋습니다.`);
     if ((C.markOn || 0) >= 3 && C.markPop / C.markOn >= 0.7) out.push(`영감 표식 폭발 ${C.markPop}/${C.markOn} — 진입 타이밍이 좋습니다.`);
+    if (St.combatT > 10 && (C.bhAuraT || 0) / St.combatT >= 0.5) out.push(`도깨비 불 장판 유지 ${pct(C.bhAuraT, St.combatT)} — 신력 관리가 좋습니다.`);
+    if ((C.bhTaunt || 0) >= 3 && C.bhTauntD / C.bhTaunt >= 0.6) out.push(`도발 → 풀스윙 ${C.bhTauntD}/${C.bhTaunt} — 연계가 좋습니다.`);
+    if ((C.bhQ1 || 0) >= 3 && C.bhQ2 / C.bhQ1 >= 0.7) out.push(`뚝딱! 2단계 ${C.bhQ2}/${C.bhQ1} — Q 재사용을 놓치지 않습니다.`);
     if (St.enhAA >= 3 && St.aaHits && St.enhAA / St.aaHits >= 0.5) out.push(`강화 평타 ${St.enhAA}회 — 스킬과 평타를 잘 섞고 있습니다.`);
     if (St.eDouble > 0) out.push(`2인 수쳐 ${St.eDouble}회 — 고급 기술을 쓰고 있습니다.`);
     if (St.eWall > 0) out.push(`벽꿍 수쳐 ${St.eWall}회 — 지형을 잘 활용합니다.`);
@@ -10686,7 +10705,7 @@ const UI = {
       <div class="stat-grid">${stat('세션 시간', fmt(St.t, 1) + 's')}${stat('APM', Math.round(St.apm()))}${stat('스킬 적중률', pct(h, c))}${stat(rng ? '평타 / 무빙 비율' : dan ? '평타' : '평타 / 강화 평타', rng ? `${St.aaHits} / ${St.heroAA ? pct(St.kiteAA, St.heroAA) : '-'}` : dan ? St.aaHits : `${St.aaHits} / ${St.enhAA}`)}
         ${stat('쿨타임 낭비', fmt(waste, 1) + 's')}${stat('콤보 완성률', St.comboAtt ? `${pct(St.comboOk, St.comboAtt)} (${St.comboOk}/${St.comboAtt})` : '-')}${stat('가한 피해', Math.round(St.dealtTotal))}
         ${stat(Game.modeId === 'dodge' ? '피격 횟수' : '받은 피해', Game.modeId === 'dodge' ? St.playerHits : Math.round(St.takenTotal))}
-        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) + (pl.charKey === 'alonso' ? stat('자력 연결 → 기절', `${(St.counts || {}).linkPop || 0} / ${(St.counts || {}).linkOn || 0}`) : pl.charKey === 'daniel' ? stat('영감 표식 폭발', `${(St.counts || {}).markPop || 0} / ${(St.counts || {}).markOn || 0}`) : '') : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
+        ${rng ? stat('평타 거리(사거리 대비)', St.heroAA ? pct(St.rangeSum, St.heroAA) : '-') + stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) : dan ? stat('평타 공백', `${fmt(St.aaIdle, 1)}s / 교전 ${fmt(St.combatT, 1)}s`) + (pl.charKey === 'alonso' ? stat('자력 연결 → 기절', `${(St.counts || {}).linkPop || 0} / ${(St.counts || {}).linkOn || 0}`) : pl.charKey === 'bihyung' ? stat('도깨비 불 유지', St.combatT ? pct((St.counts || {}).bhAuraT || 0, St.combatT) : '-') + stat('도발 → 풀스윙', `${(St.counts || {}).bhTauntD || 0} / ${(St.counts || {}).bhTaunt || 0}`) + stat('뚝딱! 2단계', `${(St.counts || {}).bhQ2 || 0} / ${(St.counts || {}).bhQ1 || 0}`) : pl.charKey === 'daniel' ? stat('영감 표식 폭발', `${(St.counts || {}).markPop || 0} / ${(St.counts || {}).markOn || 0}`) : '') : stat('치명적 외상', St.criticals) + stat('2인 수쳐 / 벽꿍', `${St.eDouble} / ${St.eWall}`)}${stat('예측샷 성공률', pct(St.leadHits, St.movingHits))}</div>
       ${Game.player && Game.player.gear ? `<div class="sub" style="margin-top:6px">🛠 장비: ${esc(Builds.short(Game.player.gear))}</div>` : ''}${r.extraHtml || ''}
       <h3>🎯 다음 목표</h3><div class="sub" style="color:#e6e9ef">${esc(r.nextGoal)}</div>
       ${coach}

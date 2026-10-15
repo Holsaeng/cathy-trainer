@@ -22,7 +22,7 @@ const BihyungCore = {
   gain(o, n) {
     if (o.bhAura > 0) return;
     o.bhG = Math.min(o.bh.K.P.max, o.bhG + n);
-    if (o.bhG >= o.bh.K.P.max) { o.bhG = 0; o.bhAura = o.bh.K.P.dur; o.bhAuraAcc = 0; FX.ring(o.pos, 0.5, o.bh.K.P.r, '#3fd0c9', 0.4); FX.text(o.pos, o.bh.K.P.name, '#3fd0c9', 13, { bold: true }); Sfx.play('blink', o.pos); }
+    if (o.bhG >= o.bh.K.P.max) { o.bh.S.count('bhAura'); o.bhG = 0; o.bhAura = o.bh.K.P.dur; o.bhAuraAcc = 0; FX.ring(o.pos, 0.5, o.bh.K.P.r, '#3fd0c9', 0.4); FX.text(o.pos, o.bh.K.P.name, '#3fd0c9', 13, { bold: true }); Sfx.play('blink', o.pos); }
   },
   refresh(o, u) { if (o.bhAura > 0 && u && this.isFoeUnit(u)) o.bhAura = o.bh.K.P.dur; },   // 적 실험체를 치면 장판 시간 초기화 (일반 야생 동물은 X)
   // 스킬 피해 + 신력 30 + 장판 초기화
@@ -62,9 +62,9 @@ const BihyungCore = {
   qReady2(o) { return !!(o.bhQ2 && o.bhQ2.t >= o.bh.K.Q.recastAfter); },
   qCast(o) {
     const Q = o.bh.K.Q;
-    if (this.qReady2(o)) { o.bhQ2 = null; o.bhQ = { stage: 2, t: Q.buffDur }; return true; }
+    if (this.qReady2(o)) { o.bhQ2 = null; o.bhQ = { stage: 2, t: Q.buffDur }; o.bh.S.count('bhQ2'); return true; }   // 코칭: 뚝딱! 2단계 사용
     if (o.bhQ || o.bhQ2) return false;
-    o.bhQ = { stage: 1, t: Q.buffDur }; o.bh.cdSet('Q', 999);   // 다 쓸 때까지 쿨 잠금
+    o.bhQ = { stage: 1, t: Q.buffDur }; o.bh.cdSet('Q', 999); o.bh.S.count('bhQ1');   // 다 쓸 때까지 쿨 잠금
     return true;
   },
   // ---------- W 천벌 받아라! ----------
@@ -85,7 +85,7 @@ const BihyungCore = {
     const step = Math.min(st.left, E.speed * dt), from = V.copy(o.pos), to = Geo.pushOut(V.add(o.pos, V.mul(st.dir, step)), o.r);
     for (const u of o.bh.foes()) if (Geo.segDist(u.pos, from, V.add(from, V.mul(st.dir, step + o.r))) <= u.r + E.width / 2) {
       const l = o.bh.L('E'); this.skillHit(o, u, lv(E.base, l) + o.ad * E.ad, 'E');
-      if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) FX.text(u.pos, '도발', '#ffd166', 12, { bold: true });
+      if (u.applyTaunt && u.applyTaunt(lv(E.taunt, l), o)) { FX.text(u.pos, '도발', '#ffd166', 12, { bold: true }); if (isHero(u) || u.kind === 'dummy') o.bh.S.count('bhTaunt'); }   // 코칭: 도발 성공
       FX.ring(u.pos, 0.2, 1.5, '#ffd166', 0.35, 0.14); FX.burst(u.pos, '#ffd166', 12, 5); if (o === Game.player || u === Game.player) FX.addShake(5);
       st.done = true; return true;
     }
@@ -119,6 +119,7 @@ const BihyungCore = {
   dAim(o, dir) { o.bhD = { dir: V.copy(dir), t: 0 }; },   // 0.42초 준비: 휘두를 부채꼴이 차오름
   dSwing(o, dir) {
     const D = o.bh.K.D, l = o.bh.L('D'); o.bhD = null; o.bhSwing = (o.bhSwing || 0) + 1;
+    if (o.bh.foes().some(u => u.taunt > 0 && u.tauntBy === o && Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r))) o.bh.S.count('bhTauntD');   // 코칭: 도발 중인 적을 풀스윙
     FX.slash(o.pos, V.ang(dir), D.range + o.r + 0.3, D.angle / 2 * Math.PI / 180, '#ffd166', 0.3, o.r + 0.2); Sfx.play('slash', o.pos);
     for (const u of o.bh.foes()) {
       if (!Geo.inSector(o.pos, V.ang(dir), D.range + o.r, D.angle / 2 * Math.PI / 180, u.pos, u.r)) continue;
@@ -145,6 +146,7 @@ const BihyungCore = {
     // P 장판: 초당 피해 · 둔화 저항
     o.slowRes = o.bhAura > 0 ? lv(K.P.slowRes, l) : 0;
     if (o.bhAura > 0) {
+      const C = o.bh.S.counts; if (C) C.bhAuraT = (C.bhAuraT || 0) + dt;   // 코칭: 장판 유지 시간
       o.bhAura -= dt; o.bhAuraAcc += dt;
       if (o.bhAuraAcc >= K.P.tick) {
         o.bhAuraAcc -= K.P.tick;

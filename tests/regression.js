@@ -321,6 +321,18 @@
     T.ok('알론소 코칭: 연결 못 이음 · 붙어서 평타 쉼 · 원딜 항목 없음', ids.includes('linkPop') && ids.includes('aaIdle') && !ids.includes('kite') && !ids.includes('markPop'), ids.join(','));
     Game.finish('test'); const card = document.getElementById('card').innerText;
     T.ok('알론소 결과 화면: 자력 연결 기절 · 평타 공백 · 캐시 통계 숨김', card.includes('자력 연결 → 기절') && card.includes('평타 공백') && !card.includes('2인 수쳐'));
+    // 비형: 뚝딱! 1·2단계 · 도발 → 풀스윙 · 장판 유지 기록 → 코칭·결과 화면
+    reset(); Settings.character = 'bihyung'; Game.start('dummy', { count: 1, hp: 900000, def: 0, infinite: true }); Game.freeze = 0; Game.mode.banner = null;
+    p = Game.player; d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: d.pos.x - 1.6, y: d.pos.y };
+    p.cmdSkill('Q', d.pos); p.cmdAttack(d); run(240); p.cmdSkill('Q', d.pos); p.cmdAttack(d); run(240);
+    p.pos = { x: d.pos.x - 4, y: d.pos.y }; p.skills.E.cd = 0; p.cmdSkill('E', d.pos); Input.aiming = null; run(60); p.skills.D.cd = 0; p.cmdSkill('D', d.pos); Input.aiming = null; run(80);
+    const BC = Stats.counts;
+    T.ok('비형: 뚝딱! 1·2단계 · 도발 → 풀스윙 · 장판 시간 기록', BC.bhQ1 === 1 && BC.bhQ2 === 1 && BC.bhTaunt === 1 && BC.bhTauntD === 1 && BC.bhAuraT > 0, JSON.stringify(BC));
+    Object.assign(Stats, { t: 60, combatT: 40, aaIdle: 1, counts: { bhAuraT: 4, bhTaunt: 5, bhTauntD: 0, bhQ1: 5, bhQ2: 1 } });
+    const bids = Coach.metrics(Stats).map(x => x.id);
+    T.ok('비형 코칭: 장판 유지 · 도발 → 풀스윙 · 2단계 · 원딜 항목 없음', ['bhAura', 'bhTauntD', 'bhQ2'].every(x => bids.includes(x)) && !bids.includes('kite') && !bids.includes('linkPop'), bids.join(','));
+    Game.finish('test'); const bcard = document.getElementById('card').innerText;
+    T.ok('비형 결과 화면: 도깨비 불 유지 · 도발 → 풀스윙 · 뚝딱! 2단계', bcard.includes('도깨비 불 유지') && bcard.includes('도발 → 풀스윙') && bcard.includes('뚝딱! 2단계') && !bcard.includes('2인 수쳐'));
     Settings.character = 'cathy';
   });
 
