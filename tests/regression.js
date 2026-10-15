@@ -896,7 +896,7 @@
     const setup = (hp = 30000) => { reset(); Settings.character = 'shoichi'; Settings.castMode = 'smart'; Game.start('dummy', { count: 1, hp, def: 50, infinite: true, seed: 4 }); Game.freeze = 0; run(2); const p = Game.player, d = Game.units.find(u => u.kind === 'dummy'); p.pos = { x: 8, y: 9 }; d.pos = { x: 10.5, y: 9 }; return { p, d }; };
     T.ok('수치: 나무위키(Q 3m·3.5m 90° · W 5.5m 폭 1.8 · E 5.8m 표식 5초 · R 2.5m·단검 3.9m) + 영상(Q 선딜 0.13 · E 0.12 · R 0.3 · 단검 고정 방향 4곳)',
       K.Q.len === 3 && K.Q.len2 === 3.5 && K.Q.angle2 === 90 && K.W.range === 5.5 && K.W.width === 1.8 && K.E.range === 5.8 && K.E.markDur === 5 && K.R.r === 2.5 && K.R.dRange === 3.9 && K.Q.windup === 0.13 && K.E.windup === 0.12 && K.R.windup === 0.3 && K.R.angles.length === 4);
-    T.ok('능력치: 장비 계산(Lv18 체력 2544 · 스증 653) · 근접 1.25m', M.hp[2] === 2544 && M.sp[2] === 653 && M.melee && M.aaRange === 1.25);
+    T.ok('능력치: HUD 실측(Lv6 체력 1490 · Lv12 방어 120 · Lv18 체력 2544 · 스증 676 · 쿨감 90) · 근접 1.25m', M.hp[0] === 1490 && M.def[1] === 120 && M.hp[2] === 2544 && M.sp[2] === 676 && M.cdr[2] === 0.9 && M.melee && M.aaRange === 1.25);
     let { p, d } = setup();
     T.ok('플레이어블: 근접 암살자(평타 1.25m · 팀 AI 근접)', p instanceof RangedPlayer && p.charKey === 'shoichi' && p.melee && TeamAI.isMelee(p) && p.aaCfg().range === 1.25);
     // E: 표식 + 둔화 + 0.75초 뒤 대상 뒤에 단검

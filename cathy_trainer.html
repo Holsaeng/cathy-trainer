@@ -297,9 +297,9 @@ const CONFIG = {
     bihyung: { name: '비형', weapon: '방망이', build: '브루저', color: '#3fbf9f', melee: true, aaRange: 1.4, ad: [173, 190, 260], sp: [0, 0, 0], as: [1.7, 1.28, 1.3], crit: [0.46, 0.22, 0], pen: [0, 0, 0],
               hp: [1720, 2702, 3662], def: [81, 128, 151], ms: [3.8, 3.82, 3.97], cdr: [0.15, 0.25, 0.5], baseAd: [53, 81, 108], aaAmp: [0.045, 0.12, 0.195],
               skillLv: [{ P: 1, Q: 2, W: 1, E: 1, R: 1, D: 1 }, { P: 2, Q: 5, W: 1, E: 2, R: 2, D: 2 }, { P: 3, Q: 5, W: 3, E: 5, R: 3, D: 3 }] },
-    // 쇼이치 — 단계별 능력치 = 12.6 다이아+ 인기 빌드 장비 계산(Lv6 시작 빌드 · Lv12·18 완성 1위) · 후반은 랭크 리플레이 HUD(17레벨)로 대조: 체력·공격력 정확히 일치, 방어·스증·쿨감은 장비 차이 범위 안 · ⚠ Lv6·12는 HUD 미확인 · 스킬 순서 W→E→Q→W→W→R→W→P→W→P→R→E… (dak.gg 71.6%)
-    shoichi: { name: '쇼이치', weapon: '단검', build: '스킬 증폭', color: '#c9463d', melee: true, aaRange: 1.25, ad: [79, 129, 159], sp: [281, 525, 653], as: [0.76, 0.85, 0.95], crit: [0, 0, 0], pen: [0, 0, 0],
-              hp: [1440, 1992, 2544], def: [95, 139, 160], ms: [3.85, 3.88, 3.88], cdr: [0.6, 0.7, 0.7], baseAd: [54, 84, 114], aaAmp: [0, 0, 0],
+    // 쇼이치 — 단계별 능력치 = 시즌 12 랭크 영상 HUD 실측(쇼사원 하이라이트 22·23: Lv6 · Lv12 · Lv18 — 체력·공격력은 12.6 인기 빌드 장비 계산과 일치, 근거 docs/er_notes_playables.md 15장) · 스킬 순서 W→E→Q→W→W→R→W→P→W→P→R→E… (dak.gg 71.6%)
+    shoichi: { name: '쇼이치', weapon: '단검', build: '스킬 증폭', color: '#c9463d', melee: true, aaRange: 1.25, ad: [84, 129, 159], sp: [272, 515, 676], as: [0.73, 0.91, 1.04], crit: [0, 0, 0], pen: [0, 0, 0],
+              hp: [1490, 1992, 2544], def: [91, 120, 151], ms: [3.79, 3.82, 4.17], cdr: [0.65, 0.75, 0.9], baseAd: [54, 84, 114], aaAmp: [0, 0, 0],
               skillLv: [{ P: 1, Q: 1, W: 3, E: 1, R: 1, D: 1 }, { P: 3, Q: 1, W: 5, E: 2, R: 2, D: 2 }, { P: 3, Q: 3, W: 5, E: 5, R: 3, D: 3 }] },
     // 근거리 암살자 — 네브짱 '장인초대석' 다니엘 랭킹 1위 랭크 영상 HUD 실측: Lv11 241/20%/0.92/방90 · Lv12 체력 1910, 262/28%/0.98/방92/이속 3.98 · Lv20 체력 2630, 368/48%/1.37/방119 (Lv6은 성장치로 역산)
     daniel: { name: '다니엘', weapon: '단검', build: '평타 치명', color: '#b07cff', melee: true, aaRange: 1.25, ad: [150, 255, 345], sp: [0, 0, 0], as: [0.82, 0.97, 1.27], crit: [0.08, 0.27, 0.43], pen: [0, 0.05, 0.12],
@@ -1025,7 +1025,7 @@ const Rng = {
 const rnd = () => Rng.next();
 // 내 편 = 내 캐릭터와 같은 팀. 화면 표시(색·시야)에만 사용
 // 게임 버전(빌드 때 내용 해시로 채움). 리플레이 파일이 다른 버전에서 만들어졌는지 확인용
-const BUILD_ID = 'ee35badd';
+const BUILD_ID = 'a3dce46f';
 const myTeam = () => (typeof Game !== 'undefined' && Game.player) ? Game.player.team : 0;
 // 실험체(사람이 조종하는 캐릭터·AI 실험체) — 허수아비·야생동물·카메라 제외
 const HERO_KINDS = new Set(['player', 'ranged', 'melee', 'duelist']);
