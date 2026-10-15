@@ -281,7 +281,7 @@ const Render3D = {
       let m = this.projMeshes.get(pr);
       if (!m) {
         const col = pr.kind === 'needle' ? CONFIG.theme.accent2 : (pr.color || '#c79bff'), len = pr.kind === 'needle' ? 0.6 : (pr.len || 1.2);
-        const look = pr.look || Render3D.projLook(pr);
+        const look = pr.look || (pr.kind === 'needle' ? 'needle' : Render3D.projLook(pr));
         if (look === 'fist') m = this.fistMesh(col, pr.width);   // 알론소 Q: 빛나는 자력 주먹(공 + 앞뒤 고리 + 꼬리)
         else if (look) m = this.shotMesh(look, col, len, pr.width || 0.3);   // 원딜: 무기별 총알·화살·볼트·저격탄·암기
         else m = new T3.Mesh(new T3.BoxGeometry(len, Math.max(0.08, pr.width * 0.5), Math.max(0.08, pr.width)), new T3.MeshBasicMaterial({ color: new T3.Color(col).convertSRGBToLinear() }));
@@ -291,6 +291,7 @@ const Render3D = {
       m.position.set(pr.pos.x, 1.0, pr.pos.y); m.rotation.y = -V.ang(pr.dir);
       if (m.userData.look === 'fist') { const s = 1 + 0.12 * Math.sin(Game.time * 30); m.children[0].scale.setScalar(s); m.children[2].rotation.x = Game.time * 9; }
       else if (m.userData.look === 'blade') m.children[0].rotation.y = Game.time * 30;   // 암기: 납작하게 돌며 날아감
+      else if (m.userData.look === 'needle' && m.userData.thread) { const o = pr.owner, d = o && !o.dead ? V.dist(o.pos, pr.pos) : 0; m.userData.thread.visible = d > 0.3; m.userData.thread.scale.x = Math.max(0.01, d); m.userData.thread.position.x = -d / 2; }   // 수쳐: 캐시에게서 이어진 실
     }
     for (const [pr, m] of this.projMeshes) if (!seen.has(pr)) { this.scene.remove(m); m.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material && c.userData.own) c.material.dispose(); }); this.projMeshes.delete(pr); }
   },
@@ -305,7 +306,13 @@ const Render3D = {
     const alongX = geo => { geo.rotateZ(-Math.PI / 2); return geo; };   // 원기둥·원뿔(+Y) → 진행 방향(+X)
     const tail = (r, L, c, op) => mk(alongX(new T3.ConeGeometry(r, L, 8, 1, true)).rotateZ(Math.PI), glow(c, op), -L / 2);   // 뒤로 가늘어지는 빛 꼬리
     const big = clamp(len / 0.6, 1, 3.5);   // 스킬 탄(길이 큼)은 더 굵고 길게
-    if (look === 'bullet') {   // 권총탄: 흰 심 + 색 빛 + 꼬리
+    if (look === 'needle') {   // 캐시 수쳐: 은색 수술 바늘 + 빛 꼬리 + 캐시에게서 이어진 실(길이는 매 프레임)
+      mk(alongX(new T3.CylinderGeometry(0.03, 0.03, 0.55, 6)), solid('#e8eef5'));
+      mk(alongX(new T3.ConeGeometry(0.045, 0.14, 6)), solid('#ffffff'), 0.34);
+      mk(new T3.SphereGeometry(0.14, 10, 8), glow(col, 0.5), 0.2);
+      tail(0.08, 0.8, col, 0.4);
+      const th = mk(alongX(new T3.CylinderGeometry(0.012, 0.012, 1, 4)), glow('#ffffff', 0.45)); g.userData.thread = th;
+    } else if (look === 'bullet') {   // 권총탄: 흰 심 + 색 빛 + 꼬리
       mk(new T3.SphereGeometry(0.07 * big, 8, 6), solid('#fffbe8'));
       mk(new T3.SphereGeometry(0.15 * big, 10, 8), glow(col, 0.55));
       tail(0.09 * big, 0.9 * big, col, 0.45);
